@@ -72,6 +72,54 @@ convention for the inserted zero-sale weeks, documented (not incidental): `units
 `n_active_articles`, `n_customers`, `units_online`, `units_store`, `units_per_active_article` are
 filled with 0 (verified zero counts). `mean_price` / `median_price` are left null -- no price was
 observed that week, and filling with 0 would fabricate a false price signal.
+
+PRICE_INDEX (`add_price_index`, run after `densify_panel`): `price_index = mean_price / (trailing
+`PRICE_INDEX_TRAILING_WEEKS`-week median of mean_price for that style_key, using only weeks
+strictly before the current one)`. Two causal-safety points, both load-bearing:
+- The trailing window is built via `.shift(1)` before the rolling median, so the current row's own
+  `mean_price` never contributes to its own denominator.
+- "52 prior weeks" is enforced as a *row-count* gate (`>= PRICE_INDEX_TRAILING_WEEKS` prior rows in
+  the style's own dense per-week series), separate from `rolling_median`'s `min_samples`. This
+  matters because ~10.7% of style-weeks are zero-sale (`mean_price` null) -- requiring all 52
+  trailing rows to be non-null (`min_samples=52`) would fail on almost every style-week (a run of
+  52 consecutive non-null weeks has probability roughly 0.89^52 =~ 0.2% under that null rate), which
+  is far stricter than "52 prior weeks of history" and would make the column useless. Instead
+  `min_samples=1` lets the median use whatever non-null prices were actually observed among the 52
+  trailing rows (zero-sale weeks simply contribute no price observation, same non-fabrication
+  principle as the panel's own `mean_price` null-fill above), and the separate row-count gate is
+  what actually enforces "needs 52 prior calendar weeks of history" per the module's documented
+  contract. NULLABLE EARLY ON: any style-week with fewer than `PRICE_INDEX_TRAILING_WEEKS` prior
+  rows (i.e., early in a style's observed lifetime) gets `price_index = null` by design -- not
+  imputed, not backfilled.
+
+INTENSITY_SHRUNK (`add_intensity_shrunk`, run after `densify_panel`): empirical-Bayes shrinkage of
+`units_per_active_article` toward its `(index_group_name, garment_group_name)` group's mean, with
+shrinkage strength `w = n_active_articles / (n_active_articles + K_SHRINKAGE)` and
+`shrunk = w * raw + (1 - w) * group_mean`. See `K_SHRINKAGE` for the prior-strength constant and
+its justification.
+
+CAUSAL-SAFETY DESIGN DECISION -- the group mean is a TRAILING (expanding, current-week-excluded)
+statistic, never a same-week cross-sectional average across other styles in the group. A same-week
+cross-sectional mean (e.g. "average `units_per_active_article` across all styles in this
+index_group/garment_group THIS week") is not actually knowable at prediction time: in a real
+rolling-origin forecast made as of week W, other styles' week-W sales have not happened yet either
+-- they are exactly as unobserved as the style's own future. Using a same-week group average would
+smuggle future information about the whole cohort into a feature computed "for" week W, which is
+precisely the kind of leakage this project's causal-safety constraint exists to prevent. The
+trailing/expanding formulation instead computes, for each `(index_group_name, garment_group_name,
+week_start)`, the mean `units_per_active_article` across that group's ACTIVE (`n_active_articles >
+0`) style-weeks -- consistent with `nss.viz.panel_eda`'s judgment call 1 on what "intensity" means
+-- then takes an expanding (all-history), current-week-EXCLUDED mean of those weekly group means
+over calendar time. Every input to the shrinkage prior for a given week is therefore dated strictly
+before that week, attached to every later week -- active or not -- via an as-of ("most recent
+group history strictly before this week") join, so a week where the group itself had zero active
+styles still correctly carries forward the last known trailing mean rather than going null (an
+earlier version of this function used a plain equi-join, which incorrectly nulled every such gap
+week, not just the group's genuinely-first week -- fixed via `join_asof`, see the function's
+implementation comments). NULLABLE ONLY: style-weeks strictly before the group's very first ever
+active week across the whole dataset get `intensity_shrunk = null` (no group history exists yet);
+this is rare and mostly confined to the dataset's very first observed week, since index_group/
+garment_group pairs are broad categories nearly all present from the start of the dataset.
 """
 
 from __future__ import annotations
@@ -98,6 +146,21 @@ SALES_CHANNEL_STORE = 1
 MIN_ARTICLES_PER_STYLE = 5
 MIN_LIFETIME_UNITS_PER_STYLE = 500
 RETENTION_GATE_PCT = 80.0
+
+# See module docstring, PRICE_INDEX section, for the full row-count-gate rationale.
+PRICE_INDEX_TRAILING_WEEKS = 52
+
+# Empirical-Bayes prior strength for `add_intensity_shrunk`. Set to the MEDIAN `n_active_articles`
+# across active (n_active_articles > 0) style-weeks in `data/processed/style_week_panel.parquet`
+# (measured: 3.0 -- see `n_active_articles.describe()` over the active subset). This choice makes
+# the shrinkage weight interpretable: a style-week with exactly the typical (median) amount of
+# evidence gets w = k / (k + k) = 0.5, i.e. equal trust in its own raw signal and the group's
+# trailing prior; below-median-evidence weeks (including zero-sale weeks, w = 0) lean more on the
+# group prior, above-median weeks lean more on their own observation.
+K_SHRINKAGE = 3.0
+
+# Group used for the empirical-Bayes prior in `add_intensity_shrunk`.
+INTENSITY_GROUP_COLS: list[str] = ["index_group_name", "garment_group_name"]
 
 DEFAULT_TRANSACTIONS_DIR = Path("data/interim/transactions_train_parquet")
 DEFAULT_ARTICLES_PATH = Path("data/raw/articles.csv")
@@ -309,6 +372,129 @@ def densify_panel(filtered_panel: pl.DataFrame) -> pl.DataFrame:
     return dense.select(column_order)
 
 
+def add_price_index(dense_panel: pl.DataFrame) -> pl.DataFrame:
+    """Add `price_index`: this week's `mean_price` relative to its own trailing median price.
+
+    `price_index = mean_price / (trailing PRICE_INDEX_TRAILING_WEEKS-week median of mean_price for
+    that style_key, using only weeks strictly before the current one)`. See the module docstring's
+    PRICE_INDEX section for the full causal-safety rationale (why the row-count gate is separate
+    from `rolling_median`'s own null-handling). Must be run on the DENSE panel (one row per
+    style_key per calendar week within that style's lifetime) -- the trailing window is a row-count
+    window, which is only a calendar-week window if the input has no gaps.
+
+    Args:
+        dense_panel: The dense style-week panel, as returned by `densify_panel`.
+
+    Returns:
+        `dense_panel` with an added `price_index` column (nullable -- see docstring).
+    """
+    prior_row_count = pl.col("week_start").cum_count().over("style_key", order_by="week_start") - 1
+    trailing_median_price = (
+        pl.col("mean_price")
+        .shift(1)
+        .rolling_median(window_size=PRICE_INDEX_TRAILING_WEEKS, min_samples=1)
+        .over("style_key", order_by="week_start")
+    )
+    trailing_median_price = (
+        pl.when(prior_row_count >= PRICE_INDEX_TRAILING_WEEKS)
+        .then(trailing_median_price)
+        .otherwise(None)
+    )
+
+    return dense_panel.with_columns(
+        (pl.col("mean_price") / trailing_median_price).alias("price_index")
+    )
+
+
+def add_intensity_shrunk(
+    dense_panel: pl.DataFrame,
+    k: float = K_SHRINKAGE,
+    group_cols: list[str] = INTENSITY_GROUP_COLS,
+) -> pl.DataFrame:
+    """Add `intensity_shrunk`: empirical-Bayes shrinkage of `units_per_active_article`.
+
+    `shrunk = w * raw + (1 - w) * group_mean_trailing`, `w = n_active_articles / (n_active_articles
+    + k)`. See the module docstring's INTENSITY_SHRUNK section for the full formula and, critically,
+    why `group_mean_trailing` is a TRAILING (expanding, current-week-excluded) statistic rather than
+    a same-week cross-sectional group average (the latter is causally unsafe). Must be run on the
+    DENSE panel for the same reason as `add_price_index`.
+
+    Args:
+        dense_panel: The dense style-week panel, as returned by `densify_panel`.
+        k: Empirical-Bayes prior-strength constant. Defaults to `K_SHRINKAGE`.
+        group_cols: Columns defining the shrinkage group. Defaults to `INTENSITY_GROUP_COLS`.
+
+    Returns:
+        `dense_panel` with an added `intensity_shrunk` column. Nullable only for style-weeks that
+        occur strictly before the group's very first ever active week (no trailing group history
+        exists yet); every later week -- active or not -- carries forward the most recent trailing
+        group mean via an as-of join (see implementation comment below for why a plain equi-join on
+        `(group_cols, week_start)` is NOT sufficient here).
+    """
+    # One row per (group, week) where the group had >=1 active style that week -- weeks where the
+    # WHOLE group was zero-sale (can happen for small/niche groups, e.g. a group with only 1-2
+    # style_keys) are simply absent from this table, not present with a 0.
+    group_week = (
+        dense_panel.filter(pl.col("n_active_articles") > 0)
+        .group_by([*group_cols, "week_start"])
+        .agg(group_week_mean_intensity=pl.col("units_per_active_article").mean())
+        .sort([*group_cols, "week_start"])
+    )
+    # Cumulative mean INCLUSIVE of each active week's own contribution (not shifted) -- this is
+    # intentional, see the as-of join below for why inclusive is correct here.
+    group_week = group_week.with_columns(
+        cum_mean_inclusive=(
+            pl.col("group_week_mean_intensity").cum_sum().over(group_cols, order_by="week_start")
+            / pl.col("group_week_mean_intensity")
+            .cum_count()
+            .over(group_cols, order_by="week_start")
+        )
+    ).select([*group_cols, "week_start", "cum_mean_inclusive"])
+
+    # An equi-join on (group_cols, week_start) would only attach a trailing value to weeks that are
+    # THEMSELVES present in `group_week` -- i.e. weeks where the group had active styles -- leaving
+    # every gap week (group had zero active styles that week, but plenty of earlier history) null,
+    # even though a valid trailing value exists. Fixed with an as-of ("most recent row at or before
+    # this point") backward join instead: probing with `week_start - 1 day` (rather than
+    # `week_start` itself) makes the match STRICT ("before", not "at or before") -- so a style's own
+    # active week can never match onto its own group_week row and leak its own current-week
+    # contribution into its own trailing prior. The matched row's `cum_mean_inclusive` already
+    # reflects all group history up to and including that (earlier) active week, which is exactly
+    # "all active history strictly before the target week" since by construction no active week
+    # exists between the match and the target.
+    probe = (
+        dense_panel.select([*group_cols, "week_start"])
+        .with_row_index("_row_id")
+        .with_columns((pl.col("week_start") - pl.duration(days=1)).alias("_probe_week"))
+        .sort([*group_cols, "_probe_week"])
+    )
+    trailing = (
+        probe.join_asof(
+            group_week.sort([*group_cols, "week_start"]),
+            left_on="_probe_week",
+            right_on="week_start",
+            by=group_cols,
+            strategy="backward",
+        )
+        .select(["_row_id", "cum_mean_inclusive"])
+        .rename({"cum_mean_inclusive": "group_mean_trailing"})
+    )
+
+    joined = (
+        dense_panel.with_row_index("_row_id")
+        .join(trailing, on="_row_id", how="left", maintain_order="left")
+        .drop("_row_id")
+    )
+    weight = pl.col("n_active_articles") / (pl.col("n_active_articles") + k)
+    joined = joined.with_columns(
+        (
+            weight * pl.col("units_per_active_article")
+            + (1 - weight) * pl.col("group_mean_trailing")
+        ).alias("intensity_shrunk")
+    )
+    return joined.drop("group_mean_trailing")
+
+
 def main() -> None:
     """CLI entry point: build the style-week panel, apply the support filter, write output.
 
@@ -345,6 +531,19 @@ def main() -> None:
     pct_sparsity = 100.0 * n_zero_sale / dense_panel.height if dense_panel.height else 0.0
     print(f"Dense panel: {dense_panel.height} rows ({filtered_panel.height} had sales)")
     print(f"Sparsity: {n_zero_sale} zero-sale rows ({pct_sparsity:.2f}%)")
+
+    dense_panel = add_price_index(dense_panel)
+    dense_panel = add_intensity_shrunk(dense_panel)
+    n_price_index_null = dense_panel["price_index"].null_count()
+    pct_price_index_null = (
+        100.0 * n_price_index_null / dense_panel.height if dense_panel.height else 0.0
+    )
+    n_intensity_shrunk_null = dense_panel["intensity_shrunk"].null_count()
+    print(
+        f"price_index: {n_price_index_null} null rows ({pct_price_index_null:.2f}%, "
+        f"expected -- early-life styles with < {PRICE_INDEX_TRAILING_WEEKS} prior weeks)"
+    )
+    print(f"intensity_shrunk: {n_intensity_shrunk_null} null rows (expected: near 0)")
 
     args.out_path.parent.mkdir(parents=True, exist_ok=True)
     dense_panel.write_parquet(args.out_path)
