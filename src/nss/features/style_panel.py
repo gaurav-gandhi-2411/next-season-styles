@@ -26,6 +26,16 @@ general familiarity with public H&M competition kernels/discussion -- this is NO
 against any authoritative source and confidence in the *direction* of the mapping is LOW. If the
 online/store split matters for a downstream decision, verify independently before trusting
 `units_online` / `units_store` directionally.
+
+DENSITY: `build_style_week_panel` + `filter_by_support` alone produce a *sparse* panel -- one row
+per (style_key, week_start) with >=1 sale, and nothing for zero-sale weeks. `densify_panel` (run
+after filtering, in `main`) expands this to one row per style_key for every ISO week in
+[`first_week_seen`, `last_week_seen`] -- that style's own observed lifetime, not the global date
+range -- so sparsity stats and week-over-week comparisons are well-defined with no gaps. Fill
+convention for the inserted zero-sale weeks, documented (not incidental): `units`, `revenue`,
+`n_active_articles`, `n_customers`, `units_online`, `units_store`, `units_per_active_article` are
+filled with 0 (verified zero counts). `mean_price` / `median_price` are left null -- no price was
+observed that week, and filling with 0 would fabricate a false price signal.
 """
 
 from __future__ import annotations
@@ -192,6 +202,77 @@ def filter_by_support(
     return filtered_panel, stats
 
 
+# Zero-fill columns for weeks with no sales: verified zero counts, not unknowns.
+_DENSIFY_INT_ZERO_COLS = [
+    "units",
+    "n_active_articles",
+    "n_customers",
+    "units_online",
+    "units_store",
+]
+_DENSIFY_FLOAT_ZERO_COLS = ["revenue", "units_per_active_article"]
+
+
+def densify_panel(filtered_panel: pl.DataFrame) -> pl.DataFrame:
+    """Expand the sparse (sales-only) filtered panel to a dense grid per style's own lifetime.
+
+    For every style_key present in `filtered_panel`, generates one row per ISO week in
+    [`first_week_seen`, `last_week_seen`] inclusive -- that style's own observed active lifetime,
+    not the global dataset date range -- then left-joins the real weekly aggregates onto the
+    grid. See the module docstring's DENSITY section for the null/zero fill convention.
+
+    Args:
+        filtered_panel: The support-filtered sparse panel, as returned by joining
+            `filter_by_support`'s output (one row per style-week with >=1 sale).
+
+    Returns:
+        The dense panel: one row per (style_key, week_start) for every week in
+        [first_week_seen, last_week_seen], for every style_key in `filtered_panel`.
+    """
+    lifetime_bounds = filtered_panel.select(
+        [*STYLE_KEY_COLS, "first_week_seen", "last_week_seen"]
+    ).unique()
+
+    grid = lifetime_bounds.with_columns(
+        pl.date_ranges(
+            pl.col("first_week_seen"), pl.col("last_week_seen"), interval="1w", closed="both"
+        ).alias("week_start")
+    ).explode("week_start", empty_as_null=True)
+
+    dense = grid.join(
+        filtered_panel.drop(["style_key", "first_week_seen", "last_week_seen"]),
+        on=[*STYLE_KEY_COLS, "week_start"],
+        how="left",
+    )
+    dense = dense.with_columns(
+        [pl.col(c).fill_null(0) for c in _DENSIFY_INT_ZERO_COLS]
+        + [pl.col(c).fill_null(0.0) for c in _DENSIFY_FLOAT_ZERO_COLS]
+    )
+    dense = dense.with_columns(
+        pl.concat_str([pl.col(c) for c in STYLE_KEY_COLS], separator=STYLE_KEY_SEPARATOR).alias(
+            "style_key"
+        )
+    )
+
+    column_order = [
+        "style_key",
+        *STYLE_KEY_COLS,
+        "week_start",
+        "units",
+        "revenue",
+        "n_active_articles",
+        "units_per_active_article",
+        "mean_price",
+        "median_price",
+        "n_customers",
+        "units_online",
+        "units_store",
+        "first_week_seen",
+        "last_week_seen",
+    ]
+    return dense.select(column_order)
+
+
 def main() -> None:
     """CLI entry point: build the style-week panel, apply the support filter, write output.
 
@@ -223,9 +304,15 @@ def main() -> None:
         )
         raise SystemExit(1)
 
+    dense_panel = densify_panel(filtered_panel)
+    n_zero_sale = dense_panel.filter(pl.col("units") == 0).height
+    pct_sparsity = 100.0 * n_zero_sale / dense_panel.height if dense_panel.height else 0.0
+    print(f"Dense panel: {dense_panel.height} rows ({filtered_panel.height} had sales)")
+    print(f"Sparsity: {n_zero_sale} zero-sale rows ({pct_sparsity:.2f}%)")
+
     args.out_path.parent.mkdir(parents=True, exist_ok=True)
-    filtered_panel.write_parquet(args.out_path)
-    print(f"Wrote filtered panel to {args.out_path} ({filtered_panel.height} rows)")
+    dense_panel.write_parquet(args.out_path)
+    print(f"Wrote dense panel to {args.out_path} ({dense_panel.height} rows)")
 
 
 if __name__ == "__main__":
