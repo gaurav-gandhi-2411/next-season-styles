@@ -1,0 +1,3 @@
+comparison_key,n_key_cols,style_count_before,style_count_after,pct_lifetime_units_retained,n_articles_embedded,n_samples_used_for_silhouette,observed_silhouette,null_mean,null_sd,z_score,n_permutations
+current_5col,5,18944,3076,85.06917193872819,70039,8000,-0.45293957803910256,-0.6999005103164023,0.0016974299022753285,145.49109329714278,50
+reduced_4col,4,13162,2606,90.33196591301888,81974,8000,-0.4758601655747852,-0.700915372912037,0.002528988790651406,88.99019567393297,50
