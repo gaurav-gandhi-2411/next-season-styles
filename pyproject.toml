@@ -23,6 +23,8 @@ dependencies = [
     "peft>=0.21.0",
     "torch>=2.14.0",
     "torchvision>=0.29.0",
+    "google-genai>=2.24.0",
+    "python-dotenv>=1.2.3",
 ]
 
 [dependency-groups]
