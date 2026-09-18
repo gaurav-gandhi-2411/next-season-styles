@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast exemplars test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -41,6 +41,12 @@ train:
 # reports/tables/top_styles.csv, top_styles_markdown_excluded.csv, top_styles_by_season.csv.
 forecast:
 	uv run python -m nss.models.final_forecast
+
+# Select 8 best-selling constituent article images per top-3 winning style + 1 random control
+# style (seed=42), fetch them on-demand (no bulk download), and write
+# reports/tables/exemplar_images.csv for Phase 3 (novelty scoring).
+exemplars:
+	uv run python -m nss.data.select_exemplars
 
 test:
 	uv run pytest --cov=src/nss
