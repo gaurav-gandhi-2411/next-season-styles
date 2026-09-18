@@ -4,6 +4,7 @@ import math
 from datetime import date, timedelta
 
 import polars as pl
+import pytest
 
 from nss.features.targets import HORIZON_WEEKS, compute_forward_target
 
@@ -16,13 +17,19 @@ def _weeks(n: int) -> list[date]:
 
 
 def _single_style_panel(n_weeks: int, style_key: str = "A") -> pl.DataFrame:
-    """One style, `n_weeks` consecutive weeks, `units_per_active_article` == the week's index."""
+    """One style, `n_weeks` consecutive weeks.
+
+    `units_per_active_article` == the week's index; `intensity_shrunk` == the week's index * 2 (a
+    deliberately different value per row, so a test corrupting one column can't accidentally pass
+    by reading the other).
+    """
     weeks = _weeks(n_weeks)
     return pl.DataFrame(
         {
             "style_key": [style_key] * n_weeks,
             "week_start": weeks,
             "units_per_active_article": [float(i) for i in range(n_weeks)],
+            "intensity_shrunk": [float(i) * 2 for i in range(n_weeks)],
         }
     )
 
@@ -78,8 +85,14 @@ def test_compute_forward_target_full_window_present_for_every_style() -> None:
     assert result.height == 2
 
 
-def test_compute_forward_target_is_causally_safe() -> None:
+@pytest.mark.parametrize("target_column", ["units_per_active_article", "intensity_shrunk"])
+def test_compute_forward_target_is_causally_safe(target_column: str) -> None:
     """The target reads only weeks strictly after origin, and only within the horizon.
+
+    Parametrized over both supported `target_column` values (raw `units_per_active_article` and
+    EB-shrunk `intensity_shrunk`) -- the causal window filter is applied identically regardless of
+    which column feeds the aggregation, so this same positive/negative-control rigor must hold for
+    both.
 
     Panel: 20 weeks (index 0-19). Origin = index 5, so the target window is index 6-18. Corrupting
     a pre-origin row (index 2) or a beyond-the-window future row (index 19) must NOT change the
@@ -92,18 +105,20 @@ def test_compute_forward_target_is_causally_safe() -> None:
     origin_week = weeks[5]
 
     baseline = _single_style_panel(n_weeks=20)
-    baseline_target = compute_forward_target(baseline, origin_week).row(0, named=True)["target"]
+    baseline_target = compute_forward_target(
+        baseline, origin_week, target_column=target_column
+    ).row(0, named=True)["target"]
 
     # Corrupt a pre-origin row (index 2, week_start <= origin_week) -- must not move the target.
     corrupted_pre_origin = baseline.with_columns(
         pl.when(pl.col("week_start") == weeks[2])
         .then(pl.lit(999_999.0))
-        .otherwise(pl.col("units_per_active_article"))
-        .alias("units_per_active_article")
+        .otherwise(pl.col(target_column))
+        .alias(target_column)
     )
-    pre_origin_target = compute_forward_target(corrupted_pre_origin, origin_week).row(
-        0, named=True
-    )["target"]
+    pre_origin_target = compute_forward_target(
+        corrupted_pre_origin, origin_week, target_column=target_column
+    ).row(0, named=True)["target"]
     assert pre_origin_target == baseline_target
 
     # Corrupt a row beyond the 13-week window (index 19, week_start > origin_week + 13 weeks) --
@@ -111,22 +126,22 @@ def test_compute_forward_target_is_causally_safe() -> None:
     corrupted_post_window = baseline.with_columns(
         pl.when(pl.col("week_start") == weeks[19])
         .then(pl.lit(999_999.0))
-        .otherwise(pl.col("units_per_active_article"))
-        .alias("units_per_active_article")
+        .otherwise(pl.col(target_column))
+        .alias(target_column)
     )
-    post_window_target = compute_forward_target(corrupted_post_window, origin_week).row(
-        0, named=True
-    )["target"]
+    post_window_target = compute_forward_target(
+        corrupted_post_window, origin_week, target_column=target_column
+    ).row(0, named=True)["target"]
     assert post_window_target == baseline_target
 
     # Corrupt a genuinely in-window row (index 10, inside origin+1..origin+13) -- MUST move it.
     corrupted_in_window = baseline.with_columns(
         pl.when(pl.col("week_start") == weeks[10])
         .then(pl.lit(999_999.0))
-        .otherwise(pl.col("units_per_active_article"))
-        .alias("units_per_active_article")
+        .otherwise(pl.col(target_column))
+        .alias(target_column)
     )
-    in_window_target = compute_forward_target(corrupted_in_window, origin_week).row(0, named=True)[
-        "target"
-    ]
+    in_window_target = compute_forward_target(
+        corrupted_in_window, origin_week, target_column=target_column
+    ).row(0, named=True)["target"]
     assert in_window_target != baseline_target

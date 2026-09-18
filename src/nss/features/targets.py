@@ -10,8 +10,11 @@ a later step naively treating it as an input feature and leaking the future into
 harness calls once per origin, producing a fresh target frame for that origin only.
 
 TARGET DEFINITION: for a given `style_key` and `origin_week`, the target is
-`log1p(mean(units_per_active_article) over the HORIZON_WEEKS calendar weeks strictly after
-origin_week, i.e. origin_week + 1 week through origin_week + HORIZON_WEEKS weeks inclusive)`.
+`log1p(mean(target_column) over the HORIZON_WEEKS calendar weeks strictly after origin_week, i.e.
+origin_week + 1 week through origin_week + HORIZON_WEEKS weeks inclusive)`. `target_column`
+defaults to `units_per_active_article` (the raw metric every existing caller relies on); the other
+supported value is `intensity_shrunk` (the EB-shrunk intensity column), same aggregation and
+null-handling, used by `nss.models.target_turnover`'s raw-vs-shrunk turnover diagnostic.
 
 WINDOWING / NULL-HANDLING RULE (deliberate, not incidental): a style_key must have the FULL
 `horizon_weeks`-week forward window present in `panel` (all `horizon_weeks` calendar weeks
@@ -44,7 +47,10 @@ HORIZON_WEEKS = 13
 
 
 def compute_forward_target(
-    panel: pl.DataFrame, origin_week: date, horizon_weeks: int = HORIZON_WEEKS
+    panel: pl.DataFrame,
+    origin_week: date,
+    horizon_weeks: int = HORIZON_WEEKS,
+    target_column: str = "units_per_active_article",
 ) -> pl.DataFrame:
     """Compute the forward `horizon_weeks`-week target for every style_key, as of `origin_week`.
 
@@ -52,17 +58,23 @@ def compute_forward_target(
 
     Args:
         panel: The dense style-week panel (or any subset/superset with at least `style_key`,
-            `week_start`, `units_per_active_article` columns).
+            `week_start`, `target_column` columns).
         origin_week: The origin week (a Monday `week_start` value). Only weeks strictly after this
             date are read -- see the module docstring's CAUSAL SAFETY note.
         horizon_weeks: Number of forward calendar weeks in the target window. Defaults to
             `HORIZON_WEEKS` (13).
+        target_column: Which panel column to aggregate. Defaults to `units_per_active_article`
+            (the raw metric, matching every existing caller's behavior unchanged). The other
+            supported value is `intensity_shrunk` (the EB-shrunk intensity column) -- same
+            `log1p(mean(...))` aggregation and same full-window-required null rule, just applied to
+            a different input column. See `nss.models.target_turnover` for the diagnostic this
+            parameter was added to support.
 
     Returns:
         One row per distinct style_key present anywhere in `panel`, with columns `style_key`,
-        `origin_week`, `n_weeks_in_window`, `target`. `target` is `log1p(mean(
-        units_per_active_article))` over the forward window if all `horizon_weeks` weeks are
-        present for that style_key in `panel`, else null (see WINDOWING / NULL-HANDLING RULE).
+        `origin_week`, `n_weeks_in_window`, `target`. `target` is `log1p(mean(target_column))` over
+        the forward window if all `horizon_weeks` weeks are present for that style_key in `panel`,
+        else null (see WINDOWING / NULL-HANDLING RULE).
     """
     window_start = origin_week + timedelta(weeks=1)
     window_end = origin_week + timedelta(weeks=horizon_weeks)
@@ -71,7 +83,7 @@ def compute_forward_target(
         (pl.col("week_start") >= window_start) & (pl.col("week_start") <= window_end)
     )
     agg = window.group_by("style_key").agg(
-        mean_units_per_active_article=pl.col("units_per_active_article").mean(),
+        mean_target_column=pl.col(target_column).mean(),
         n_weeks_in_window=pl.len(),
     )
 
@@ -82,9 +94,7 @@ def compute_forward_target(
 
     full_window = pl.col("n_weeks_in_window") == horizon_weeks
     result = result.with_columns(
-        target=pl.when(full_window)
-        .then(pl.col("mean_units_per_active_article").log1p())
-        .otherwise(None),
+        target=pl.when(full_window).then(pl.col("mean_target_column").log1p()).otherwise(None),
         origin_week=pl.lit(origin_week),
     )
     return result.select(["style_key", "origin_week", "n_weeks_in_window", "target"])
