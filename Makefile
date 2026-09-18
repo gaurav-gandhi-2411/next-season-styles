@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest test lint clean
+.PHONY: setup data panel eda validate-styles backtest train test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -28,6 +28,13 @@ validate-styles:
 # reports/tables/backtest_per_origin.csv + backtest_summary.csv.
 backtest:
 	uv run python -m nss.models.backtest
+
+# Train + evaluate the LightGBM model via expanding-window walk-forward through the same
+# rolling-origin harness (small bounded hyperparameter search, then one honest walk-forward run),
+# plus global SHAP feature importance. Writes reports/tables/backtest_per_origin_lightgbm.csv,
+# backtest_summary_lightgbm.csv, shap_global_importance.csv, and reports/figures/shap_global_importance.png.
+train:
+	uv run python -m nss.models.lightgbm_model
 
 test:
 	uv run pytest --cov=src/nss
