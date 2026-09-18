@@ -1,10 +1,12 @@
-# Data (raw/interim/processed are gitignored; .gitkeep keeps the dirs tracked)
+# Data (raw/interim/processed/images are gitignored; .gitkeep keeps the dirs tracked)
 data/raw/*
 data/interim/*
 data/processed/*
+data/images/*
 !data/raw/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
+!data/images/.gitkeep
 
 # Python
 __pycache__/
