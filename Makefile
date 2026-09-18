@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda test lint clean
+.PHONY: setup data panel eda validate-styles test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -18,6 +18,11 @@ panel:
 # Run panel EDA: basic stats, top-20 overlap, seasonality plot, stockout-signature detection.
 eda:
 	uv run python -m nss.viz.panel_eda
+
+# Validate style_key semantic coherence: cluster detail_desc sentence embeddings and compare
+# against the categorical style_key partition (ARI/NMI). CPU-only, may take a few minutes.
+validate-styles:
+	uv run python -m nss.features.style_validation
 
 test:
 	uv run pytest --cov=src/nss
