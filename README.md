@@ -42,3 +42,38 @@ part of this scaffolding commit).
 Built under a tight assignment deadline; scaffolding favors a disciplined, minimal footprint over
 completeness — later phases (data pipeline, panel construction, modeling, MCP server) will extend
 this structure incrementally.
+
+## MCP server
+
+`src/nss/mcp_server.py` exposes 7 read-only tools (transaction queries, style profiles/SHAP
+drivers, pre-computed forecasts, reference images, concept generation, concept scoring, and
+concept-sheet composition) over the **stdio** transport of the official
+[MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) (`mcp` package). Every tool
+reads artifacts already on disk — modelling is frozen; nothing here retrains a model or re-runs a
+backtest. `generate_concept` is the one tool that performs live GPU (or paid-API) work when a
+client actually invokes it.
+
+Run it standalone:
+
+```
+uv run python -m nss.mcp_server
+```
+
+Point any standard MCP client (Claude Desktop, or any other MCP-compatible client) at it with an
+`mcpServers` config block like this (adjust `cwd` to wherever this repo is checked out):
+
+```json
+{
+  "mcpServers": {
+    "next-season-styles": {
+      "command": "uv",
+      "args": ["run", "--no-sync", "python", "-m", "nss.mcp_server"],
+      "cwd": "/absolute/path/to/next-season-styles"
+    }
+  }
+}
+```
+
+For Claude Desktop specifically, add that block to `claude_desktop_config.json` (macOS:
+`~/Library/Application Support/Claude/claude_desktop_config.json`; Windows:
+`%APPDATA%\Claude\claude_desktop_config.json`) and restart the app.
