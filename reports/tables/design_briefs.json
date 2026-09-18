@@ -1,0 +1,68 @@
+[
+  {
+    "style_id": "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
+    "silhouette": "Jersey Basic t-shirt: relaxed, straight-body silhouette with a simple crew or scoop neckline. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.",
+    "fabric_and_hand": "Jersey Basic fabrication with a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape.",
+    "colour_direction": "Black as the anchor colour (the attribute that won); charcoal or ink navy as an optional adjacent/complementary accent, not a replacement for the anchor.",
+    "detail_and_graphic_treatment": "clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics",
+    "preserve": [
+      "garment category: T-shirt",
+      "construction/fabrication family: Jersey Basic",
+      "anchor colour: Black",
+      "surface treatment: Solid",
+      "overall silhouette proportions (relaxed, straight-body silhouette with a simple crew or scoop neckline)",
+      "the winning combination as a whole -- performance is driven by persistence of demand for this exact combination, not a seasonal/calendar cue, so the concept must read as recognisably the same style rather than a reinterpretation of a seasonal theme"
+    ],
+    "change": [
+      "one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment)",
+      "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
+      "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
+    ],
+    "rendered_prompt": "T-shirt, jersey basic construction. Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour: Black, anchor tone (optional accent: charcoal or ink navy). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+  },
+  {
+    "style_id": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
+    "silhouette": "Under-, Nightwear underwear bottom: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.",
+    "fabric_and_hand": "Under-, Nightwear fabrication with a lightweight, skin-friendly hand prioritising comfort and breathability over structure.",
+    "colour_direction": "Red as the anchor colour (the attribute that won); burgundy or brick as an optional adjacent/complementary accent, not a replacement for the anchor.",
+    "detail_and_graphic_treatment": "clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics",
+    "preserve": [
+      "garment category: Underwear bottom",
+      "construction/fabrication family: Under-, Nightwear",
+      "anchor colour: Red",
+      "surface treatment: Solid",
+      "overall silhouette proportions (brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment)",
+      "the winning combination as a whole -- performance is driven by persistence of demand for this exact combination, not a seasonal/calendar cue, so the concept must read as recognisably the same style rather than a reinterpretation of a seasonal theme"
+    ],
+    "change": [
+      "one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment)",
+      "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
+      "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
+    ],
+    "rendered_prompt": "Underwear bottom, under-, nightwear construction. Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour: Red, anchor tone (optional accent: burgundy or brick). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+  },
+  {
+    "style_id": "Ladieswear || Sweater || Knitwear || Beige || Melange",
+    "silhouette": "Knitwear sweater: semi-fitted through the body with ribbed hem and cuff finishing. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.",
+    "fabric_and_hand": "Knitwear fabrication with an engineered knit structure with stretch recovery and a soft, insulating hand.",
+    "colour_direction": "Beige as the anchor colour (the attribute that won); warm oatmeal or camel as an optional adjacent/complementary accent, not a replacement for the anchor.",
+    "detail_and_graphic_treatment": "melange heathered yarn-dye effect for textural depth without a literal print",
+    "preserve": [
+      "garment category: Sweater",
+      "construction/fabrication family: Knitwear",
+      "anchor colour: Beige",
+      "surface treatment: Melange",
+      "overall silhouette proportions (semi-fitted through the body with ribbed hem and cuff finishing)",
+      "the winning combination as a whole -- performance is driven by persistence of demand for this exact combination, not a seasonal/calendar cue, so the concept must read as recognisably the same style rather than a reinterpretation of a seasonal theme"
+    ],
+    "change": [
+      "one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment)",
+      "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
+      "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
+    ],
+    "rendered_prompt": "Sweater, knitwear construction. Silhouette: semi-fitted through the body with ribbed hem and cuff finishing. Fabric: an engineered knit structure with stretch recovery and a soft, insulating hand. Colour: Beige, anchor tone (optional accent: warm oatmeal or camel). Surface treatment: melange heathered yarn-dye effect for textural depth without a literal print. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+  }
+]
