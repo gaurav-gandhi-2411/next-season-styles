@@ -168,3 +168,40 @@ def test_densify_panel_inserts_zero_sale_weeks(tmp_path: Path) -> None:
     for row in per_style_counts.iter_rows(named=True):
         expected_weeks = (row["last_week_seen"] - row["first_week_seen"]).days // 7 + 1
         assert row["n_rows"] == expected_weeks
+
+
+def test_densify_panel_no_nan_or_inf_anywhere(tmp_path: Path) -> None:
+    """No numeric column contains NaN or +/-inf, on zero-sale rows or otherwise.
+
+    Regression test for C3: `units_per_active_article` is filled with the literal 0.0 on
+    zero-sale rows (not computed via a 0/0 division), so it must never be NaN. `mean_price` /
+    `median_price` are expected to be *null* (no price observed) on zero-sale rows -- that is a
+    distinct, correct-by-design condition, not the NaN/inf this test guards against.
+    """
+    transactions_dir, articles_path = _write_fixture(tmp_path)
+    panel, lifetime = build_style_week_panel(transactions_dir, articles_path)
+    filtered_panel, _ = filter_by_support(panel, lifetime, min_articles=2, min_units=3)
+    dense = densify_panel(filtered_panel)
+
+    numeric_cols = [
+        "units",
+        "revenue",
+        "n_active_articles",
+        "units_per_active_article",
+        "mean_price",
+        "median_price",
+        "n_customers",
+        "units_online",
+        "units_store",
+    ]
+    for col in numeric_cols:
+        series = dense[col]
+        if series.dtype in (pl.Float32, pl.Float64):
+            assert series.is_nan().fill_null(False).sum() == 0, f"{col} has NaN"
+            assert series.is_infinite().fill_null(False).sum() == 0, f"{col} has inf"
+
+    # units_per_active_article is exactly 0.0 (not NaN) on every zero-sale row.
+    zero_sale = dense.filter(pl.col("units") == 0)
+    assert zero_sale.height > 0  # the fixture's gap week must actually be present
+    assert zero_sale["units_per_active_article"].unique().to_list() == [0.0]
+    assert zero_sale["units_per_active_article"].null_count() == 0
