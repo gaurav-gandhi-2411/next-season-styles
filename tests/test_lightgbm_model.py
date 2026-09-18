@@ -162,6 +162,26 @@ def test_train_and_predict_lightgbm_smoke() -> None:
 
     assert preds.shape[0] == frame.height
     assert np.all(np.isfinite(preds))
+    assert len(np.unique(preds)) > 1  # not degenerate/constant
+
+
+def test_train_lightgbm_is_bit_identical_across_repeated_runs() -> None:
+    """See module docstring DETERMINISM (A5): `random_state` alone was observed NOT to make
+    repeated training runs bit-identical. `LGBM_DETERMINISM_PARAMS` (`deterministic=True`,
+    `force_row_wise=True`, `num_threads=1`, plus explicit `bagging_seed`/`feature_fraction_seed`/
+    `data_random_seed`) must make two trains on the SAME data produce EXACTLY the same predictions,
+    not merely close ones -- `np.array_equal`, not `np.allclose`."""
+    panel = _synthetic_panel()
+    origins = generate_origin_schedule(panel)
+    frame = build_model_frame(panel, [o.origin_week for o in origins])
+    columns = feature_columns(frame)
+
+    model1 = train_lightgbm(frame, _FAST_CONFIG, columns)
+    preds1 = predict_lightgbm(model1, frame, columns)
+    model2 = train_lightgbm(frame, _FAST_CONFIG, columns)
+    preds2 = predict_lightgbm(model2, frame, columns)
+
+    assert np.array_equal(preds1, preds2)
 
 
 # ---------------------------------------------------------------------------

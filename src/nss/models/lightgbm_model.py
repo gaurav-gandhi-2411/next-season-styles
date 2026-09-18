@@ -66,6 +66,17 @@ strictly dominates it on training data volume and is the closer proxy for what t
 final-forecast step (trained on all data through 2020-09-22) will actually look like, per the task's
 own framing -- this is a SHAP-analysis-only model, never scored against a test origin, so it carries
 no leakage risk for the walk-forward evaluation numbers reported alongside it.
+
+DETERMINISM (A5): `random_state=RANDOM_SEED` alone was observed NOT to make repeated training runs
+bit-identical (a few percent variation in predicted values for the same style across runs) --
+LightGBM's sklearn `random_state` only seeds one of several internal RNG streams, and multi-threaded
+histogram building is order-dependent regardless of seeding. `train_lightgbm` therefore also passes
+`LGBM_DETERMINISM_PARAMS` (`deterministic=True`, `force_row_wise=True`, `num_threads=1`, and
+explicit `bagging_seed`/`feature_fraction_seed`/`data_random_seed`, all pinned to `RANDOM_SEED`) to
+every `lgb.LGBMRegressor` this module constructs. Verified bit-identical (`np.array_equal`) via
+`tests/test_lightgbm_model.py::test_train_lightgbm_is_bit_identical_across_repeated_runs`, at the
+cost of `num_threads=1` giving up multi-threaded training speed -- acceptable here given this
+project's dataset size (see PLAN.md / session report for the measured wall-clock impact).
 """
 
 from __future__ import annotations
@@ -100,6 +111,26 @@ INITIAL_POOL_SIZE = 8
 
 RANDOM_SEED = 42
 LGBM_OBJECTIVE = "regression"
+
+# DETERMINISM (A5): a prior session observed non-bit-identical predictions across repeated
+# training runs despite `random_state=RANDOM_SEED` -- LightGBM's `random_state`/`seed` sklearn
+# param does NOT by itself fix every internal RNG stream (bagging, feature sampling, and the
+# Dataset-construction "data" RNG each have their own seed knobs), and multi-threaded histogram
+# building is order-dependent (floating-point summation is not associative), which reintroduces
+# nondeterminism even with every seed fixed. `deterministic=True` + `force_row_wise=True` remove
+# that within-run, multi-threaded nondeterminism from histogram building (LightGBM's own docs
+# recommend both together for bit-exact repeatability); `num_threads=1` closes the remaining gap
+# by removing thread-scheduling nondeterminism entirely, at a training-speed cost (see A5 report).
+# All four extra seeds are pinned to `RANDOM_SEED` for a single source of truth, not because they
+# need to differ from it.
+LGBM_DETERMINISM_PARAMS: dict[str, bool | int] = {
+    "deterministic": True,
+    "force_row_wise": True,
+    "num_threads": 1,
+    "bagging_seed": RANDOM_SEED,
+    "feature_fraction_seed": RANDOM_SEED,
+    "data_random_seed": RANDOM_SEED,
+}
 
 LGBMConfig = dict[str, int | float]
 
@@ -218,6 +249,7 @@ def train_lightgbm(
         learning_rate=float(config["learning_rate"]),
         n_estimators=int(config["n_estimators"]),
         min_child_samples=int(config["min_child_samples"]),
+        **LGBM_DETERMINISM_PARAMS,
     )
     model.fit(X, y, categorical_feature=cat_indices, feature_name=columns)
     return model
