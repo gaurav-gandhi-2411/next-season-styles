@@ -39,15 +39,21 @@ train:
 # Train the FINAL production model on all available data (wide weekly origin set), forecast
 # AW2020 (origin 2020-09-21), apply the top-3/ranks-4-10 selection rule + local SHAP, and write
 # reports/tables/top_styles.csv, top_styles_markdown_excluded.csv, top_styles_by_season.csv.
+# PYTHONHASHSEED=0 pinned defensively alongside the pl.Enum determinism fix (see
+# nss.features.model_features DETERMINISM (A5 FOLLOW-UP) docstring) -- removes Python-level
+# hash-order nondeterminism as a possible contributor, though the confirmed root cause of the
+# cross-process prediction jitter was polars' pl.Categorical dictionary construction, not
+# PYTHONHASHSEED.
 forecast:
-	uv run python -m nss.models.final_forecast
+	PYTHONHASHSEED=0 uv run python -m nss.models.final_forecast
 
 # Diversity-constrained reselection (T1 incumbent / T2 emerging winners, final three, and a
 # diversity-constrained seasonal bonus v2), built on top of `forecast`'s trained model + ranking.
 # Writes reports/tables/top_styles_t1_incumbent.csv, top_styles_t2_emerging.csv,
-# top_styles_final_three.csv, top_styles_by_season_v2.csv.
+# top_styles_final_three.csv, top_styles_by_season_v2.csv. See `forecast` target for the
+# PYTHONHASHSEED=0 rationale.
 forecast-diversity:
-	uv run python -m nss.models.diversity_forecast
+	PYTHONHASHSEED=0 uv run python -m nss.models.diversity_forecast
 
 # Select 8 best-selling constituent article images per top-3 winning style + 1 random control
 # style (seed=42), fetch them on-demand (no bulk download), and write

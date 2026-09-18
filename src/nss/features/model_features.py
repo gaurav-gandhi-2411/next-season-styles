@@ -87,13 +87,38 @@ trailing history yet (its own first observed week) contributes 0 to the numerato
 history does not exist yet" which is genuinely unknown.
 
 CATEGORICAL ATTRIBUTES FOR COLD-START TRANSFER: the 5 style_key attribute columns
-(`nss.features.style_panel.STYLE_KEY_COLS`) are included as native `pl.Categorical` columns (not
-one-hot expanded) -- LightGBM consumes `category`/`Categorical` dtype columns directly without
-requiring one-hot encoding, which avoids exploding the feature space for the higher-cardinality
-columns (e.g. `product_type_name`). No target encoding is used (that would leak the target into
-the features); this is a plain, target-free categorical representation whose sole purpose is
-letting a model transfer knowledge to short-history / cold-start styles via their shared
-attributes.
+(`nss.features.style_panel.STYLE_KEY_COLS`) are included as `pl.Enum` columns (not one-hot
+expanded) -- LightGBM consumes category-coded columns directly without requiring one-hot encoding,
+which avoids exploding the feature space for the higher-cardinality columns (e.g.
+`product_type_name`). No target encoding is used (that would leak the target into the features);
+this is a plain, target-free categorical representation whose sole purpose is letting a model
+transfer knowledge to short-history / cold-start styles via their shared attributes.
+
+DETERMINISM (A5 FOLLOW-UP) (D3a): `pl.Enum` is used here rather than `pl.Categorical` specifically
+because `pl.Categorical`'s category->integer-code dictionary is built by an internal (Rust-side,
+effectively hash-order-dependent) unique-value collection -- CONFIRMED empirically (a standalone
+minimal repro: casting >=2 columns to `pl.Categorical` in the same `with_columns` call already
+differs across separate `uv run` processes on as few as 50 identical rows) to assign DIFFERENT
+integer codes to the SAME category string across separate process invocations, even given the
+identical input panel and identical row order. Since `nss.models.lightgbm_model._to_lgb_matrix`
+feeds these codes directly to LightGBM via `categorical_feature=...`, a code that flips between
+runs changes which side of a tree split a row falls on -- a real, independent, reproducible source
+of cross-process nondeterminism. `pl.Enum(sorted(unique_values))` fixes the category->code mapping
+to an explicit, alphabetically-sorted literal list -- no hash-based construction involved, so the
+mapping is identical every time. See `_style_key_enum`.
+
+IMPORTANT HONESTY NOTE ON MAGNITUDE: this `pl.Enum` fix, in isolation, was MEASURED (via a
+controlled ablation on the real production panel + the real `FINAL_MODEL_CONFIG` model -- see
+`nss.models.lightgbm_model`'s DETERMINISM (A5) FOLLOW-UP (D3a) docstring section for the full
+ablation table) to close only a floating-point-noise-level residual (max abs diff 5.3e-15) of the
+originally reported cross-process jitter -- NOT the dominant cause. The dominant cause (up to ~52%
+relative / ~6.2 absolute difference on the real model) was a missing `maintain_order="left"` on
+`nss.models.lightgbm_model.build_model_frame`'s target join, which let LightGBM's TRAINING-row
+order (and therefore its floating-point histogram-summation order) vary across processes. Both are
+fixed; this section documents the `pl.Enum` piece specifically, which is real and worth keeping
+(a categorical-code inconsistency LightGBM would otherwise silently rely on) but was NOT, on this
+project's actual data, the dominant contributor -- see the other module's docstring before
+attributing "the" cause to categoricals alone.
 
 See `tests/test_model_features.py::test_build_features_is_causally_safe` for the mandatory test
 that actively shuffles all future (`week_start > origin_week`) data and confirms every feature is
@@ -290,6 +315,29 @@ def _add_share_of_parent_group(panel: pl.DataFrame) -> pl.DataFrame:
     return panel.drop("_style_trailing_units")
 
 
+def _style_key_enum(panel: pl.DataFrame, col: str) -> pl.Enum:
+    """A fixed `pl.Enum` dtype for `col`, categories alphabetically sorted.
+
+    See module docstring DETERMINISM (A5 FOLLOW-UP) for why `pl.Enum` (an explicit, literal
+    category list) is used instead of `pl.Categorical` (an internally, non-deterministically
+    built dictionary): `sorted(...)` on Python strings is a pure, deterministic operation with no
+    hashing involved, so the resulting category->code mapping is identical across every process
+    that sees the same set of category values -- which every caller here does, since `col` only
+    ever takes values from the fixed vocabulary in `articles.csv`.
+
+    Args:
+        panel: Any frame containing `col` (nulls, if present, are excluded from the vocabulary --
+            `STYLE_KEY_COLS` are not expected to contain nulls, but this stays safe if they ever
+            do; a null value is still encodable, it just isn't one of the ordered categories).
+        col: The column to build the Enum dtype for.
+
+    Returns:
+        `pl.Enum(sorted(unique non-null values in panel[col]))`.
+    """
+    categories = sorted(panel[col].drop_nulls().unique().to_list())
+    return pl.Enum(categories)
+
+
 _FEATURE_COLS: list[str] = (
     [f"lag_{lag}" for lag in LAG_WEEKS]
     + ["ewma_halflife_4w", "ewma_halflife_13w"]
@@ -337,14 +385,22 @@ def build_features(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataFram
         One row per `(style_key, origin_week)` pair, for every `origin_week` in `origin_weeks` and
         every `style_key` with a panel row at that exact `week_start` (i.e. the style already
         existed as of that origin -- see module docstring for why this is the eligibility rule).
-        Columns: `style_key`, `origin_week`, the 5 `STYLE_KEY_COLS` attribute columns (cast to
-        `pl.Categorical`), and every feature in `_FEATURE_COLS`.
+        Columns: `style_key`, `origin_week`, the 5 `STYLE_KEY_COLS` attribute columns (cast to a
+        fixed, sorted `pl.Enum` -- see DETERMINISM (A5 FOLLOW-UP) in the module docstring), and
+        every feature in `_FEATURE_COLS`.
     """
     missing = set(_REQUIRED_INPUT_COLS) - set(panel.columns)
     if missing:
         raise ValueError(f"panel is missing required columns: {sorted(missing)}")
 
-    working = panel.select(_REQUIRED_INPUT_COLS)
+    # Explicit deterministic row order before any order-sensitive computation below. Every window
+    # function here is itself already correct regardless of input row order (each uses `.over(...,
+    # order_by="week_start")`, which sorts WITHIN each style_key group internally before computing
+    # and writes results back to the original row positions) -- this sort exists so that the FINAL
+    # row order of `build_features`'s output (and therefore the row order later fed into
+    # `pl.Enum` category-vocabulary construction and into LightGBM) never depends on whatever
+    # order `panel` happened to arrive in, defense-in-depth alongside the `pl.Enum` fix below.
+    working = panel.select(_REQUIRED_INPUT_COLS).sort(["style_key", "week_start"])
 
     working = _add_lags(working)
     working = _add_ewma(working)
@@ -357,5 +413,9 @@ def build_features(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataFram
     out = working.filter(pl.col("week_start").is_in(origin_weeks)).rename(
         {"week_start": "origin_week"}
     )
-    out = out.with_columns([pl.col(c).cast(pl.Categorical) for c in STYLE_KEY_COLS])
+    # Vocabulary built from `working` (the full panel, before the origin_weeks filter), not `out`,
+    # so a given (style_key, origin_week) row's category codes never depend on which OTHER origin
+    # weeks were requested in the same call -- see DETERMINISM (A5 FOLLOW-UP) in the module
+    # docstring and `_style_key_enum`.
+    out = out.with_columns([pl.col(c).cast(_style_key_enum(working, c)) for c in STYLE_KEY_COLS])
     return out.select(_OUTPUT_COLS)

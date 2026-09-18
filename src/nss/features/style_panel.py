@@ -254,7 +254,10 @@ def build_style_week_panel(
         "first_week_seen",
         "last_week_seen",
     ]
-    panel = panel.select(column_order)
+    # `group_by` (above) does not guarantee output row order -- explicit sort so `panel`'s row
+    # order is deterministic across process runs (see nss.features.model_features's DETERMINISM
+    # (A5 FOLLOW-UP) docstring section for why row-order determinism matters downstream).
+    panel = panel.sort([*STYLE_KEY_COLS, "week_start"]).select(column_order)
 
     panel_df, lifetime_df = pl.collect_all([panel, lifetime], engine="streaming")
     return panel_df, lifetime_df
@@ -328,9 +331,13 @@ def densify_panel(filtered_panel: pl.DataFrame) -> pl.DataFrame:
         The dense panel: one row per (style_key, week_start) for every week in
         [first_week_seen, last_week_seen], for every style_key in `filtered_panel`.
     """
-    lifetime_bounds = filtered_panel.select(
-        [*STYLE_KEY_COLS, "first_week_seen", "last_week_seen"]
-    ).unique()
+    # `.unique()` does not guarantee output row order -- explicit sort so the style-block order of
+    # `grid` (and therefore `dense`, below) is deterministic across process runs.
+    lifetime_bounds = (
+        filtered_panel.select([*STYLE_KEY_COLS, "first_week_seen", "last_week_seen"])
+        .unique()
+        .sort(STYLE_KEY_COLS)
+    )
 
     grid = lifetime_bounds.with_columns(
         pl.date_ranges(
@@ -369,7 +376,9 @@ def densify_panel(filtered_panel: pl.DataFrame) -> pl.DataFrame:
         "first_week_seen",
         "last_week_seen",
     ]
-    return dense.select(column_order)
+    # `join` (above) is not guaranteed to preserve `grid`'s row order -- explicit final sort so
+    # `dense`'s row order is deterministic across process runs (same rationale as the sorts above).
+    return dense.sort([*STYLE_KEY_COLS, "week_start"]).select(column_order)
 
 
 def add_price_index(dense_panel: pl.DataFrame) -> pl.DataFrame:

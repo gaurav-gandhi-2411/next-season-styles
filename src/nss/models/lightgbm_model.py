@@ -48,15 +48,24 @@ C API) and are called with the same numpy matrix + `feature_names=...`, so this 
 pandas dependency at all.
 
 CATEGORICAL ENCODING: the 5 `STYLE_KEY_COLS` attribute columns come out of `build_features` already
-cast to `pl.Categorical` (see that module's docstring). `Series.to_physical()` maps each value to
+cast to a fixed, sorted `pl.Enum` (NOT `pl.Categorical` -- see DETERMINISM (A5 FOLLOW-UP) below for
+why: `pl.Categorical`'s dictionary is built via an internal, non-deterministic-across-processes
+unique-value collection, CONFIRMED via a minimal repro to assign different integer codes to the
+same category string across separate `uv run` invocations on the identical input, which flips
+which side of a LightGBM categorical split a row falls on -- a real, independent source of
+cross-process nondeterminism, though MEASURED to be a small contributor to this project's actual
+prediction jitter relative to the row-order bug below). `Series.to_physical()` maps each value to
 its integer category code (consistent across any filtered subset of the SAME parent
 `pl.DataFrame`/`Series`, because polars filtering does not rebuild the category dictionary --
-verified directly) and leaves nulls as null, which `.cast(pl.Float64)` turns into `NaN` -- exactly
-the "missing category" signal LightGBM expects. This is why `build_model_frame` is called ONCE
-across ALL origins and every train/test split downstream is a `.filter()` of that single frame:
-splitting AFTER building keeps every subset's category codes aligned to the same dictionary;
-rebuilding features separately per split would risk two frames assigning different codes to the
-same category string.
+verified directly, and true of `pl.Enum` the same way it was true of `pl.Categorical`) and leaves
+nulls as null, which `.cast(pl.Float64)` turns into `NaN` -- exactly the "missing category" signal
+LightGBM expects. This is why `build_model_frame` is called ONCE across ALL origins and every
+train/test split downstream is a `.filter()` of that single frame: splitting AFTER building keeps
+every subset's category codes aligned to the same dictionary; rebuilding features separately per
+split would risk two frames assigning different codes to the same category string (this risk is
+now purely hypothetical for a single process run -- `pl.Enum`'s mapping is a pure function of the
+sorted vocabulary -- but the ONE-CALL contract is kept as the simplest way to guarantee every split
+sees literally the same dtype object).
 
 SHAP MODEL CHOICE (JUDGMENT CALL): global SHAP importance is computed from a model trained on the
 FULL pooled walk-forward train+test set (every one of the 20 origins' rows, i.e. all of
@@ -77,6 +86,51 @@ every `lgb.LGBMRegressor` this module constructs. Verified bit-identical (`np.ar
 `tests/test_lightgbm_model.py::test_train_lightgbm_is_bit_identical_across_repeated_runs`, at the
 cost of `num_threads=1` giving up multi-threaded training speed -- acceptable here given this
 project's dataset size (see PLAN.md / session report for the measured wall-clock impact).
+
+DETERMINISM (A5) FOLLOW-UP (D3a) -- this WITHIN-PROCESS fix alone did not close the loop: a
+separate, CROSS-PROCESS source of jitter (reported as "~1%"; MEASURED via a controlled ablation on
+the real production panel + `nss.models.final_forecast.FINAL_MODEL_CONFIG` to be as large as ~52%
+relative / ~6.2 absolute on some styles -- the original "~1%" description undersold the real
+magnitude) was found and root-caused via a 3-way ablation (full pristine code vs. two single-fix
+variants, each run twice as separate `uv run` processes on the identical real panel):
+
+  1. PRIMARY CAUSE, CONFIRMED (closes essentially all of the measured jitter on its own -- max
+     abs diff drops from 6.14 to 5.3e-15, a ~1.15e15x reduction, see below): the
+     `features.join(targets, ...)` call in `build_model_frame` (below) had no `maintain_order`
+     argument. Polars does not guarantee a join's output row order is stable across runs (an
+     implementation detail of its hash-join, observed to vary process-to-process on identical
+     input). Since `deterministic=True`/`force_row_wise=True`/`num_threads=1` only guarantee
+     "same data IN THE SAME ORDER -> same result" (LightGBM's histogram-building gradient/hessian
+     accumulation is a floating-point summation, which is not associative -- a different row order
+     is a different summation order, hence different bin statistics, hence potentially different
+     split decisions, compounding across all `n_estimators` boosting rounds), an unordered join
+     feeding LightGBM's TRAINING set was enough to make every downstream tree -- and therefore
+     every prediction -- diverge between separate process runs, even with every LightGBM RNG seed
+     already pinned. FIXED by adding `maintain_order="left"` to that join (see `build_model_frame`
+     below): an isolated ablation with ONLY this one-line fix applied (leaving `pl.Categorical`
+     unfixed) reduced the cross-process diff from max_abs=6.14 (45.1% relative) to
+     max_abs=5.3e-15 -- floating-point-noise level, not zero, which is exactly the residual the
+     second, independent cause below explains.
+  2. SECONDARY CAUSE, CONFIRMED, MEASURED SMALL ON THIS MODEL: `pl.Categorical`'s dictionary
+     construction (see CATEGORICAL ENCODING above) is independently non-deterministic across
+     processes -- confirmed via a minimal repro (`pl.DataFrame(...).with_columns([pl.col(c).cast(
+     pl.Categorical) for c in 5_cols])` on as few as 50 rows already differs across separate `uv
+     run` invocations on identical input, once more than one categorical column is cast in the
+     same `with_columns` call). On THIS project's specific model/data, an ablation with ONLY the
+     `maintain_order="left"` fix applied (`pl.Categorical` left buggy) already leaves at most
+     5.3e-15 absolute difference -- i.e. this cause's OWN measured contribution here is
+     floating-point noise, not a visible percentage. It is fixed anyway (`pl.Enum`, an explicit
+     sorted vocabulary -- see `nss.features.model_features` DETERMINISM (A5 FOLLOW-UP) section)
+     because it is a real, independently-reproducible nondeterminism in a value LightGBM consumes
+     directly via `categorical_feature=...`, and its magnitude on a DIFFERENT model/dataset (one
+     where the categorical features drive more decisive splits) is not something this repo can
+     assume will always stay negligible.
+
+Combining both fixes (the one already-shipped in `build_model_frame`, plus `pl.Enum`) was verified
+BIT-IDENTICAL (`np.array_equal`, max abs diff = 0.0) across two genuinely separate `uv run`
+process invocations of the real `nss.models.final_forecast` pipeline on the real production panel
+(1,980 forecast-eligible styles, all identical) -- see the D3a session report / PLAN.md for the
+full ablation table and `tests/test_determinism_cross_process.py` for the regression test.
 """
 
 from __future__ import annotations
@@ -190,10 +244,20 @@ def build_model_frame(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataF
     targets = pl.concat(
         [compute_forward_target(panel, ow, horizon_weeks=HORIZON_WEEKS) for ow in origin_weeks]
     )
+    # maintain_order="left" -- THIS IS THE PRIMARY FIX for the D3a cross-process determinism bug
+    # (see module docstring DETERMINISM (A5) FOLLOW-UP (D3a) for the full ablation). Without it,
+    # this join's output row order is not guaranteed stable across separate process runs (a polars
+    # hash-join implementation detail); since LightGBM's histogram-building gradient/hessian
+    # accumulation is floating-point summation over the TRAINING rows in the order given (not
+    # associative), a shuffled training-row order alone was enough to make trained models --
+    # and therefore predictions -- diverge by tens of percent between separate `uv run` processes,
+    # even with `deterministic=True`/`force_row_wise=True`/`num_threads=1`/every RNG seed already
+    # pinned (those only guarantee "same order -> same result", not "any order -> same result").
     merged = features.join(
         targets.select("style_key", "origin_week", pl.col("target").alias("y_true")),
         on=["style_key", "origin_week"],
         how="inner",
+        maintain_order="left",
     )
     return merged.filter(pl.col("y_true").is_not_null())
 
@@ -205,8 +269,16 @@ def feature_columns(model_frame: pl.DataFrame) -> list[str]:
 
 
 def _categorical_indices(model_frame: pl.DataFrame, columns: list[str]) -> list[int]:
-    """Positions (within `columns`) of the `pl.Categorical`-typed feature columns."""
-    return [i for i, c in enumerate(columns) if model_frame.schema[c] == pl.Categorical]
+    """Positions (within `columns`) of the categorical (`pl.Enum` or `pl.Categorical`)-typed
+    feature columns. `build_features` produces `pl.Enum` columns (see that module's docstring
+    DETERMINISM section); `pl.Categorical` is matched too for robustness against any caller that
+    hands this function a frame built another way."""
+    categorical_base_types = (pl.Categorical, pl.Enum)
+    return [
+        i
+        for i, c in enumerate(columns)
+        if model_frame.schema[c].base_type() in categorical_base_types
+    ]
 
 
 def _to_lgb_matrix(frame: pl.DataFrame, columns: list[str]) -> np.ndarray:
