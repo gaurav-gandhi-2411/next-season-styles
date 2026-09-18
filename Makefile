@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -35,6 +35,12 @@ backtest:
 # backtest_summary_lightgbm.csv, shap_global_importance.csv, and reports/figures/shap_global_importance.png.
 train:
 	uv run python -m nss.models.lightgbm_model
+
+# Train the FINAL production model on all available data (wide weekly origin set), forecast
+# AW2020 (origin 2020-09-21), apply the top-3/ranks-4-10 selection rule + local SHAP, and write
+# reports/tables/top_styles.csv, top_styles_markdown_excluded.csv, top_styles_by_season.csv.
+forecast:
+	uv run python -m nss.models.final_forecast
 
 test:
 	uv run pytest --cov=src/nss
