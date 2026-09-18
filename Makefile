@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast exemplars test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -41,6 +41,13 @@ train:
 # reports/tables/top_styles.csv, top_styles_markdown_excluded.csv, top_styles_by_season.csv.
 forecast:
 	uv run python -m nss.models.final_forecast
+
+# Diversity-constrained reselection (T1 incumbent / T2 emerging winners, final three, and a
+# diversity-constrained seasonal bonus v2), built on top of `forecast`'s trained model + ranking.
+# Writes reports/tables/top_styles_t1_incumbent.csv, top_styles_t2_emerging.csv,
+# top_styles_final_three.csv, top_styles_by_season_v2.csv.
+forecast-diversity:
+	uv run python -m nss.models.diversity_forecast
 
 # Select 8 best-selling constituent article images per top-3 winning style + 1 random control
 # style (seed=42), fetch them on-demand (no bulk download), and write
