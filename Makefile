@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles test lint clean
+.PHONY: setup data panel eda validate-styles backtest test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -23,6 +23,11 @@ eda:
 # against the categorical style_key partition (ARI/NMI). CPU-only, may take a few minutes.
 validate-styles:
 	uv run python -m nss.features.style_validation
+
+# Run the rolling-origin backtest harness (4 causal baselines) and write
+# reports/tables/backtest_per_origin.csv + backtest_summary.csv.
+backtest:
+	uv run python -m nss.models.backtest
 
 test:
 	uv run pytest --cov=src/nss
