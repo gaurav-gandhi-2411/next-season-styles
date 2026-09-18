@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -54,6 +54,12 @@ forecast-diversity:
 # reports/tables/exemplar_images.csv for Phase 3 (novelty scoring).
 exemplars:
 	uv run python -m nss.data.select_exemplars
+
+# ip_adapter_scale novelty/fidelity sweep (task B4): 8 local_sdxl generations at scales 0.2-0.9
+# for one winning style, freed-VRAM CLIP scoring against its real reference images, and
+# reports/figures/novelty_fidelity_sweep.png + novelty_fidelity_sweep_images.png. GPU required.
+sweep:
+	uv run python -m nss.generate.scale_sweep
 
 test:
 	uv run pytest --cov=src/nss
