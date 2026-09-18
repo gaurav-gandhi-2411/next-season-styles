@@ -6,6 +6,7 @@ import pytest
 
 from nss.models.metrics import (
     METRIC_KEYS,
+    hit_at_k_in_top_n,
     ndcg_at_k,
     precision_at_k,
     score_predictions,
@@ -81,6 +82,49 @@ def test_ndcg_at_k_all_zero_relevance_is_zero() -> None:
 
 def test_ndcg_at_k_empty_eval_set_is_nan() -> None:
     assert math.isnan(ndcg_at_k([], [], k=10))
+
+
+def test_hit_at_k_in_top_n_hand_computed() -> None:
+    """10 styles, true=[10,9,8,7,6,5,4,3,2,1] (idx0 highest .. idx9 lowest) -> true top-5 = idx0-4.
+
+    pred chosen so the predicted top-3 (k=3) is {idx0, idx5, idx9}: pred[0]=100 (highest),
+    pred[5]=90 (2nd), pred[9]=80 (3rd), everything else=1.
+    Intersection with true top-5 {0,1,2,3,4} = {0} -> hit = 1/3.
+    """
+    y_true = [10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+    y_pred = [100.0, 1.0, 1.0, 1.0, 1.0, 90.0, 1.0, 1.0, 1.0, 80.0]
+
+    assert hit_at_k_in_top_n(y_true, y_pred, k=3, n=5) == pytest.approx(1 / 3)
+
+
+def test_hit_at_k_in_top_n_all_predicted_top_k_in_true_top_n_is_one() -> None:
+    y_true = [10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+    y_pred = [100.0, 90.0, 80.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+    assert hit_at_k_in_top_n(y_true, y_pred, k=3, n=5) == pytest.approx(1.0)
+
+
+def test_hit_at_k_in_top_n_clips_both_k_and_n_independently_to_eval_set_size() -> None:
+    """Only 4 styles -- k=3 clipped to k_eff=3 (no change), n=20 clipped to n_eff=4 (the whole eval
+    set), so the true top-N is trivially everything and any predicted top-3 hits 3/3."""
+    y_true = [4.0, 3.0, 2.0, 1.0]
+    y_pred = [1.0, 2.0, 3.0, 4.0]
+
+    assert hit_at_k_in_top_n(y_true, y_pred, k=3, n=20) == pytest.approx(1.0)
+
+
+def test_hit_at_k_in_top_n_empty_eval_set_is_nan() -> None:
+    assert math.isnan(hit_at_k_in_top_n([], [], k=3, n=20))
+
+
+def test_score_predictions_includes_hit_at_3_metrics() -> None:
+    y_true = [10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0]
+    y_pred = [100.0, 90.0, 80.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+    result = score_predictions(y_true, y_pred)
+
+    assert result["hit_at_3_in_top20"] == pytest.approx(hit_at_k_in_top_n(y_true, y_pred, 3, 20))
+    assert result["hit_at_3_in_top10"] == pytest.approx(hit_at_k_in_top_n(y_true, y_pred, 3, 10))
 
 
 def test_spearman_rho_hand_computed_perfect_and_inverse() -> None:

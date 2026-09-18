@@ -3,15 +3,25 @@
 Every function here scores ONE origin's eval set against ONE method's predictions: a 1-D array of
 realized targets (`y_true`), a 1-D array of that method's predictions (`y_pred`), and (for WMAPE
 only) a 1-D array of per-row weights. `score_predictions` is the single reusable entry point -- it
-takes those three arrays and returns all 5 metrics in one dict. A later task that plugs in a
-LightGBM prediction column calls `score_predictions` exactly the same way the 4 baselines in
-`nss.models.backtest` do; nothing in this module is baseline-specific.
+takes those three arrays and returns all 7 metrics in one dict. A later task that plugs in a
+LightGBM prediction column (or a random-permutation floor -- see `nss.models.random_floor`) calls
+`score_predictions` exactly the same way the 4 baselines in `nss.models.backtest` do; nothing in
+this module is baseline-specific.
 
-HEADLINE METRIC: Precision@3 (with Precision@10 as its ranks-4-10 companion) is the project's
-headline metric -- it directly matches the deliverable framing ("pick a top-3 bet list, ranks 4-10
-as a secondary watchlist"), so it is called out first when reporting, even though all 5 metrics are
-computed for every origin and every method. `Precision@K = |predicted top-K styles (by predicted
-value) intersect actual top-K styles (by realized target)| / K`.
+HEADLINE METRIC (v2, see backtest_v2 report): Hit@3-in-top20 -- the fraction of the model's
+predicted top-3 style_keys that land ANYWHERE within the TRUE top-20 (by realized target) -- is the
+project's headline metric as of the v2 rebuild. Hit@3-in-top10 (true top-10) is its stricter
+secondary companion. Precision@3/Precision@10 remain computed and reported for every origin and
+method, but are now SECONDARY, not headline -- the v2 backtest report demoted them once the
+random-floor check made clear Precision@3 in particular sits close to the random-guessing floor on
+this project's ~3,000-style eval sets (see `nss.models.random_floor` module docstring and
+`reports/tables/backtest_summary_v2.csv`'s `*_no_demonstrated_signal` columns), whereas Hit@k-in-
+top-N's larger true-set denominator gives it a meaningfully higher, more separable floor.
+`Hit@k-in-top-N = |predicted top-k (by predicted value) intersect actual top-N (by realized
+target)| / k_eff` -- see `hit_at_k_in_top_n` for the exact `k_eff`/`n_eff` clipping rule.
+
+`Precision@K = |predicted top-K styles (by predicted value) intersect actual top-K styles (by
+realized target)| / K`.
 
 NDCG@10: relevance is the realized target value itself (a continuous, non-negative log1p-intensity
 quantity -- every target/prediction in this project is non-negative, so it is a valid NDCG
@@ -25,10 +35,11 @@ origin (unlike the top-K metrics above, this uses every style, not just the top 
 WMAPE: `sum(weight * |actual - pred|) / sum(weight * |actual|)`, weighted -- see
 `nss.models.backtest.WMAPE_WEIGHT_COL` for the weighting-column choice and its rationale.
 
-K-CLIPPING: if an eval set has fewer than K styles, both `ndcg_at_k` and `precision_at_k` use
-`k_eff = min(k, n)` rather than raising or padding -- a top-K metric over fewer than K items is
-still well-defined once K is clipped to the available population, and this project's eval sets are
-expected to be far larger than 10 in practice (see backtest report), so clipping is a defensive
+K-CLIPPING: if an eval set has fewer than K styles, `ndcg_at_k`, `precision_at_k`, and
+`hit_at_k_in_top_n` all use `k_eff = min(k, n)` (and, for `hit_at_k_in_top_n`, `n_eff = min(n, n)`
+independently) rather than raising or padding -- a top-K metric over fewer than K items is still
+well-defined once K is clipped to the available population, and this project's eval sets are
+expected to be far larger than 20 in practice (see backtest report), so clipping is a defensive
 boundary case handled correctly by construction, not the common path.
 """
 
@@ -42,10 +53,19 @@ from scipy.stats import spearmanr
 NDCG_DEFAULT_K = 10
 PRECISION_DEFAULT_KS: tuple[int, ...] = (3, 10)
 
-# The 5 mandatory metrics, in report order (Precision@3 first -- see module docstring HEADLINE
-# METRIC). Kept as a module-level constant so aggregation code (`nss.models.backtest`) can iterate
-# over "every metric" without hardcoding the list a second time.
+# Headline metric params (v2): predicted top-3 checked for membership in the true top-20 (primary)
+# and true top-10 (secondary, stricter). See module docstring HEADLINE METRIC.
+HIT_TOP_K = 3
+HIT_TOP_N_PRIMARY = 20
+HIT_TOP_N_SECONDARY = 10
+
+# The 7 mandatory metrics, in report order (Hit@3-in-top20/top10 first -- see module docstring
+# HEADLINE METRIC; Precision@3/10 now secondary but still always computed). Kept as a module-level
+# constant so aggregation code (`nss.models.backtest`, `nss.models.random_floor`) can iterate over
+# "every metric" without hardcoding the list a second time.
 METRIC_KEYS: tuple[str, ...] = (
+    f"hit_at_{HIT_TOP_K}_in_top{HIT_TOP_N_PRIMARY}",
+    f"hit_at_{HIT_TOP_K}_in_top{HIT_TOP_N_SECONDARY}",
     "precision_at_3",
     "precision_at_10",
     f"ndcg_at_{NDCG_DEFAULT_K}",
@@ -113,6 +133,40 @@ def precision_at_k(y_true: Sequence[float], y_pred: Sequence[float], k: int) -> 
     return len(predicted_top & actual_top) / k_eff
 
 
+def hit_at_k_in_top_n(y_true: Sequence[float], y_pred: Sequence[float], k: int, n: int) -> float:
+    """Hit@k-in-top-N: fraction of the predicted top-k styles that land ANYWHERE in the true top-N.
+
+    See module docstring HEADLINE METRIC. Unlike `precision_at_k` (predicted top-K vs. actual
+    top-K, same K), this compares a SMALL predicted set (k, e.g. 3) against a LARGER true set (N,
+    e.g. 20 or 10) -- "did the model's top-3 bets land anywhere in the true top-N", not "did the
+    model's top-3 bets land in the EXACT true top-3". The denominator is `k_eff` (the number of
+    predicted picks actually available to hit with), not `n_eff` -- this is a precision-style
+    metric over the predicted set, not a recall-style metric over the true set.
+
+    Args:
+        y_true: Realized target values, one per style.
+        y_pred: Predicted values, one per style, same order as `y_true`.
+        k: Predicted-set cutoff (nominal K, e.g. 3).
+        n: True-set cutoff (nominal N, e.g. 20 or 10).
+
+    Returns:
+        `nan` if the eval set is empty, else the intersection-over-`k_eff` ratio in `[0, 1]`.
+        `k_eff = min(k, n_total)` and `n_eff = min(n, n_total)` are clipped independently (see
+        module docstring K-CLIPPING).
+    """
+    y_true_arr = np.asarray(y_true, dtype=float)
+    y_pred_arr = np.asarray(y_pred, dtype=float)
+    n_total = y_true_arr.shape[0]
+    if n_total == 0:
+        return float("nan")
+    k_eff = min(k, n_total)
+    n_eff = min(n, n_total)
+
+    predicted_top = set(np.argsort(-y_pred_arr, kind="stable")[:k_eff].tolist())
+    actual_top = set(np.argsort(-y_true_arr, kind="stable")[:n_eff].tolist())
+    return len(predicted_top & actual_top) / k_eff
+
+
 def spearman_rho(y_true: Sequence[float], y_pred: Sequence[float]) -> float:
     """Spearman rank correlation between `y_true` and `y_pred` across the full eval set.
 
@@ -171,13 +225,20 @@ def score_predictions(
 
     Returns:
         A dict with keys `n_eval` (the number of styles actually scored) plus one key per metric in
-        `METRIC_KEYS` (`precision_at_3`, `precision_at_10`, `ndcg_at_10`, `spearman_rho`, `wmape`).
+        `METRIC_KEYS` (`hit_at_3_in_top20`, `hit_at_3_in_top10`, `precision_at_3`,
+        `precision_at_10`, `ndcg_at_10`, `spearman_rho`, `wmape`).
     """
     y_true_arr = np.asarray(y_true, dtype=float)
     y_pred_arr = np.asarray(y_pred, dtype=float)
     weight_arr = np.ones_like(y_true_arr) if weight is None else np.asarray(weight, dtype=float)
 
     result: dict[str, float] = {"n_eval": float(y_true_arr.shape[0])}
+    result[f"hit_at_{HIT_TOP_K}_in_top{HIT_TOP_N_PRIMARY}"] = hit_at_k_in_top_n(
+        y_true_arr, y_pred_arr, k=HIT_TOP_K, n=HIT_TOP_N_PRIMARY
+    )
+    result[f"hit_at_{HIT_TOP_K}_in_top{HIT_TOP_N_SECONDARY}"] = hit_at_k_in_top_n(
+        y_true_arr, y_pred_arr, k=HIT_TOP_K, n=HIT_TOP_N_SECONDARY
+    )
     for k in precision_ks:
         result[f"precision_at_{k}"] = precision_at_k(y_true_arr, y_pred_arr, k)
     result[f"ndcg_at_{ndcg_k}"] = ndcg_at_k(y_true_arr, y_pred_arr, ndcg_k)
