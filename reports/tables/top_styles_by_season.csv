@@ -1,0 +1,13 @@
+season,rank,style_key,index_group_name,product_type_name,garment_group_name,perceived_colour_master_name,graphical_appearance_name,season_mean_intensity,season_guard1_n_active_articles_mean,guard1_pass,price_index_level,guard2_pass,guard3_n_weeks_active_trailing,guard3_pass
+winter,1,Ladieswear || Leggings/Tights || Socks and Tights || Black || Solid,Ladieswear,Leggings/Tights,Socks and Tights,Black,Solid,85.38070970005359,15.5,true,1.0475402226394388,true,52,true
+winter,2,Ladieswear || Vest top || Jersey Basic || Black || Solid,Ladieswear,Vest top,Jersey Basic,Black,Solid,73.11373445783087,15.038461538461538,true,1.1822563764926821,true,52,true
+winter,3,Sport || Leggings/Tights || Jersey Fancy || Black || Solid,Sport,Leggings/Tights,Jersey Fancy,Black,Solid,52.23632473434259,30.53846153846154,true,1.0021505898470964,true,52,true
+spring,1,Ladieswear || Bikini top || Swimwear || Red || Solid,Ladieswear,Bikini top,Swimwear,Red,Solid,82.59178481774636,11.307692307692308,true,1.0035724864129763,true,52,true
+spring,2,Divided || Vest top || Jersey Basic || Black || Solid,Divided,Vest top,Jersey Basic,Black,Solid,80.94227834131681,10.615384615384615,true,1.4504065852135037,true,52,true
+spring,3,Ladieswear || Vest top || Jersey Basic || Black || Solid,Ladieswear,Vest top,Jersey Basic,Black,Solid,80.84598828552507,18.153846153846153,true,1.1822563764926821,true,52,true
+summer,1,Ladieswear || Swimwear bottom || Swimwear || Black || Other structure,Ladieswear,Swimwear bottom,Swimwear,Black,Other structure,104.16185614796726,10.962962962962964,true,1.0223534831566081,true,52,true
+summer,2,Ladieswear || Bikini top || Swimwear || Black || Other structure,Ladieswear,Bikini top,Swimwear,Black,Other structure,85.03252195940104,12.481481481481481,true,1.0020069851749998,true,52,true
+summer,3,Ladieswear || Swimwear bottom || Swimwear || White || Other structure,Ladieswear,Swimwear bottom,Swimwear,White,Other structure,81.77775263951735,10.333333333333334,true,0.8531071788166162,true,52,true
+autumn,1,Ladieswear || Leggings/Tights || Socks and Tights || Black || Solid,Ladieswear,Leggings/Tights,Socks and Tights,Black,Solid,84.0185694362079,16.0,true,1.0475402226394388,true,52,true
+autumn,2,Ladieswear || Sweater || Knitwear || Mole || Melange,Ladieswear,Sweater,Knitwear,Mole,Melange,76.01802195625724,10.25925925925926,true,1.333899668107995,true,52,true
+autumn,3,Ladieswear || Top || Jersey Basic || Black || Solid,Ladieswear,Top,Jersey Basic,Black,Solid,71.73592201062962,12.0,true,1.0187242203921894,true,52,true
