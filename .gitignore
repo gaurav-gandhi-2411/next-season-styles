@@ -7,6 +7,7 @@ data/images/*
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/images/.gitkeep
+data/generated/
 
 # Python
 __pycache__/
