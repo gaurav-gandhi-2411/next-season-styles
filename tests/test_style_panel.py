@@ -96,8 +96,8 @@ def test_build_style_week_panel_aggregates(tmp_path: Path) -> None:
     assert row["mean_price"] == 10.0
     assert row["median_price"] == 10.0
     assert row["n_customers"] == 2
-    assert row["units_online"] == 1  # channel 1, per the documented ASSUMPTION
-    assert row["units_store"] == 1  # channel 2, per the documented ASSUMPTION
+    assert row["units_online"] == 1  # channel 2, per the VALIDATED FINDING
+    assert row["units_store"] == 1  # channel 1, per the VALIDATED FINDING
     assert row["first_week_seen"] == datetime.date(2018, 9, 17)
     assert row["last_week_seen"] == datetime.date(2018, 10, 8)  # style A's 3rd sparse week
 
@@ -105,8 +105,8 @@ def test_build_style_week_panel_aggregates(tmp_path: Path) -> None:
     row_b = style_b.row(0, named=True)
     assert row_b["units"] == 1
     assert row_b["revenue"] == 5.0
-    assert row_b["units_online"] == 0
-    assert row_b["units_store"] == 1
+    assert row_b["units_online"] == 1  # its 1 txn is channel 2, per the VALIDATED FINDING
+    assert row_b["units_store"] == 0
 
     # Total units in the panel must equal total transaction row count (no double counting).
     assert panel["units"].sum() == 6

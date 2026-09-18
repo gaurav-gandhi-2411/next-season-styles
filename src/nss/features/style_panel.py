@@ -18,14 +18,50 @@ information into the past. These two columns exist for panel-level descriptive/f
 only. Later phases must never feed `last_week_seen` into a model trained/scored as of a week
 where it has not yet occurred.
 
-sales_channel_id ASSUMPTION (NOT independently verified): raw transactions ship with
-`sales_channel_id` in {1, 2}. No data dictionary shipped with this Kaggle download (checked
-`data/raw/` for one -- none present) authoritatively defines which value means "online" vs
-"in-store". This module assumes 1 = online, 2 = store, based on a convention recalled from
-general familiarity with public H&M competition kernels/discussion -- this is NOT confirmed
-against any authoritative source and confidence in the *direction* of the mapping is LOW. If the
-online/store split matters for a downstream decision, verify independently before trusting
-`units_online` / `units_store` directionally.
+sales_channel_id VALIDATED FINDING: raw transactions ship with `sales_channel_id` in {1, 2}. No
+data dictionary shipped with this Kaggle download (checked `data/raw/` for one -- none present)
+authoritatively defines which value means "online" vs "in-store", so the mapping was resolved
+empirically (see `nss.viz.channel_check`, which produced these numbers and
+`reports/figures/channel_share.png`) using the COVID-19 lockdown as a natural experiment: physical
+non-essential retail across most of Europe (including H&M) was forced to close mid-March through
+end of April 2020, while online ordering continued.
+
+Primary (deciding) signal -- weekly share of `sales_channel_id == 1` collapses during the trough
+window (2020-03-15 to 2020-04-30) and recovers immediately after, while `sales_channel_id == 2`'s
+share does the mirror image:
+
+| period                          | share(channel=1) | share(channel=2) |
+|----------------------------------|------------------:|------------------:|
+| pre-trough baseline (78 weeks)   | 30.93%            | 69.07%            |
+| COVID trough (7 weeks)           | 0.89%             | 99.11%            |
+| post-trough (21 weeks)           | 33.63%            | 66.37%            |
+
+Channel 1 has *literally zero* transactions in 4 of the 7 trough weeks (2020-03-23, 03-30, 04-06,
+04-13) -- a near-total outage precisely coincident with the lockdown window, consistent only with
+a channel that was physically forced to stop operating. Channel 2's share rises to 99-100% over
+the same window. This is the signature of "stores closed, online continues": channel 1 = store,
+channel 2 = online.
+
+Supporting (non-deciding) evidence:
+- Multi-year share trend, computed separately pre-trough (78 weeks) and post-trough (21 weeks) to
+  avoid the trough itself distorting a linear fit: channel 1's share drifts slightly UP over both
+  sub-periods (29.9% -> 31.3% pre-trough; 33.5% -> 33.8% post-trough) while channel 2's drifts
+  slightly down by the same margin. This is a small, secular trend (order of 0.1 percentage
+  points/week) and, taken alone, sits in tension with the general e-commerce-growth prior (online
+  share was expected to trend up, not down) -- it does NOT corroborate the resolved mapping and is
+  noted here for honesty rather than cherry-picked. It is treated as non-decisive: the effect size
+  is an order of magnitude smaller than the trough signal, plausible confounds exist (e.g. physical
+  store count / footprint changes over 2018-2020 unrelated to online penetration), and the task's
+  own framing treats this signal as supporting, not sole-deciding.
+- Mean transaction price: channel 1 mean=0.02292, median=0.01863 (n=9,408,462); channel 2
+  mean=0.02989, median=0.02541 (n=22,379,862) (prices are the Kaggle dataset's normalized units,
+  not currency). Channel 2 (resolved: online) has a ~30% higher mean price. Not diagnostic on its
+  own -- different channels can have different typical basket/price compositions for reasons
+  unrelated to online-vs-store -- but not contradictory either.
+
+Net: the trough signal is mechanistically clear and an order of magnitude stronger than the mixed
+supporting evidence, so the mapping below is treated as resolved. `units_online` / `units_store`
+can be trusted directionally.
 
 DENSITY: `build_style_week_panel` + `filter_by_support` alone produce a *sparse* panel -- one row
 per (style_key, week_start) with >=1 sale, and nothing for zero-sale weeks. `densify_panel` (run
@@ -55,9 +91,9 @@ STYLE_KEY_COLS: list[str] = [
 
 STYLE_KEY_SEPARATOR = " || "
 
-# ASSUMPTION -- see module docstring. NOT independently verified against a data dictionary.
-SALES_CHANNEL_ONLINE = 1
-SALES_CHANNEL_STORE = 2
+# VALIDATED FINDING -- see module docstring for the empirical COVID-trough evidence.
+SALES_CHANNEL_ONLINE = 2
+SALES_CHANNEL_STORE = 1
 
 MIN_ARTICLES_PER_STYLE = 5
 MIN_LIFETIME_UNITS_PER_STYLE = 500
