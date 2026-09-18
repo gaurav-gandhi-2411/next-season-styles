@@ -61,8 +61,9 @@ forecast-diversity:
 exemplars:
 	uv run python -m nss.data.select_exemplars
 
-# ip_adapter_scale novelty/fidelity sweep (task B4): 8 local_sdxl generations at scales 0.2-0.9
-# for one winning style, freed-VRAM CLIP scoring against its real reference images, and
+# ip_adapter_scale novelty/fidelity sweep (task C3, supersedes B4): 24 local_sdxl generations
+# (scales 0.2-0.9 x 3 seeds) for one winning style, freed-VRAM margin scoring (CLIP + DINOv2)
+# against its real reference images and the C2 control pool, and
 # reports/figures/novelty_fidelity_sweep.png + novelty_fidelity_sweep_images.png. GPU required.
 sweep:
 	uv run python -m nss.generate.scale_sweep
