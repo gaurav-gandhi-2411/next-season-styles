@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -60,6 +60,11 @@ exemplars:
 # reports/figures/novelty_fidelity_sweep.png + novelty_fidelity_sweep_images.png. GPU required.
 sweep:
 	uv run python -m nss.generate.scale_sweep
+
+# Render the Track D agent-delegation architecture diagram (orchestrator + 5 sub-agents, critic
+# retry loop) to reports/figures/agent_architecture.png. matplotlib-only, no GPU/data required.
+agent-diagram:
+	uv run python -m nss.viz.agent_architecture
 
 test:
 	uv run pytest --cov=src/nss
