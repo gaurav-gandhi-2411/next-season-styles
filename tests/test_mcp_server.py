@@ -295,10 +295,15 @@ def test_load_clip_band_missing_file_raises(tmp_path: Path) -> None:
         _load_clip_band()
 
 
-def test_load_margin_band_missing_returns_none() -> None:
-    """The margin-band artifacts have not been produced yet (Track C, in flight) -- returns None."""
-    assert _load_margin_band("clip") is None
-    assert _load_margin_band("dinov2") is None
+def test_load_margin_band_missing_returns_none(tmp_path: Path) -> None:
+    """With no margin_anchors CSV on disk for a space, _load_margin_band returns None."""
+    with patch.object(
+        mcp_server,
+        "MARGIN_BAND_PATHS",
+        {"clip": tmp_path / "missing_clip.csv", "dinov2": tmp_path / "missing_dinov2.csv"},
+    ):
+        assert _load_margin_band("clip") is None
+        assert _load_margin_band("dinov2") is None
 
 
 def test_load_margin_band_present_reads_band_bounds(tmp_path: Path) -> None:
@@ -346,6 +351,11 @@ def test_score_concept_falls_back_to_clip_band_when_margin_bands_absent(tmp_path
         patch.object(mcp_server.clip_scoring, "embed_image", return_value=object()),
         patch.object(mcp_server.dino_scoring, "embed_image", return_value=object()),
         patch.object(mcp_server, "embedding_margin", side_effect=[0.42, 0.77]),
+        patch.object(
+            mcp_server,
+            "MARGIN_BAND_PATHS",
+            {"clip": tmp_path / "missing_clip.csv", "dinov2": tmp_path / "missing_dinov2.csv"},
+        ),
     ):
         result = score_concept(str(concept), KNOWN_STYLE_KEY)
 
