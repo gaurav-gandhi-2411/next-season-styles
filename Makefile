@@ -15,10 +15,9 @@ data:
 panel:
 	uv run python -m nss.features.style_panel
 
-# Run the EDA pipeline/notebook export. Script does not exist yet
-# (later phase) — wired now for reproducibility.
+# Run panel EDA: basic stats, top-20 overlap, seasonality plot, stockout-signature detection.
 eda:
-	uv run python -m nss.viz.eda
+	uv run python -m nss.viz.panel_eda
 
 test:
 	uv run pytest --cov=src/nss
