@@ -11,10 +11,9 @@ setup:
 data:
 	uv run python scripts/download_data.py
 
-# Build the style-week panel from raw data. Script does not exist yet
-# (later phase) — wired now for reproducibility.
+# Build the style_key x ISO-week panel (with support filter) from raw + interim data.
 panel:
-	uv run python -m nss.data.build_panel
+	uv run python -m nss.features.style_panel
 
 # Run the EDA pipeline/notebook export. Script does not exist yet
 # (later phase) — wired now for reproducibility.
