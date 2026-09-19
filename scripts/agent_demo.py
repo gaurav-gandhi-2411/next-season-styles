@@ -43,6 +43,8 @@ from mcp.client.stdio import stdio_client
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TRANSCRIPT_PATH = REPO_ROOT / "reports" / "agent_run_transcript.md"
+LIVE_CALL_STYLE = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+LIVE_CALL_IMAGE = Path("reports/concepts/black-jersey-basic-tshirt_seed43.png")
 DESIGN_BRIEFS_PATH = REPO_ROOT / "reports" / "tables" / "design_briefs.json"
 FINAL_CONCEPTS_PATH = REPO_ROOT / "reports" / "tables" / "final_concepts.csv"
 CONCEPT_QC_RESULTS_PATH = REPO_ROOT / "reports" / "tables" / "concept_qc_results.csv"
@@ -348,33 +350,32 @@ async def run_demo() -> str:
                 f"retry cap is {RETRY_CAP} retries per `agents/critic.md`.\n"
             )
 
-            if first_style:
-                # One live score_concept MCP call, to additionally prove the tool itself works
-                # end-to-end over the protocol (not just readable from the CSV) -- reproduces
-                # attempt 0's recorded margin numbers via a real, live scoring call.
+            if first_style and style_key == LIVE_CALL_STYLE and LIVE_CALL_IMAGE.exists():
+                # One live score_concept MCP call on the COMMITTED final T-shirt concept (the
+                # historical C7 attempt images are no longer on disk), proving the tool works
+                # end-to-end over the protocol with the shipped gates (task L1).
                 first_style = False
-                attempt0 = attempts[0]
                 live_result, live_call = await _call_tool(
                     session,
                     "critic",
                     "score_concept",
-                    {"concept_path": attempt0["image_path"], "style_key": style_key},
+                    {"concept_path": str(LIVE_CALL_IMAGE), "style_key": style_key},
                 )
                 sections.append(
-                    "\n**Protocol proof**: one live `score_concept` MCP call against attempt "
-                    "0's already-generated image, to confirm the tool works end-to-end over the "
-                    "real protocol (not only readable from the CSV):\n\n"
+                    "\n**Protocol proof**: one live `score_concept` MCP call on the "
+                    "committed final T-shirt concept, to confirm the tool works end-to-end "
+                    "over the real protocol:\n\n"
                 )
                 sections.append(format_tool_call(live_call))
-                clip_match = live_result["clip_margin"] == attempt0["clip_margin"]
-                dino_match = live_result["dino_margin"] == attempt0["dino_margin"]
                 sections.append(
-                    f"Live call reproduced clip_margin={live_result['clip_margin']} "
-                    f"(CSV: {attempt0['clip_margin']}, exact match: {clip_match}) and "
-                    f"dino_margin={live_result['dino_margin']} "
-                    f"(CSV: {attempt0['dino_margin']}, exact match: {dino_match}) -- confirms "
-                    "the live tool call and the recorded C7 run compute the identical, "
-                    "deterministic score for the same image.\n"
+                    "Live call returned the SHIPPED-gate verdict (task L1): "
+                    f"`{live_result['verdict']}`; Gate 1 pass={live_result['gate1']['pass']}, "
+                    f"Gate 1b pass={live_result['gate1b']['pass']} (exact-clone control failed as "
+                    f"required: {live_result['gate1b']['clone_control_failed_as_required']}), "
+                    f"Gate 2 {live_result['gate2']['status']}, human visual check required: "
+                    f"{live_result['human_visual_check']['required']}. Note the recorded attempt "
+                    "history above is the OLD margin-band QC run (C7); this live call uses the "
+                    "corrected gates, so the two are intentionally not compared numerically.\n"
                 )
 
     # --- Step 5: orchestrator aggregation ---

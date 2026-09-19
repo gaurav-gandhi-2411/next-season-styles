@@ -46,7 +46,7 @@ SUBAGENT_ROLE = {
     "forecaster": "reads frozen\nforecast tables",
     "style-profiler": "profile -> design\nbrief (skill)",
     "concept-designer": "generate_concept\n(SDXL / Gemini)",
-    "critic": "score_concept\n(margin + VLM QC)",
+    "critic": "score_concept\n(Gate 1/1b/2 + human)",
 }
 
 ORCHESTRATOR_COLOR = "#2C3E50"

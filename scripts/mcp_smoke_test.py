@@ -3,7 +3,7 @@
 Reads the `mcpServers` config block from the README's "MCP server" section AS WRITTEN (only the
 documented `cwd` placeholder is substituted with this checkout's path, which is exactly what the
 README tells the reader to do), launches the server with that command over stdio, connects a real
-MCP client, lists the tools, and calls `forecast_styles` and `get_style_profile`.
+MCP client, lists the tools, and calls `forecast_styles`, `get_style_profile` and `score_concept`.
 
 Usage (from the repo root; needs the data/ artifacts the tools read):
     uv run --no-sync python scripts/mcp_smoke_test.py
@@ -61,7 +61,7 @@ def _payload(result: object) -> object:
 
 
 async def run() -> int:
-    """Connect over stdio with the documented config and call two tools."""
+    """Connect over stdio with the documented config and call three tools."""
     cfg = documented_server_config()
     cwd = str(cfg["cwd"]).replace(CWD_PLACEHOLDER, str(REPO_ROOT))
     params = StdioServerParameters(command=str(cfg["command"]), args=list(cfg["args"]), cwd=cwd)  # type: ignore[arg-type]
@@ -80,7 +80,19 @@ async def run() -> int:
         style_key = rows[0]["style_key"]  # type: ignore[index]
         profile = await session.call_tool("get_style_profile", {"style_key": style_key})
         print("get_style_profile ->", json.dumps(_elide(_payload(profile)), indent=2))
-        ok = len(names) == 7 and bool(rows) and not getattr(profile, "is_error", False)
+        concept = REPO_ROOT / "reports" / "concepts" / "black-jersey-basic-tshirt_seed43.png"
+        scored = await session.call_tool(
+            "score_concept", {"concept_path": str(concept), "style_key": style_key}
+        )
+        gates = _payload(scored)
+        print("score_concept ->", json.dumps(gates, indent=2))
+        ok = (
+            len(names) == 7
+            and bool(rows)
+            and not getattr(profile, "is_error", False)
+            and gates["human_visual_check"]["required"] is True  # type: ignore[index]
+            and gates["gate1b"]["clone_control_failed_as_required"] is True  # type: ignore[index]
+        )
     print(f"forecast_styles returned {len(rows)} rows (only the first is shown above)")  # type: ignore[arg-type]
     print("MCP smoke test:", "OK" if ok else "FAILED")
     return 0 if ok else 1

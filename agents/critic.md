@@ -2,12 +2,27 @@
 
 ## Role
 
-Quality-checks each candidate concept image against two gates — the CLIP similarity margin band
-(`nss.generate.derive_similarity_band` / `is_in_band`: too low means unrelated to the style, too
-high means a near-duplicate copy rather than a novel concept) and the VLM attribute-fidelity panel
-— by applying the `concept-qc` skill (`skills/concept-qc/SKILL.md`). Owns the accept/reject
-decision and the retry loop's state: it is the only agent that decides whether a concept passes,
-gets sent back for another attempt with an adjusted parameter, or is escalated as failed.
+Quality-checks each candidate concept image against the SHIPPED gates (`nss.generate.qc_gates`,
+`skills/concept-qc/SKILL.md`), calibrated on real same-style H&M articles, plus a mandatory human
+check:
+
+1. **Gate 1, within-style range**: mean similarity to the style's reference photos must be at or
+   below the p90 of similarity between distinct REAL articles of that style, in both CLIP and
+   DINOv2 (a concept inside the range real siblings span is as novel as a real new product).
+2. **Gate 1b, nearest reference**: the closest single reference must be at or below the p90 of the
+   real nearest-sibling similarity. It is validated by an exact-clone control that must FAIL; if a
+   clone passes, the gate is UNVALIDATED and cannot pass anything (fail-closed).
+3. **Gate 2, VLM attribute fidelity**: a blind judge reads the picture and its answers are scored
+   against the style's VISIBLE attributes (non-visual catch-alls such as "Other structure" are
+   excluded, listed in SKILL.md), against that judge's own calibrated threshold. One judge reading
+   varies by about +/-0.21, so a verdict uses the MEDIAN of 3 readings.
+4. **Human visual check** (mandatory, never automated): the automatic gates have passed visibly
+   malformed garments, so a concept that passes Gates 1, 1b and 2 is `PASS_PENDING_HUMAN`, not
+   shippable, until a person has looked at the image.
+
+Owns the accept/reject decision and the retry loop's state: it is the only agent that decides
+whether a concept passes, gets sent back for another attempt with an adjusted parameter, or is
+escalated as failed.
 
 ## Inputs
 
@@ -19,11 +34,12 @@ gets sent back for another attempt with an adjusted parameter, or is escalated a
 
 ## Outputs
 
-- A verdict: `PASS` (concept accepted, forwarded to the orchestrator as final output) or `REJECT`
-  (concept fails the margin band and/or attribute-fidelity panel), with the specific reason(s) and
-  measured values (CLIP similarity score vs. band, attribute-fidelity findings).
+- A verdict: `PASS_PENDING_HUMAN` (Gates 1, 1b and 2 pass; forwarded with an explicit request for
+  the human visual check, never as final on its own) or `REJECT` (fails Gate 1, Gate 1b and/or
+  Gate 2), with the specific reason(s) and measured values (similarity vs the real-pair limit,
+  closest-reference similarity vs its limit, fidelity median and both figures).
 - On `REJECT` with retries remaining: an **adjusted parameter** for the next attempt (e.g. a
-  different `ip_adapter_scale` if the failure was a fidelity/novelty-band miss, or a different
+  different `ip_adapter_scale` if the failure was a Gate 1/1b/2 miss, or a different
   `seed` if the failure looked like a one-off sampling artifact), sent back to `concept-designer`
   via the orchestrator.
 - On exhausting the retry cap: a `FAILED` verdict with the full retry history (every attempt's
@@ -32,8 +48,10 @@ gets sent back for another attempt with an adjusted parameter, or is escalated a
 
 ## MCP tools it may call (allowlist)
 
-- `score_concept` — the only scoring tool; computes the CLIP margin-band check and drives the
-  attribute-fidelity panel.
+- `score_concept` — the only scoring tool; runs Gate 1 and Gate 1b (with the clone validation)
+  and, with `include_fidelity=true`, one Gate 2 judge reading. It always returns
+  `human_visual_check.required = true`. Call it three times with `include_fidelity=true` and take
+  the median for a Gate 2 verdict.
 - `get_style_profile` — read-only, to pull the reference style's attributes for the
   attribute-fidelity comparison when they were not already fully carried in the brief.
 
@@ -62,8 +80,9 @@ only requests, via the orchestrator, that `concept-designer` generate the next a
   inconclusive for this concept" and stop; the critic never silently passes a concept it could not
   actually score, and never silently discards a concept whose QC call merely errored (fail-closed:
   an unverifiable result is treated as a denial to ship, not as ambient permission to ship).
-- **`score_concept` returns malformed/empty data** (e.g. the margin-band check runs but the
-  attribute-fidelity panel returns no findings at all): same treatment as above — inconclusive,
+- **`score_concept` returns malformed/empty data** (e.g. Gates 1/1b run but the Gate 2 reading
+  returns no findings, or `gate1b.clone_control_failed_as_required` is false): same treatment as
+  above — inconclusive,
   one retry of the scoring call, then escalate rather than treating a partial score as a pass.
 - **Concept fails QC (REJECT) with retries remaining**: send the adjusted parameter back to
   `concept-designer` via the orchestrator; do not escalate yet.

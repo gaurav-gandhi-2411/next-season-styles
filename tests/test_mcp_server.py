@@ -3,15 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import polars as pl
 import pytest
 
 from nss import mcp_server
 from nss.mcp_server import (
     _extract_shap_drivers_row,
     _get_shap_drivers,
-    _load_clip_band,
-    _load_margin_band,
     _parse_style_key,
     compose_final_sheet,
     forecast_styles,
@@ -279,53 +276,14 @@ def test_generate_concept_wraps_backend_and_converts_paths() -> None:
     assert result == ["data/generated/local_sdxl/seed42_00.png"]
 
 
-# --- _load_clip_band / _load_margin_band ---
+# --- score_concept: the shipped gates (task L1); qc_gates is mocked -- no model load ---
 
 
-def test_load_clip_band_reads_real_artifact() -> None:
-    """The already-computed CLIP band CSV parses into a (lower, upper) float tuple."""
-    lower, upper = _load_clip_band()
-    assert 0.0 <= lower < upper <= 1.0
-
-
-def test_load_clip_band_missing_file_raises(tmp_path: Path) -> None:
-    """A missing band CSV is a loud RuntimeError, not a silent default."""
-    with (
-        patch.object(mcp_server, "CLIP_BAND_PATH", tmp_path / "missing.csv"),
-        pytest.raises(RuntimeError, match="not found"),
-    ):
-        _load_clip_band()
-
-
-def test_load_margin_band_missing_returns_none(tmp_path: Path) -> None:
-    """With no margin_anchors CSV on disk for a space, _load_margin_band returns None."""
-    with patch.object(
-        mcp_server,
-        "MARGIN_BAND_PATHS",
-        {"clip": tmp_path / "missing_clip.csv", "dinov2": tmp_path / "missing_dinov2.csv"},
-    ):
-        assert _load_margin_band("clip") is None
-        assert _load_margin_band("dinov2") is None
-
-
-def test_load_margin_band_present_reads_band_bounds(tmp_path: Path) -> None:
-    """Once a margin_anchors CSV exists, its band_lower/band_upper columns are read correctly."""
-    band_path = tmp_path / "margin_anchors_clip.csv"
-    pl.DataFrame(
-        {"row_type": ["upper_anchor"], "band_lower": [0.1], "band_upper": [0.4]}
-    ).write_csv(band_path)
-    with patch.object(mcp_server, "MARGIN_BAND_PATHS", {"clip": band_path}):
-        assert _load_margin_band("clip") == (0.1, 0.4)
-
-
-# --- score_concept (mocked embedders -- no CLIP/DINOv2 model load, matches project convention) ---
-
-
-def _fake_embed(vectors: dict[Path, object]):
-    def _embed(path: Path):
-        return vectors[path]
-
-    return _embed
+def test_score_concept_delegates_to_qc_gates_with_flag() -> None:
+    """The tool is a thin wrapper over `qc_gates.score_gates` and forwards `include_fidelity`."""
+    with patch("nss.generate.qc_gates.score_gates", return_value={"verdict": "ok"}) as m:
+        assert score_concept("x.png", KNOWN_STYLE_KEY, include_fidelity=True) == {"verdict": "ok"}
+    m.assert_called_once_with("x.png", KNOWN_STYLE_KEY, include_fidelity=True)
 
 
 def test_score_concept_missing_concept_path_raises() -> None:
@@ -335,95 +293,24 @@ def test_score_concept_missing_concept_path_raises() -> None:
 
 
 def test_score_concept_unknown_style_raises(tmp_path: Path) -> None:
-    """A style with zero fetched reference images cannot be scored."""
+    """A style with no screened references cannot be gated (never a silent pass)."""
     concept = tmp_path / "concept.png"
-    concept.write_bytes(b"not a real png, existence is all that's checked before this point")
-    with pytest.raises(ValueError, match="No fetched reference images"):
+    concept.write_bytes(b"stand-in")
+    with pytest.raises(ValueError, match="No screened reference images"):
         score_concept(str(concept), UNKNOWN_STYLE_KEY)
 
 
-def test_score_concept_falls_back_to_clip_band_when_margin_bands_absent(tmp_path: Path) -> None:
-    """With no margin_anchors_*.csv on disk, pass proxies the legacy in_clip_band signal."""
-    concept = tmp_path / "concept.png"
-    concept.write_bytes(b"stand-in bytes; clip_similarity/control_similarity are mocked below")
-
-    with (
-        patch.object(mcp_server, "clip_similarity", return_value={"mean": 0.92, "max": 0.95}),
-        patch.object(mcp_server, "control_similarity", return_value={"mean": 0.5, "max": 0.5}),
-        patch.object(mcp_server.clip_scoring, "embed_image", return_value=object()),
-        patch.object(mcp_server.dino_scoring, "embed_image", return_value=object()),
-        patch.object(mcp_server, "embedding_margin", side_effect=[0.42, 0.77]),
-        patch.object(
-            mcp_server,
-            "MARGIN_BAND_PATHS",
-            {"clip": tmp_path / "missing_clip.csv", "dinov2": tmp_path / "missing_dinov2.csv"},
-        ),
-    ):
-        result = score_concept(str(concept), KNOWN_STYLE_KEY)
-
-    assert result["in_clip_band"] is True  # 0.92 is within the real [0.8906, 0.9401] band.
-    assert result["clip_margin"] == pytest.approx(0.42)
-    assert result["dino_margin"] == pytest.approx(0.77)
-    assert result["in_clip_margin_band"] is None
-    assert result["in_dino_margin_band"] is None
-    assert result["pass"] is True
-    assert "in_clip_band" in result["note"]
-
-
-def test_score_concept_uses_margin_bands_when_both_available(tmp_path: Path) -> None:
-    """Once both margin_anchors CSVs exist, pass requires both spaces' margin bands to agree."""
-    concept = tmp_path / "concept.png"
-    concept.write_bytes(b"stand-in bytes; clip_similarity/control_similarity are mocked below")
-
-    clip_band_path = tmp_path / "margin_anchors_clip.csv"
-    dino_band_path = tmp_path / "margin_anchors_dinov2.csv"
-    pl.DataFrame({"band_lower": [0.1], "band_upper": [0.5]}).write_csv(clip_band_path)
-    pl.DataFrame({"band_lower": [0.6], "band_upper": [0.9]}).write_csv(dino_band_path)
-
-    with (
-        patch.object(mcp_server, "clip_similarity", return_value={"mean": 0.92, "max": 0.95}),
-        patch.object(mcp_server, "control_similarity", return_value={"mean": 0.5, "max": 0.5}),
-        patch.object(mcp_server.clip_scoring, "embed_image", return_value=object()),
-        patch.object(mcp_server.dino_scoring, "embed_image", return_value=object()),
-        # clip_margin=0.3 (in [0.1, 0.5]) but dino_margin=0.1 (NOT in [0.6, 0.9]) -> overall fail.
-        patch.object(mcp_server, "embedding_margin", side_effect=[0.3, 0.1]),
-        patch.object(
-            mcp_server, "MARGIN_BAND_PATHS", {"clip": clip_band_path, "dinov2": dino_band_path}
-        ),
-    ):
-        result = score_concept(str(concept), KNOWN_STYLE_KEY)
-
-    assert result["in_clip_margin_band"] is True
-    assert result["in_dino_margin_band"] is False
-    assert result["pass"] is False
-    assert "in_clip_margin_band AND in_dino_margin_band" in result["note"]
-
-
-def test_score_concept_no_control_images_leaves_margins_none(tmp_path: Path) -> None:
-    """With no fetch_success control-role images, margin/control_similarity fields stay None."""
-    concept = tmp_path / "concept.png"
-    concept.write_bytes(b"stand-in bytes")
-
-    empty_manifest = pl.DataFrame(
-        {
-            "role": ["final_rank_1"],
-            "style_key": [KNOWN_STYLE_KEY],
-            "article_id": [1],
-            "units_sold_last_26w": [1],
-            "local_image_path": ["data/images/0800691008.jpg"],
-            "fetch_success": [True],
-        }
-    )
-    with (
-        patch.object(mcp_server, "_load_exemplar_manifest", return_value=empty_manifest),
-        patch.object(mcp_server, "clip_similarity", return_value={"mean": 0.92, "max": 0.95}),
-    ):
-        result = score_concept(str(concept), KNOWN_STYLE_KEY)
-
-    assert result["control_similarity"] is None
-    assert result["clip_margin"] is None
-    assert result["dino_margin"] is None
-    assert result["pass"] is True  # falls back to in_clip_band, which is True here.
+def test_score_concept_output_reports_every_shipped_gate_and_human_check() -> None:
+    """Against a real final concept: Gates 1/1b present, clone control validated, human check."""
+    concept = Path("reports/concepts/black-jersey-basic-tshirt_seed43.png")
+    if not concept.exists() or not Path("data/images").exists():
+        pytest.skip("needs the committed concept image and the local reference images")
+    result = score_concept(str(concept), KNOWN_STYLE_KEY)
+    assert set(result) >= {"gate1", "gate1b", "gate2", "human_visual_check", "verdict"}
+    assert result["gate1b"]["clone_control_failed_as_required"] is True
+    assert result["gate2"]["status"] == "not_run"
+    assert result["human_visual_check"]["required"] is True
+    assert result["automated_gates_pass"] is not True  # Gate 2 not run and 1b fails for this tee
 
 
 # --- compose_final_sheet ---
