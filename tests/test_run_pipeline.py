@@ -23,7 +23,10 @@ from run_pipeline import (  # noqa: E402 -- see sys.path.insert above
     seeds_for_style,
 )
 
-from nss.generate import final_concepts  # noqa: E402 -- see sys.path.insert above
+from nss.generate import (  # noqa: E402 -- see sys.path.insert above
+    final_concepts,
+    final_concepts_v2,
+)
 
 
 def test_stage_order_is_the_documented_seven_stages() -> None:
@@ -38,25 +41,36 @@ def test_stage_index_is_monotonic_with_stage_order() -> None:
 
 
 def test_seeds_for_style_returns_first_n_seeds_for_a_normal_style() -> None:
-    """A non-underwear style gets the first `n_seeds` of `final_concepts.SEEDS`, unmodified."""
+    """A fully-qualified style gets the first `n_seeds` of `final_concepts_v2.INITIAL_SEEDS`,
+    unmodified."""
     assert seeds_for_style("Ladieswear || T-shirt || Jersey Basic || Black || Solid", 1) == (42,)
     assert seeds_for_style("Ladieswear || T-shirt || Jersey Basic || Black || Solid", 2) == (42, 43)
 
 
-def test_seeds_for_style_skips_underwear_disqualified_seeds() -> None:
-    """The underwear style skips C6's manually-confirmed visual-QC-disqualified seeds (42/43/44),
-    so a 1-seed run lands on seed 45 instead of spuriously hitting `select_best_candidate`'s
-    "every candidate disqualified" error."""
-    underwear = final_concepts.UNDERWEAR_STYLE_KEY
-    assert seeds_for_style(underwear, 1) == (45,)
+def test_seeds_for_style_ignores_disqualifications_outside_initial_seeds() -> None:
+    """The T-shirt style's `VISUAL_QC_DISQUALIFIED_SEEDS` entry (46/47/48/49, E5's retry-round
+    finding) has no overlap with `INITIAL_SEEDS` (42-45) -- a round-0-only run like this script's
+    is never affected by it, so the first `n_seeds` of `INITIAL_SEEDS` are returned unchanged."""
+    t_shirt = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+    assert final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS[t_shirt] == frozenset({46, 47, 48, 49})
+    assert seeds_for_style(t_shirt, 2) == (42, 43)
 
 
-def test_seeds_for_style_raises_when_n_seeds_exceeds_available_for_underwear() -> None:
-    """Only 1 non-disqualified seed (45) exists for the underwear style -- requesting 2 raises a
-    clear, actionable error rather than silently returning a short tuple."""
+def test_seeds_for_style_underwear_is_fully_qualified_under_v2() -> None:
+    """Unlike C6/C7 (`final_concepts.UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS`), E5 confirmed every
+    underwear candidate is free of a human model -- the style is absent from
+    `final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS`, so seed selection is unaffected."""
     underwear = final_concepts.UNDERWEAR_STYLE_KEY
-    with pytest.raises(ValueError, match="exceeds the 1 non-disqualified seeds available"):
-        seeds_for_style(underwear, 2)
+    assert underwear not in final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS
+    assert seeds_for_style(underwear, 1) == (42,)
+
+
+def test_seeds_for_style_raises_when_n_seeds_exceeds_available() -> None:
+    """Only 4 seeds exist in `INITIAL_SEEDS` -- requesting 5 raises a clear, actionable error
+    rather than silently returning a short tuple."""
+    t_shirt = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+    with pytest.raises(ValueError, match="exceeds the 4 non-disqualified seeds available"):
+        seeds_for_style(t_shirt, 5)
 
 
 def test_arg_parser_defaults_write_deterministic_stages_to_the_real_tables_dir() -> None:

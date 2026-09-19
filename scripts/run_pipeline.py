@@ -21,22 +21,39 @@ STAGE-OUTPUT ISOLATION (load-bearing, read before changing default paths): the `
 `features`, `forecast`, and `briefs` stages are fully DETERMINISTIC given the frozen model/config
 (see D3a) -- they default to writing straight into the REAL `reports/tables/` location, which
 safely just reproduces the already-committed artifacts bit-for-bit. The `generate`, `score`, and
-`hero` stages are NOT wire-compatible with the real C6-C8 deliverables, because this script
-deliberately generates only 1-2 seeds per style (see SCOPING-DOWN below) instead of C6's full
-4-seed sweep -- a genuinely different (lower-fidelity) selection could result. Those three stages
-therefore ALWAYS write to an isolated `--pipeline-out-dir` (default `reports/pipeline_run/`,
-gitignored) and NEVER touch `reports/tables/final_concepts.csv`,
-`reports/tables/concept_qc_results.csv`, or `reports/figures/FINAL_concepts.png` /
-`evidence_chain.png` -- those remain the authoritative, unmodified C6/C7/C8 deliverables.
+`hero` stages are NOT wire-compatible with the real E5/E8 deliverables, because this script
+deliberately generates only 1-2 seeds per style, round-0 only, no retry rounds (see SCOPING-DOWN
+below) instead of E5's full adaptive up-to-8-seed retry sweep -- a genuinely different
+(lower-fidelity) selection could result. Those three stages therefore ALWAYS write to an isolated
+`--pipeline-out-dir` (default `reports/pipeline_run/`, gitignored) and NEVER touch
+`reports/tables/final_concepts_v2.csv`, or `reports/figures/FINAL_concepts.png` /
+`evidence_chain.png` -- those remain the authoritative, unmodified E5/E8 deliverables (the same
+holds for the older, superseded `reports/tables/final_concepts.csv` /
+`reports/tables/concept_qc_results.csv` -- this script has never written to those and still
+doesn't).
+
+RECONNECTED TO THE CURRENT PIPELINE (task, post-E8): the `generate`/`score` stages call
+`nss.generate.final_concepts_v2` -- E5's adaptive per-style retry-loop module with the corrected
+E2 Gate-1 copy-check, `ip_adapter_scale=0.45`, and the fixed (<=77-token, truncation-safe)
+prompts -- reusing its own `score_candidate`/`select_final_candidate`/`write_results_table`/
+`apply_visual_qc_and_rewrite` primitives verbatim, NOT the superseded C6/C7
+`nss.generate.final_concepts.select_best_candidate` (old two-sided real-space band) /
+`nss.generate.concept_qc_pipeline.run_qc_with_retries` (old QC gate) path this script used before.
+The `hero` stage calls `nss.generate.final_deliverables.main(final_concepts_v2_path=..., ...)`,
+E8's current signature.
 
 SCOPING-DOWN (documented, not silently done): task D3's purpose is proving the WIRING between
-already-tested stages works end-to-end from one command, not re-deriving C6's exact 4-seed
-selection. `--n-seeds` (default 1, max 2) controls how many of C6's own `final_concepts.SEEDS`
-are generated per style; the operating point (`ip_adapter_scale=0.2`) and the selection rule
-itself are reused verbatim from `nss.generate.final_concepts`, unchanged. For the underwear style
-specifically, C6's own manually-confirmed `UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS` are skipped
-when choosing which seed(s) to generate (see `seeds_for_style`), for the same documented reason
-C6 itself excludes them.
+already-tested stages works end-to-end from one command, not re-deriving E5's full adaptive
+retry-sweep selection. `--n-seeds` (default 1, max 2) controls how many of
+`final_concepts_v2.INITIAL_SEEDS` (E5's own round-0 seed set, unchanged in value from C6's
+`final_concepts.SEEDS`) are generated per style, round-0 only -- this script never runs a retry
+round, since 1-2 seeds is enough to prove the wiring (see `run_score_stage`). The operating point
+(`ip_adapter_scale=0.45`) and the full-gate selection rule itself are reused verbatim from
+`nss.generate.final_concepts_v2`, unchanged. Any seed `final_concepts_v2.VISUAL_QC_DISQUALIFIED_
+SEEDS` records for a style is still skipped when choosing which seed(s) to generate (see
+`seeds_for_style`) -- currently a no-op at `n_seeds<=2` since every presently-disqualified seed
+(the T-shirt style's 46-49) was only ever generated in a retry round this script never reaches,
+but applied unconditionally for correctness.
 
 VLM judges (Gemini/Groq) in the `score` stage are exercised when reachable but are optional: a
 `GROQ_API_KEY` availability check that raises an unexpected error (not the two documented,
@@ -75,21 +92,16 @@ from nss.data import select_final_three_exemplars
 from nss.data.fetch_images import fetch_images
 from nss.features import model_features, style_panel
 from nss.features.style_panel import STYLE_KEY_COLS
+from nss.generate import build_design_briefs as build_design_briefs_mod
 from nss.generate import (
-    backends,
     concept_qc_pipeline,
     final_concepts,
+    final_concepts_v2,
     final_deliverables,
     vlm_judges,
 )
-from nss.generate import build_design_briefs as build_design_briefs_mod
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
-from nss.generate.scale_sweep import (
-    CLIP_BAND_PATH,
-    DINO_BAND_PATH,
-    free_sdxl_pipeline,
-    load_margin_band,
-)
+from nss.generate.scale_sweep import free_sdxl_pipeline
 from nss.models import diversity_forecast, final_forecast, final_three_shap_verdict
 
 STAGE_ORDER: tuple[str, ...] = (
@@ -390,36 +402,35 @@ def run_briefs_stage(final_three_path: Path, tables_out_dir: Path, images_dir: P
 
 
 def seeds_for_style(style_id: str, n_seeds: int) -> tuple[int, ...]:
-    """The `n_seeds` seeds to generate for one style (scoping-down -- see module docstring).
+    """The `n_seeds` seeds to generate for one style's round-0 batch (scoping-down -- see module
+    docstring).
 
-    Reuses `nss.generate.final_concepts.SEEDS` (C6's own 4-seed set) rather than inventing new
-    seeds, so any candidate this script generates is directly comparable to C6's own per-seed
-    results. For the underwear style specifically, C6's own manually-confirmed
-    `UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS` (seeds 42/43/44 each showed a human model despite the
-    strengthened negative prompt) are skipped, so a 1-seed integration run doesn't spuriously hit
-    `select_best_candidate`'s "every candidate disqualified" `ValueError` for a reason already
-    documented and unrelated to this script's wiring.
+    Reuses `nss.generate.final_concepts_v2.INITIAL_SEEDS` (E5's own round-0 seed set, unchanged in
+    value from C6's `final_concepts.SEEDS`) rather than inventing new seeds, so any candidate this
+    script generates is directly comparable to E5's own round-0 results. Any seed
+    `final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS` records for `style_id` (E5's own
+    manually-confirmed visual-QC veto list) is skipped -- at `n_seeds<=2` this is currently a
+    no-op (every presently-disqualified seed, e.g. the T-shirt style's 46-49, was only ever
+    generated in a RETRY round this script never reaches -- see module docstring SCOPING-DOWN),
+    but is applied unconditionally so this stays correct if `n_seeds` or the veto list change.
 
     Args:
         style_id: The style's `design_briefs.json` `style_id`.
         n_seeds: How many seeds to generate for this style.
 
     Returns:
-        The first `n_seeds` non-disqualified entries of `final_concepts.SEEDS`, in order.
+        The first `n_seeds` non-disqualified entries of `final_concepts_v2.INITIAL_SEEDS`, in
+        order.
 
     Raises:
         ValueError: if `n_seeds` exceeds the number of non-disqualified seeds available.
     """
-    disqualified = (
-        final_concepts.UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS
-        if style_id == final_concepts.UNDERWEAR_STYLE_KEY
-        else frozenset()
-    )
-    available = [s for s in final_concepts.SEEDS if s not in disqualified]
+    disqualified = final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS.get(style_id, frozenset())
+    available = [s for s in final_concepts_v2.INITIAL_SEEDS if s not in disqualified]
     if n_seeds > len(available):
         raise ValueError(
             f"n_seeds={n_seeds} exceeds the {len(available)} non-disqualified seeds available "
-            f"for style_id={style_id!r} (SEEDS={final_concepts.SEEDS}, "
+            f"for style_id={style_id!r} (INITIAL_SEEDS={final_concepts_v2.INITIAL_SEEDS}, "
             f"disqualified={sorted(disqualified)})"
         )
     return tuple(available[:n_seeds])
@@ -428,36 +439,27 @@ def seeds_for_style(style_id: str, n_seeds: int) -> tuple[int, ...]:
 def run_generate_stage(
     design_briefs: dict[str, dict[str, Any]],
     style_references: dict[str, list[Path]],
-    control_images: list[Path],
-    clip_band: tuple[float, float],
-    dino_band: tuple[float, float],
     n_seeds: int,
     generated_images_dir: Path,
-    out_table_path: Path,
-) -> dict[str, dict[str, Any]]:
-    """Generate `n_seeds` `local_sdxl` candidate(s) per style and select the best.
+) -> dict[str, list[final_concepts.Candidate]]:
+    """Generate `n_seeds` `local_sdxl` candidate(s) per style, round-0 only (see module docstring
+    SCOPING-DOWN) -- this script never runs a retry round, so scoring/selection (which needs the
+    full E2 gate, including a network VLM judge call) happens entirely in `run_score_stage`.
 
-    Reuses `nss.generate.final_concepts`'s own generation/scoring/selection primitives verbatim
-    (`generate_candidates_for_style`, `score_candidates`, `select_best_candidate`) -- only the
-    SEED COUNT differs from C6's own 4-seed run (see `seeds_for_style`), never the operating point
-    (`final_concepts.IP_ADAPTER_SCALE=0.2`) or the selection rule itself.
-
-    Writes ISOLATED to `out_table_path` (never `reports/tables/final_concepts.csv` -- see module
-    docstring STAGE-OUTPUT ISOLATION).
+    Reuses `nss.generate.final_concepts.generate_candidates_for_style` verbatim -- the SAME
+    primitive `nss.generate.final_concepts_v2`'s own `generate_fn` closure calls (see that
+    module's `main`) -- at E5's `final_concepts_v2.IP_ADAPTER_SCALE=0.45` operating point (C6's
+    superseded 0.2 is never used here). Only the SEED COUNT differs from E5's own round-0 batch
+    (see `seeds_for_style`), never the scale or the generation primitive itself.
 
     Args:
         design_briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
         style_references: Output of `nss.generate.final_concepts.load_final_three_references`.
-        control_images: Output of `nss.generate.derive_margin_band.load_control_pool`.
-        clip_band: `(lower, upper)` CLIP margin band.
-        dino_band: `(lower, upper)` DINOv2 margin band.
         n_seeds: Seeds per style (see `seeds_for_style`).
         generated_images_dir: Directory to write generated candidate images into.
-        out_table_path: Destination CSV for the per-style selections.
 
     Returns:
-        Mapping of `style_id -> selected candidate dict` (the `"selected"` entry of
-        `select_best_candidate`'s return value), for use by the `score` stage.
+        Mapping of `style_id -> list[Candidate]` (round-0 only), for the `score` stage.
     """
     all_candidates: dict[str, list[final_concepts.Candidate]] = {}
     for style_id, brief in design_briefs.items():
@@ -471,50 +473,13 @@ def run_generate_stage(
             negative_prompt,
             references,
             seeds=seeds,
+            ip_adapter_scale=final_concepts_v2.IP_ADAPTER_SCALE,
             output_dir=generated_images_dir,
         )
 
     vram_before, vram_after = free_sdxl_pipeline()
     print(f"[generate] VRAM before free: {vram_before:.3f} GB, after free: {vram_after:.3f} GB")
-
-    rows: list[dict[str, Any]] = []
-    selections: dict[str, dict[str, Any]] = {}
-    for style_id, candidates in all_candidates.items():
-        scored = final_concepts.score_candidates(
-            candidates, style_references[style_id], control_images
-        )
-        disqualified = (
-            final_concepts.UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS
-            if style_id == final_concepts.UNDERWEAR_STYLE_KEY
-            else frozenset()
-        )
-        result = final_concepts.select_best_candidate(
-            scored, clip_band, dino_band, disqualified_seeds=disqualified
-        )
-        selected = result["selected"]
-        selections[style_id] = selected
-        print(
-            f"[generate] {style_id}: chosen seed={selected['seed']} "
-            f"clip_margin={selected['clip_margin']:.4f} (in_band={selected['clip_in_band']}) "
-            f"dino_margin={selected['dino_margin']:.4f} (in_band={selected['dino_in_band']})"
-        )
-        rows.append(
-            {
-                "style_id": style_id,
-                "chosen_seed": selected["seed"],
-                "local_path": str(selected["image_path"]),
-                "clip_margin": selected["clip_margin"],
-                "dino_margin": selected["dino_margin"],
-                "clip_in_band": selected["clip_in_band"],
-                "dino_in_band": selected["dino_in_band"],
-                "n_seeds_tried": len(candidates),
-            }
-        )
-
-    out_table_path.parent.mkdir(parents=True, exist_ok=True)
-    pl.DataFrame(rows).write_csv(out_table_path)
-    print(f"[generate] wrote {out_table_path}")
-    return selections
+    return all_candidates
 
 
 # --- Stage 7: score -------------------------------------------------------------------------------
@@ -524,35 +489,39 @@ def run_score_stage(
     design_briefs: dict[str, dict[str, Any]],
     style_references: dict[str, list[Path]],
     control_images: list[Path],
-    selections: dict[str, dict[str, Any]],
-    clip_band: tuple[float, float],
-    dino_band: tuple[float, float],
-    out_path: Path,
-) -> list[dict[str, Any]]:
-    """Score each selected candidate: margin-band always, VLM judges when reachable.
+    candidates_by_style: dict[str, list[final_concepts.Candidate]],
+    out_table_path: Path,
+) -> pl.DataFrame:
+    """Score every round-0 candidate against the FULL E2 gate and select the final concept per
+    style.
 
-    Reuses `nss.generate.concept_qc_pipeline.run_qc_with_retries` with `max_retries=0` -- i.e.
-    exactly ONE scoring pass per style (this script's `generate` stage already did the seed
-    selection; this stage never triggers a retry-generation, since `generate_fn` is never called
-    when `max_retries=0`), reusing the SAME `qc_verdict`/margin/judge-panel logic C7 uses, just
-    without its retry loop. Margin-band scoring (CLIP + DINOv2) needs no external API and always
-    runs; the one-time Groq reachability check is wrapped so an unexpected network/API error
-    degrades to "Groq unavailable" (printed, not raised) rather than failing the whole script --
-    Gemini's OWN call failures are already caught internally by `skills/concept-qc/run_qc.py`'s
-    `run_judge` (see that function's docstring), so no extra wrapping is needed there.
+    Reuses `nss.generate.final_concepts_v2`'s own scoring/selection/write primitives verbatim
+    (`score_candidate`, `select_final_candidate`, `write_results_table`,
+    `apply_visual_qc_and_rewrite`) -- the SAME two-step "write, then apply the manual visual-QC
+    veto list as a separate rewrite" flow `final_concepts_v2.main` itself uses, NOT the superseded
+    `nss.generate.concept_qc_pipeline.run_qc_with_retries` path this script used before. No retry
+    round is ever triggered here (this stage only scores the ALREADY-generated
+    `candidates_by_style` -- see module docstring SCOPING-DOWN), so every row's `retry_round` is 0
+    and `n_retry_rounds_used` is always 0.
+
+    Writes ISOLATED to `out_table_path` (never `reports/tables/final_concepts_v2.csv` -- see
+    module docstring STAGE-OUTPUT ISOLATION). The one-time Groq reachability check is wrapped so
+    an unexpected network/API error degrades to "Groq unavailable" (printed, not raised) rather
+    than failing the whole script -- Gemini's OWN call failures are already caught internally by
+    `final_concepts_v2.score_candidate`'s call to `run_judge_panel`, so no extra wrapping is
+    needed there.
 
     Args:
         design_briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
         style_references: Output of `nss.generate.final_concepts.load_final_three_references`.
         control_images: Output of `nss.generate.derive_margin_band.load_control_pool`.
-        selections: Output of `run_generate_stage`.
-        clip_band: `(lower, upper)` CLIP margin band.
-        dino_band: `(lower, upper)` DINOv2 margin band.
-        out_path: Destination CSV for the full per-style QC results.
+        candidates_by_style: Output of `run_generate_stage`.
+        out_table_path: Destination CSV for the full per-style scored history + selection (same
+            shape as `nss.generate.final_concepts_v2.OUTPUT_TABLE_PATH`).
 
     Returns:
-        One dict per style (a single-attempt `run_qc_with_retries` result), also written to
-        `out_path` via `concept_qc_pipeline.write_results_csv`.
+        The written results `DataFrame`, post visual-QC rewrite (output of
+        `final_concepts_v2.apply_visual_qc_and_rewrite`).
     """
     from nss.generate import clip_scoring, dino_scoring
 
@@ -565,77 +534,62 @@ def run_score_stage(
         )
     print(f"[score] groq_available={groq_available} ({groq_detail})")
 
-    all_attempts: list[dict[str, Any]] = []
+    copy_anchors = concept_qc_pipeline.load_copy_anchors_gen()
+    clip_control = [clip_scoring.embed_image(p) for p in control_images]
+    dino_control = [dino_scoring.embed_image(p) for p in control_images]
+
+    results: dict[str, dict[str, Any]] = {}
     for style_id in design_briefs:
-        selected = selections[style_id]
-        ground_truth = concept_qc_pipeline.parse_style_attributes(style_id)
+        candidates = candidates_by_style[style_id]
         references = style_references[style_id]
-
+        ground_truth = concept_qc_pipeline.parse_style_attributes(style_id)
         clip_refs = [clip_scoring.embed_image(p) for p in references]
-        clip_control = [clip_scoring.embed_image(p) for p in control_images]
         dino_refs = [dino_scoring.embed_image(p) for p in references]
-        dino_control = [dino_scoring.embed_image(p) for p in control_images]
 
-        def judge_panel_fn(
-            image_path: Path, ground_truth: dict[str, str] = ground_truth
-        ) -> dict[str, Any]:
-            return concept_qc_pipeline.run_judge_panel(
-                image_path, ground_truth, backends.LOCAL_SDXL, groq_available, groq_detail
+        all_scored = [
+            final_concepts_v2.score_candidate(
+                candidate,
+                clip_refs,
+                clip_control,
+                dino_refs,
+                dino_control,
+                copy_anchors[style_id]["clip"],
+                copy_anchors[style_id]["dinov2"],
+                ground_truth,
+                groq_available,
+                groq_detail,
+                retry_round=0,
             )
-
-        def margin_fn(
-            image_path: Path,
-            clip_refs: list[Any] = clip_refs,
-            clip_control: list[Any] = clip_control,
-            dino_refs: list[Any] = dino_refs,
-            dino_control: list[Any] = dino_control,
-        ) -> dict[str, Any]:
-            return concept_qc_pipeline.score_margins(
-                image_path, clip_refs, clip_control, dino_refs, dino_control, clip_band, dino_band
-            )
-
-        def generate_fn(scale: float, attempt_number: int) -> Path:
-            raise RuntimeError(
-                "run_pipeline's score stage runs with max_retries=0 -- a retry should never be "
-                "triggered."
-            )
-
-        original_margin = {
-            "clip_margin": float(selected["clip_margin"]),
-            "clip_in_band": bool(selected["clip_in_band"]),
-            "dino_margin": float(selected["dino_margin"]),
-            "dino_in_band": bool(selected["dino_in_band"]),
+            for candidate in candidates
+        ]
+        # No disqualification applied yet here -- mirrors `final_concepts_v2.main`'s own flow,
+        # which writes an initial "fully qualified" selection, then applies the manual visual-QC
+        # veto list as a SEPARATE rewrite step below (`apply_visual_qc_and_rewrite`).
+        selection = final_concepts_v2.select_final_candidate(all_scored)
+        results[style_id] = {
+            "style_id": style_id,
+            "all_scored": all_scored,
+            "selection": selection,
+            "n_retry_rounds_used": 0,
+            "seeds_tried": [c.seed for c in candidates],
         }
-        attempts = concept_qc_pipeline.run_qc_with_retries(
-            style_id=style_id,
-            original_seed=int(selected["seed"]),
-            original_scale=final_concepts.IP_ADAPTER_SCALE,
-            original_image_path=Path(selected["image_path"]),
-            original_margin=original_margin,
-            ground_truth=ground_truth,
-            generation_backend=backends.LOCAL_SDXL,
-            clip_band=clip_band,
-            dino_band=dino_band,
-            judge_panel_fn=judge_panel_fn,
-            margin_fn=margin_fn,
-            generate_fn=generate_fn,
-            max_retries=0,
-        )
-        final_attempt = attempts[-1]
-        for attempt in attempts:
-            attempt["style_final_pass"] = final_attempt["overall_pass"]
-            attempt["n_attempts_for_style"] = len(attempts)
-        all_attempts.extend(attempts)
+        selected = selection["selected"]
         print(
-            f"[score] {style_id}: overall_pass={final_attempt['overall_pass']} "
-            f"(margin_band_pass={final_attempt['margin_band_pass']}, "
-            f"mean_attribute_fidelity={final_attempt['mean_attribute_fidelity']:.3f}, "
-            f"n_judges={final_attempt['n_contributing_judges']})"
+            f"[score] {style_id}: seed={selected['seed']} "
+            f"overall_pass={selected['overall_pass']} "
+            f"(copy_check_pass={selected['copy_check_pass']}, "
+            f"fidelity_pass={selected['fidelity_pass']}, "
+            f"mean_attribute_fidelity={selected['mean_attribute_fidelity']:.3f}) "
+            f"selection_mode={selection['selection_mode']}"
         )
 
-    concept_qc_pipeline.write_results_csv(all_attempts, out_path)
-    print(f"[score] wrote {out_path}")
-    return all_attempts
+    final_concepts_v2.write_results_table(results, path=out_table_path)
+    final_df = final_concepts_v2.apply_visual_qc_and_rewrite(
+        path=out_table_path,
+        disqualified_seeds_by_style=final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS,
+    )
+    print(f"[score] wrote {out_table_path}")
+    return final_df
 
 
 # --- CLI / orchestration -------------------------------------------------------------------------
@@ -754,37 +708,29 @@ def main() -> None:
     design_briefs = final_concepts.load_design_briefs()
     style_references = final_concepts.load_final_three_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
-    clip_band = load_margin_band(CLIP_BAND_PATH)
-    dino_band = load_margin_band(DINO_BAND_PATH)
 
-    selections = _run_stage(
+    candidates_by_style = _run_stage(
         "generate",
         lambda: run_generate_stage(
             design_briefs,
             style_references,
-            control_images,
-            clip_band,
-            dino_band,
             args.n_seeds,
             args.generated_images_dir,
-            args.pipeline_out_dir / "tables" / "final_concepts.csv",
         ),
     )
     if _stage_index(args.stop_after) < _stage_index("score"):
         _print_summary(timings, t_start)
         return
 
-    qc_results_path = args.pipeline_out_dir / "tables" / "concept_qc_results.csv"
+    final_concepts_v2_path = args.pipeline_out_dir / "tables" / "final_concepts_v2.csv"
     _run_stage(
         "score",
         lambda: run_score_stage(
             design_briefs,
             style_references,
             control_images,
-            selections,
-            clip_band,
-            dino_band,
-            qc_results_path,
+            candidates_by_style,
+            final_concepts_v2_path,
         ),
     )
     if _stage_index(args.stop_after) < _stage_index("hero"):
@@ -794,7 +740,7 @@ def main() -> None:
     hero_path, evidence_path = _run_stage(
         "hero",
         lambda: final_deliverables.main(
-            qc_results_path=qc_results_path,
+            final_concepts_v2_path=final_concepts_v2_path,
             hero_out_path=args.pipeline_out_dir / "figures" / "FINAL_concepts.png",
             evidence_out_path=args.pipeline_out_dir / "figures" / "evidence_chain.png",
         ),
