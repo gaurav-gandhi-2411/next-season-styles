@@ -576,6 +576,28 @@ def _available_judge_scores(judge_results: dict[str, JudgeResult]) -> dict[str, 
     }
 
 
+def within_style_novelty_pass(
+    concept_similarity: dict[str, float], benchmark_median: dict[str, float]
+) -> bool:
+    """Gate 1 (task H1): is the concept no more similar to its references than real siblings are?
+
+    `concept_similarity[space]` is the concept's mean cosine to its style's reference images in an
+    embedding space; `benchmark_median[space]` is the median pairwise cosine between DISTINCT real
+    articles of that same style in the same space. Passes iff EVERY space is at or below its
+    benchmark (joint AND, same convention as `copy_check_pass`).
+
+    Raises:
+        ValueError: if the two dicts are empty or do not name exactly the same spaces -- a gate that
+            silently skips a space it has no benchmark for is an unconditional pass (rule 98a).
+    """
+    if not concept_similarity or set(concept_similarity) != set(benchmark_median):
+        raise ValueError(
+            "concept_similarity and benchmark_median must be non-empty and name the same spaces; "
+            f"got {sorted(concept_similarity)} vs {sorted(benchmark_median)}"
+        )
+    return all(concept_similarity[s] <= benchmark_median[s] for s in concept_similarity)
+
+
 def qc_verdict(
     style_id: str,
     margin: MarginBandResult,

@@ -384,6 +384,60 @@ attainable for Groq in the first place. Overall pass count rose from 0/24 to 2/2
 gates must still pass -- Gate 1's unchanged 4/24 remains the binding constraint on how high overall
 pass can go).
 
+## CURRENT Gate 1: the real within-style article-similarity benchmark (task H1, supersedes the copy anchor)
+
+**What was wrong with the copy anchor.** `copy_anchor_gen` is an image generated at
+`ip_adapter_scale=1.0` -- SDXL's most reference-faithful *rendering*, itself already a new image.
+Gating at 90% of it rejects anything less than 90% as faithful as the most faithful generation
+possible: a fidelity ceiling mislabelled as a plagiarism check. It cannot be calibrated away; the
+construct is wrong. (The sections above document it as the historical gate; `copy_check` /
+`copy_check_pass` remain in `run_qc.py` for reproducing those results.)
+
+**The replacement.** A concept passes Gate 1 iff its mean cosine similarity to its style's
+reference images is **at or below the median pairwise similarity between DISTINCT real articles of
+that same style**, in **both** CLIP and DINOv2 (`within_style_novelty_pass`; joint AND). Rationale:
+a concept no more similar to its references than two real, commercially released products in that
+style are to each other is, by construction, as novel as an actual new product in that assortment.
+The threshold is an empirical, externally-grounded benchmark measured on real catalogue images, not
+a number we chose. It is computed **per style** from the actual reference images
+(`nss.generate.within_style_benchmark`) -- never a pooled global figure (the pooled B3 value 0.9401
+hid a per-style CLIP range of 0.936-0.954 and a per-style DINOv2 range of 0.776-0.908).
+
+Reported alongside (not gated): a leave-one-out-mean and a nearest-neighbour variant (concept's
+closest reference vs. each real article's closest sibling -- the strictest plagiarism reading).
+
+**Limits, stated.** (1) n is small (4-8 references -> 6-28 pairs), so a median carries sampling
+noise: a 0.0001 DINOv2 miss is a coin-flip, not a finding. (2) The concept's mean includes the very
+reference it was IP-Adapter-conditioned on, so it is structurally closer to its references than a
+real article is to its siblings -- the gate is conservative on that axis. (3) Real-vs-real pairs
+share catalogue photography, generated-vs-real pairs do not, biasing concept CLIP similarity low; a
+CLIP pass alone is weak evidence. (4) **Both gates are necessary, not sufficient**: a malformed
+or off-brief image is *dissimilar* to its references and so passes Gate 1 trivially, and the VLM
+judge reads attribute words, not garment integrity (H3: a folded, unrecognisable object scored
+0.68 fidelity). Visual inspection of every candidate remains part of the procedure.
+
+## CURRENT Gate 2 checklist: visually observable attributes only (task H2)
+
+The judge is asked for `product_type`, `colour_family` and `graphical_treatment` only.
+`garment_group` was **dropped**. It is an internal merchandising-taxonomy term ("Jersey Basic",
+"Under-, Nightwear") with no visual referent: shown a plain black T-shirt, Groq correctly answered
+`"top"` and scored 0.0 against `"Jersey Basic"`. Measured on the persisted calibration positives
+(real catalogue images of the true style, `reports/tables/vlm_calibration_results.csv`),
+`garment_group` scored 0.0 in 3 of 6 judge x style controls, capping the fidelity ceiling below 1.0
+independent of image quality. *Dropped rather than mapped* to a visual descriptor (e.g. "Jersey
+Basic" -> "lightweight knit jersey fabric") because a mapping needs one curated, unvalidated
+descriptor per taxonomy value and would itself be a new construct to calibrate; dropping is the
+simplest change that removes the unmeasurable component. Cost: the sweater's "Knitwear" was
+observable and is no longer scored.
+
+Per-judge thresholds are recomputed from the same persisted calibration scores (0.75 x positive
+mean, `h2_calibration_recomputed.csv`): Groq 0.438 -> 0.513, Gemini 0.625 -> 0.667. Fidelity means
+before/after for every candidate are in `reports/tables/h2_judge_rescore.csv`, derived from one
+stored per-attribute score set (`data/generated/judge_cache.jsonl`, judged once with the legacy
+4-attribute prompt; the 3-attribute figure is a pure recomputation). **Judge noise:** a repeat call
+on the same T-shirt image with the same checklist scored 0.425 where F5 had stored 0.6375 -- single
+judge calls carry roughly +/-0.2 on one image; treat per-candidate fidelity as coarse.
+
 ## Design notes
 
 - **`copy_check_pass` requires BOTH metrics below their thresholds, deliberately stricter than a

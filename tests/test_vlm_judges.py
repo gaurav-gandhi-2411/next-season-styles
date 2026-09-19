@@ -123,11 +123,12 @@ def test_extract_attributes_groq_success_parses_json_response(tmp_path: Path) ->
 
         result = vlm_judges.extract_attributes_groq(image_path, _DIMENSIONS, api_key="fake-key")
 
+    # Task H2: the checklist no longer asks for `garment_group`, so an extra key a judge volunteers
+    # is dropped rather than returned.
     assert result == {
         "product_type": "t-shirt",
         "colour_family": "black",
         "graphical_treatment": "solid",
-        "garment_group": "jersey basic",
     }
 
 
