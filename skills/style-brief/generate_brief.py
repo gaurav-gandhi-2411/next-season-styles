@@ -61,6 +61,9 @@ REQUIRED_BRIEF_KEYS: tuple[str, ...] = (
     "change",
     "rendered_prompt",
     "negative_prompt",
+    "attribute_clause",
+    "novelty_clauses",
+    "descriptive_clause",
 )
 
 _REQUIRED_PROFILE_KEYS: tuple[str, ...] = (
@@ -283,13 +286,29 @@ def generate_design_brief(profile: dict[str, Any]) -> dict[str, Any]:
         "rise)",
     ]
 
-    rendered_prompt = (
-        f"{garment_category}, {construction_group.lower()} construction. Silhouette: "
-        f"{silhouette_hint}. Fabric: {fabric_hint}. Colour: {colour_name}, anchor tone (optional "
-        f"accent: {adjacent_colour}). Surface treatment: {pattern_hint}. Novel accents to "
-        f"introduce: {'; '.join(change)}. Product photography of the garment itself, clean "
-        "studio background, even lighting, no styling props."
+    # ATTRIBUTE-FIRST ORDERING (task F4, fixing a real defect E5 found by hand): SDXL's CLIP text
+    # encoders truncate at 77 tokens, and truncation always drops the TAIL of the prompt. Earlier
+    # versions of this template put the four defining attributes (`garment_category`,
+    # `construction_group`, `colour_name`, `pattern_or_finish` -- exactly what a copy-check/VLM-
+    # fidelity gate scores) deep inside a verbose silhouette/fabric preamble, with novelty content
+    # trailing at the very end -- the part most likely to be silently dropped. `attribute_clause`
+    # now leads every rendered prompt (short, ~15-20 tokens) so the defining attributes survive
+    # even if a downstream token-budget fit (see `nss.generate.prompt_budget`, the actual SDXL-
+    # facing enforcement -- this skill stays generation-backend-agnostic and does no token
+    # counting itself) has to drop lower-priority clauses. `novelty_clauses`/`descriptive_clause`
+    # are exposed separately (not just folded into `rendered_prompt`) so that downstream budget-
+    # fitting code can drop individual clauses by priority instead of truncating a flat string.
+    attribute_clause = (
+        f"{garment_category}, {construction_group.lower()} construction, "
+        f"{colour_name.lower()} {pattern_or_finish.lower()}."
     )
+    novelty_clauses = [f"Novel accent: {item}." for item in change]
+    descriptive_clause = (
+        f"Silhouette: {silhouette_hint}. Fabric: {fabric_hint}. Colour accent option: "
+        f"{adjacent_colour}. Surface treatment: {pattern_hint}. Product photography of the "
+        "garment itself, clean studio background, even lighting, no styling props."
+    )
+    rendered_prompt = " ".join([attribute_clause, *novelty_clauses, descriptive_clause])
 
     return {
         "style_id": profile["style_id"],
@@ -301,4 +320,7 @@ def generate_design_brief(profile: dict[str, Any]) -> dict[str, Any]:
         "change": change,
         "rendered_prompt": rendered_prompt,
         "negative_prompt": _DEFAULT_NEGATIVE_PROMPT,
+        "attribute_clause": attribute_clause,
+        "novelty_clauses": novelty_clauses,
+        "descriptive_clause": descriptive_clause,
     }

@@ -92,7 +92,17 @@ never a specific dataset's literal column name.
   "preserve": ["<attribute or narrative that made this style a winner>", "..."],
   "change": ["<novelty axis -- a dimension a derived concept should meaningfully vary>", "..."],
   "rendered_prompt": "<the actual text-to-image prompt string, synthesized from the above>",
-  "negative_prompt": "<things to explicitly avoid>"
+  "negative_prompt": "<things to explicitly avoid>",
+
+  // The same three pieces `rendered_prompt` is assembled FROM, exposed separately (not just
+  // concatenated) so a generation-backend-specific caller with a hard prompt token budget (e.g.
+  // SDXL/CLIP's 77-token limit -- see "Design notes" below) can fit the prompt to that budget by
+  // dropping clauses in priority order instead of truncating a flat string and losing content
+  // unpredictably. This skill stays generation-backend-agnostic and does no token counting itself
+  // -- see `nss.generate.prompt_budget` for the concrete SDXL-facing enforcement.
+  "attribute_clause": "<short (~15-20 token) clause naming the 4 defining attributes -- MUST be kept intact by any downstream budget-fitting; `rendered_prompt` always starts with this>",
+  "novelty_clauses": ["<one short clause per `change` item -- LOWEST priority, drop first>", "..."],
+  "descriptive_clause": "<silhouette/fabric/colour-accent/surface-treatment detail + the closing product-photography line -- drop only after every novelty_clauses entry is already dropped and the prompt is still over budget>"
 }
 ```
 
@@ -111,6 +121,15 @@ trim/construction detail, a small proportion tweak) that a derived concept shoul
   general design-brief-writing choice (a brief describes the product, not a photoshoot cast),
   not a special case for any one category — it happens to also satisfy sensitive-category
   handling (see the underwear example below) without any category-specific branching.
+- **Attributes-first ordering, defending against a real downstream truncation defect.** A real
+  generation run found the 4 defining attributes buried mid-prompt while novelty content trailed
+  at the very end -- exactly the part a hard prompt-token budget (e.g. SDXL/CLIP's 77-token
+  limit) truncates first, since truncation always drops the tail. `rendered_prompt` now always
+  opens with `attribute_clause` (garment category, construction family, colour, pattern/finish --
+  ~15-20 tokens), with `novelty_clauses` and then `descriptive_clause` following. This skill does
+  no token counting itself (it stays generation-backend-agnostic); it just guarantees the ordering
+  and exposes the three pieces separately so a backend-specific caller with a real budget can drop
+  clauses instead of truncating blindly.
 - **Novelty axes are chosen to not collide with `preserve`.** If a style's surface treatment is
   already a strong print, the `change` list's graphic-motif axis says to skip itself rather than
   compounding the existing print.
@@ -175,10 +194,19 @@ Output `DesignBrief` (actual `generate_design_brief(...)` output for the input a
     "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
     "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
   ],
-  "rendered_prompt": "T-shirt, jersey basic construction. Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour: Black, anchor tone (optional accent: charcoal or ink navy). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
-  "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+  "rendered_prompt": "T-shirt, jersey basic construction, black solid. Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment). Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish). Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise). Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour accent option: charcoal or ink navy. Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+  "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography",
+  "attribute_clause": "T-shirt, jersey basic construction, black solid.",
+  "novelty_clauses": [
+    "Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment).",
+    "Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish).",
+    "Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise)."
+  ],
+  "descriptive_clause": "Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour accent option: charcoal or ink navy. Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Product photography of the garment itself, clean studio background, even lighting, no styling props."
 }
 ```
+
+`attribute_clause` above measures 13 real SDXL/CLIP tokens (`CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")`, BOS/EOS included) -- comfortably inside SDXL's 77-token budget on its own, while the FULL `rendered_prompt` measures 196 -- confirming why a downstream budget-fitting step (see `nss.generate.prompt_budget`) must drop `novelty_clauses`/`descriptive_clause` content, never `attribute_clause`.
 
 ## Worked example 2 — persistence-driven, sensitive category (underwear)
 
@@ -240,8 +268,15 @@ other style, simply because that is how this skill always writes a brief):
     "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
     "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
   ],
-  "rendered_prompt": "Underwear bottom, under-, nightwear construction. Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour: Red, anchor tone (optional accent: burgundy or brick). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
-  "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+  "rendered_prompt": "Underwear bottom, under-, nightwear construction, red solid. Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment). Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish). Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise). Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour accent option: burgundy or brick. Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+  "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography",
+  "attribute_clause": "Underwear bottom, under-, nightwear construction, red solid.",
+  "novelty_clauses": [
+    "Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment).",
+    "Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish).",
+    "Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise)."
+  ],
+  "descriptive_clause": "Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour accent option: burgundy or brick. Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Product photography of the garment itself, clean studio background, even lighting, no styling props."
 }
 ```
 
