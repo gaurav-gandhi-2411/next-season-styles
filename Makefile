@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram deliverables test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -72,6 +72,12 @@ sweep:
 # retry loop) to reports/figures/agent_architecture.png. matplotlib-only, no GPU/data required.
 agent-diagram:
 	uv run python -m nss.viz.agent_architecture
+
+# Compose the C8 final deliverable figures (reports/figures/FINAL_concepts.png +
+# reports/figures/evidence_chain.png) from C6's selected concepts + C7's full QC retry-history
+# evidence. Pure image composition, no GPU/generation/scoring required.
+deliverables:
+	uv run python -m nss.generate.final_deliverables
 
 test:
 	uv run pytest --cov=src/nss
