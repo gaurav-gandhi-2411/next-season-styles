@@ -25,8 +25,11 @@ from run_qc import (  # noqa: E402 -- import must follow sys.path setup above
     copy_anchor_threshold,
     copy_check,
     copy_check_pass,
+    fidelity_pass_from_per_judge,
     is_self_scoring_contamination,
+    judge_fidelity_threshold,
     mean_score,
+    per_judge_fidelity_pass,
     qc_verdict,
     run_judge,
     score_attribute_match,
@@ -464,3 +467,121 @@ def test_choose_next_retry_value_raises_when_exhausted() -> None:
             primary_lower=0.0325,
             primary_upper=0.0975,
         )
+
+
+# ---------------------------------------------------------------------------
+# copy_check_pass active_metrics -- task F1's metric-dropping mechanism
+# ---------------------------------------------------------------------------
+
+
+def test_copy_check_pass_default_requires_both_metrics() -> None:
+    """Unchanged default behavior: both metrics active, CLIP passes but DINOv2 doesn't -> fail."""
+    result = copy_check(
+        clip_margin=0.05, dino_margin=0.6, clip_copy_anchor_gen=0.1, dino_copy_anchor_gen=0.5
+    )
+    assert copy_check_pass(result) is False
+
+
+def test_copy_check_pass_dropping_non_discriminative_metric_changes_verdict() -> None:
+    """Dropping DINOv2 (active_metrics={'clip'}) -- a candidate that only fails on DINOv2 now
+    PASSES, since only CLIP is being gated on."""
+    result = copy_check(
+        clip_margin=0.05, dino_margin=0.6, clip_copy_anchor_gen=0.1, dino_copy_anchor_gen=0.5
+    )
+    assert result["clip_below_copy_anchor"] is True
+    assert result["dino_below_copy_anchor"] is False
+    assert copy_check_pass(result, active_metrics=frozenset({"clip"})) is True
+    assert copy_check_pass(result, active_metrics=frozenset({"dinov2"})) is False
+
+
+def test_copy_check_pass_rejects_empty_active_metrics() -> None:
+    result = copy_check(
+        clip_margin=0.05, dino_margin=0.2, clip_copy_anchor_gen=0.1, dino_copy_anchor_gen=0.5
+    )
+    with pytest.raises(ValueError, match="non-empty"):
+        copy_check_pass(result, active_metrics=frozenset())
+
+
+def test_copy_check_pass_rejects_unknown_metric_name() -> None:
+    result = copy_check(
+        clip_margin=0.05, dino_margin=0.2, clip_copy_anchor_gen=0.1, dino_copy_anchor_gen=0.5
+    )
+    with pytest.raises(ValueError, match="unknown metric"):
+        copy_check_pass(result, active_metrics=frozenset({"clip", "resnet"}))
+
+
+# ---------------------------------------------------------------------------
+# judge_fidelity_threshold / per_judge_fidelity_pass / fidelity_pass_from_per_judge -- task F2
+# ---------------------------------------------------------------------------
+
+
+def test_judge_fidelity_threshold_hand_computed() -> None:
+    """This project's real Gemini calibration mean, 0.8333... -- hand-verifiable: 0.75 * 0.8333...
+    = 0.625."""
+    assert judge_fidelity_threshold(0.8333333333333334, fraction=0.75) == pytest.approx(0.625)
+
+
+def test_judge_fidelity_threshold_groq_ceiling_below_old_flat_threshold() -> None:
+    """This project's real Groq calibration mean, 0.5840686274509804 -- BELOW the old flat 0.75,
+    so the old threshold was unattainable for Groq; the corrected threshold sits below its own
+    ceiling and is therefore reachable."""
+    threshold = judge_fidelity_threshold(0.5840686274509804, fraction=0.75)
+    assert threshold == pytest.approx(0.4380514705882353)
+    assert threshold < 0.5840686274509804  # reachable: below the judge's own ceiling
+    assert 0.75 > 0.5840686274509804  # the OLD flat threshold was not
+
+
+def test_per_judge_fidelity_pass_hand_verifiable() -> None:
+    scores = {"gemini": 0.7, "groq": 0.4}
+    thresholds = {"gemini": 0.625, "groq": 0.4381}
+    result = per_judge_fidelity_pass(scores, thresholds)
+    assert result == {"gemini": True, "groq": False}
+
+
+def test_per_judge_fidelity_pass_raises_on_missing_threshold() -> None:
+    with pytest.raises(KeyError):
+        per_judge_fidelity_pass({"gemini": 0.7}, thresholds={})
+
+
+def test_fidelity_pass_from_per_judge_requires_all_available_judges_to_pass() -> None:
+    """Strict joint-AND, same convention as Gate 1: one judge failing its own threshold fails
+    the whole Gate-2 verdict, even if another judge comfortably passes."""
+    thresholds = {"gemini": 0.625, "groq": 0.4381}
+    assert fidelity_pass_from_per_judge({"gemini": 0.9, "groq": 0.9}, thresholds) is True
+    assert fidelity_pass_from_per_judge({"gemini": 0.9, "groq": 0.1}, thresholds) is False
+    # groq absent (not failed) -- gemini alone is sufficient.
+    assert fidelity_pass_from_per_judge({"gemini": 0.9}, thresholds) is True
+
+
+def test_fidelity_pass_from_per_judge_no_available_judges_is_false() -> None:
+    """No fidelity signal at all is never an unconditional pass."""
+    assert fidelity_pass_from_per_judge({}, {"gemini": 0.625}) is False
+
+
+def test_qc_verdict_with_per_judge_thresholds_differs_from_flat_threshold() -> None:
+    """A concept where Groq's raw mean_score (0.5) is BELOW the old flat 0.75 but ABOVE Groq's own
+    corrected per-judge threshold (0.4381) fails under the old convention but passes Gate 2 under
+    the new one -- concrete demonstration the two conventions can disagree."""
+    margin = {"clip_margin": 0.05, "clip_in_band": True, "dino_margin": 0.2, "dino_in_band": True}
+    copy = copy_check(
+        clip_margin=0.05, dino_margin=0.2, clip_copy_anchor_gen=0.1, dino_copy_anchor_gen=0.5
+    )
+    judges = {
+        "groq": JudgeResult(
+            judge_name="groq",
+            available=True,
+            raw_extraction={"a": "b"},
+            scores={"a": 0.5},
+            mean_score=0.5,
+            excluded_reason=None,
+        )
+    }
+
+    old_verdict = qc_verdict("style-a", margin, copy, judges)
+    assert old_verdict["fidelity_pass"] is False  # 0.5 < flat 0.75
+
+    new_verdict = qc_verdict(
+        "style-a", margin, copy, judges, per_judge_fidelity_thresholds={"groq": 0.4381}
+    )
+    assert new_verdict["fidelity_pass"] is True  # 0.5 >= groq's own corrected 0.4381
+    assert new_verdict["overall_pass"] is True

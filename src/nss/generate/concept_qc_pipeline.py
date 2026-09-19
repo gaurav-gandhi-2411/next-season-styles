@@ -86,10 +86,26 @@ CALIBRATION_RESULTS_PATH = Path("reports/tables/vlm_calibration_results.csv")
 RETRY_OUTPUT_DIR = Path("data/generated/concept_qc_retries")
 MARGIN_ANCHORS_GEN_PATH = Path("reports/tables/margin_anchors_generated_space.csv")
 RESCORED_RESULTS_PATH = Path("reports/tables/concept_qc_rescored_under_new_gate.csv")
+FINAL_CONCEPTS_V2_PATH = Path("reports/tables/final_concepts_v2.csv")
+FINAL_CONCEPTS_V2_RESCORED_PATH = Path("reports/tables/final_concepts_v2_rescored_f1_f2.csv")
 
 MAX_RETRIES = 2
-ATTRIBUTE_FIDELITY_THRESHOLD = SKILL.DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD  # 0.75
+ATTRIBUTE_FIDELITY_THRESHOLD = SKILL.DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD  # 0.75 -- OLD flat
+# threshold, kept only as the fallback `qc_verdict(per_judge_fidelity_thresholds=None)` path uses;
+# task F2's actual Gate 2 threshold is per-judge, see `compute_fidelity_thresholds` below.
 COPY_ANCHOR_DISCOUNT = SKILL.DEFAULT_COPY_ANCHOR_DISCOUNT  # 0.10 -- see run_qc.py's Gate 1 note
+
+# TASK F1 -- Gate-1 active metrics after correcting `unrelated_anchor_gen`'s contaminated
+# ip_adapter_scale=1.0 construction (`nss.generate.derive_unrelated_anchor_fix`, regenerated at
+# ip_adapter_scale=0.0): both CLIP and DINOv2's corrected, pooled copy-vs-unrelated gap cleared
+# `nss.generate.derive_unrelated_anchor_fix.NON_DISCRIMINATIVE_GAP_THRESHOLD` (0.05) -- MEASURED
+# (`reports/tables/margin_anchors_generated_space.csv`'s ALL_STYLES_POOLED rows): CLIP copy_mean
+# 0.0960, unrelated_mean -0.0438, gap=+0.1398 (E1's contaminated gap: +0.0029); DINOv2 copy_mean
+# 0.5150, unrelated_mean 0.0097, gap=+0.5053 (E1's contaminated gap: +0.0251) -- so BOTH remain
+# active; neither metric was dropped. See
+# `reports/tables/margin_anchor_realspace_vs_genspace_gap.csv` for the full corrected numbers, and
+# the task F1 report for the full before/after comparison.
+GATE1_ACTIVE_METRICS: frozenset[str] = frozenset({"clip", "dinov2"})
 
 # A judge PASSES calibration iff mean(positive control scores) - mean(negative control scores) >=
 # this gap -- a deliberately conservative, clear-separation requirement (NOT "any positive gap
@@ -348,6 +364,8 @@ def run_qc_with_retries(
     attribute_fidelity_threshold: float = ATTRIBUTE_FIDELITY_THRESHOLD,
     copy_anchor_discount: float = COPY_ANCHOR_DISCOUNT,
     secondary_favors_higher: bool = True,
+    active_metrics: frozenset[str] = GATE1_ACTIVE_METRICS,
+    per_judge_fidelity_thresholds: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     """Run the C7/E2 QC gate for one style, retrying up to `max_retries` times on failure.
 
@@ -393,6 +411,13 @@ def run_qc_with_retries(
         secondary_favors_higher: See `skills/concept-qc/run_qc.py`'s
             `choose_next_retry_value` -- this project's own evidence (module docstring
             RETRY-VALUE RATIONALE) says `True`.
+        active_metrics: Task F1's Gate-1 metric set (`GATE1_ACTIVE_METRICS`) -- which metrics must
+            independently pass `copy_check_pass`. Defaults to the current evidence-based set
+            (both, as of this task -- see that constant's docstring).
+        per_judge_fidelity_thresholds: Task F2's per-judge Gate-2 thresholds
+            (`compute_fidelity_thresholds`'s output), or `None` to keep the OLD flat-threshold
+            behavior (`attribute_fidelity_threshold`) -- see `run_qc.qc_verdict`'s docstring for
+            the full behavior split.
 
     Returns:
         One dict per attempt (0-indexed `attempt_number`), each carrying the full `QCVerdict` plus
@@ -416,7 +441,13 @@ def run_qc_with_retries(
             copy_anchor_discount,
         )
         verdict = SKILL.qc_verdict(
-            style_id, margin, copy_check_result, judges, attribute_fidelity_threshold
+            style_id,
+            margin,
+            copy_check_result,
+            judges,
+            attribute_fidelity_threshold,
+            active_metrics=active_metrics,
+            per_judge_fidelity_thresholds=per_judge_fidelity_thresholds,
         )
         is_last = attempt_number == max_retries
         retry_triggered = not verdict["overall_pass"] and not is_last
@@ -568,6 +599,38 @@ def summarize_calibration(
     return summary
 
 
+def compute_fidelity_thresholds(
+    calibration_summary: dict[str, dict[str, Any]],
+    fraction: float = SKILL.DEFAULT_FIDELITY_THRESHOLD_FRACTION,
+) -> dict[str, float]:
+    """Per-judge Gate-2 threshold (task F2): `fraction * that judge's own positive-control mean`.
+
+    Replaces the old flat `0.75` (`ATTRIBUTE_FIDELITY_THRESHOLD`, picked without reference to any
+    calibration data) with a threshold scaled to what EACH judge actually achieves on a genuine
+    positive control -- see `reports/tables/vlm_calibration_results.csv` (this project's real
+    measured means) and `SKILL.md`'s "Gate 2" section for the resulting values and which direction
+    each judge's threshold moved relative to the old flat `0.75`.
+
+    Args:
+        calibration_summary: Output of `summarize_calibration` (has `positive_mean` for every
+            judge with `available=True`).
+        fraction: See `run_qc.judge_fidelity_threshold`.
+
+    Returns:
+        `{judge_name: threshold}` for every judge with `available=True` in `calibration_summary`
+        -- a judge that was never reachable during calibration has no calibration ceiling to scale
+        from and is simply ABSENT from the result (never defaulted to the old flat threshold
+        silently -- a caller combining this with `SKILL.fidelity_pass_from_per_judge` will
+        correctly raise `KeyError` rather than silently pass/fail an uncalibrated judge, per rule
+        98a).
+    """
+    return {
+        judge_name: SKILL.judge_fidelity_threshold(result["positive_mean"], fraction)
+        for judge_name, result in calibration_summary.items()
+        if result["available"]
+    }
+
+
 def compute_overall_kappa(
     attempts: list[dict[str, Any]], threshold: float = SKILL.DEFAULT_BINARIZE_THRESHOLD
 ) -> tuple[float | None, int]:
@@ -678,6 +741,7 @@ def rescore_attempt_under_new_gate(
     dino_copy_anchor_gen: float,
     fidelity_pass: bool,
     discount: float = COPY_ANCHOR_DISCOUNT,
+    active_metrics: frozenset[str] = SKILL.GATE1_METRICS,
 ) -> dict[str, Any]:
     """Re-evaluate ONE already-computed `(clip_margin, dino_margin, fidelity_pass)` triple (task E2
     part 3) against the NEW Gate-1 copy-check -- never recomputes an embedding, a margin, or a VLM
@@ -693,6 +757,10 @@ def rescore_attempt_under_new_gate(
         fidelity_pass: The already-logged Gate 2 (attribute-fidelity) verdict, reused unchanged.
         discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold` for the sign-safety
             reasoning.
+        active_metrics: Which Gate-1 metrics must pass (`SKILL.copy_check_pass`'s `active_metrics`
+            -- task F1). Defaults to BOTH (`SKILL.GATE1_METRICS`), i.e. this function's ORIGINAL
+            (task E2) behavior is unchanged unless a caller explicitly passes task F1's corrected
+            set (`GATE1_ACTIVE_METRICS`).
 
     Returns:
         A flat dict with the new gate's per-metric thresholds/verdicts, `copy_check_pass`,
@@ -701,7 +769,7 @@ def rescore_attempt_under_new_gate(
     result = SKILL.copy_check(
         clip_margin, dino_margin, clip_copy_anchor_gen, dino_copy_anchor_gen, discount
     )
-    copy_pass = SKILL.copy_check_pass(result)
+    copy_pass = SKILL.copy_check_pass(result, active_metrics=active_metrics)
     return {
         "clip_margin": clip_margin,
         "clip_copy_anchor_gen": clip_copy_anchor_gen,
@@ -774,6 +842,95 @@ def rescore_results_csv(
     return out_df
 
 
+def _available_judge_scores_from_row(row: dict[str, Any]) -> dict[str, float]:
+    """`{judge_name: mean_score}` for whichever judges scored one already-logged results row.
+
+    Mirrors `skills/concept-qc/run_qc.py`'s `_available_judge_scores`, operating on a flat CSV row
+    (`*_available`/`*_mean_score` column pairs) instead of a `dict[str, JudgeResult]`.
+    """
+    scores: dict[str, float] = {}
+    if row["gemini_available"] and row["gemini_mean_score"] is not None:
+        scores["gemini"] = float(row["gemini_mean_score"])
+    if row["groq_available"] and row["groq_mean_score"] is not None:
+        scores["groq"] = float(row["groq_mean_score"])
+    return scores
+
+
+def rescore_final_concepts_v2_under_f1_f2(
+    path: Path = FINAL_CONCEPTS_V2_PATH,
+    output_path: Path = FINAL_CONCEPTS_V2_RESCORED_PATH,
+    active_metrics: frozenset[str] = GATE1_ACTIVE_METRICS,
+    fidelity_thresholds: dict[str, float] | None = None,
+) -> pl.DataFrame:
+    """Re-score E5's 24 already-generated `final_concepts_v2.csv` candidates under tasks F1 (Gate-1
+    active-metrics correction) and F2 (per-judge Gate-2 threshold).
+
+    Reads ONLY already-logged values -- never regenerates an image, recomputes an embedding, or
+    re-calls a VLM judge (same "re-score already-computed values" convention as
+    `rescore_attempt_under_new_gate`/`rescore_results_csv`). `copy_anchor_gen` itself (and
+    therefore every row's already-logged `clip_copy_anchor_gen`/`dino_copy_anchor_gen`/
+    `clip_copy_anchor_threshold`/`dino_copy_anchor_threshold`/`clip_below_copy_anchor`/
+    `dino_below_copy_anchor` columns) is UNCHANGED by task F1 -- only `unrelated_anchor_gen` was
+    contaminated and regenerated (see `nss.generate.derive_unrelated_anchor_fix`), and Gate 1 never
+    reads `unrelated_anchor_gen` directly (see `SKILL.md`'s "Gate 1" section). The only Gate-1
+    change this re-score applies is re-combining each row's already-logged per-metric
+    `*_below_copy_anchor` booleans under `active_metrics` (task F1's evidence-based metric set).
+
+    Args:
+        path: Path to the already-written `final_concepts_v2.csv` (E5's 24 candidates).
+        output_path: Destination for the re-scored CSV.
+        active_metrics: Task F1's Gate-1 metric set (`GATE1_ACTIVE_METRICS`).
+        fidelity_thresholds: Task F2's per-judge Gate-2 thresholds
+            (`compute_fidelity_thresholds`'s output). `None` (the default) re-derives them from
+            `reports/tables/vlm_calibration_results.csv` directly, so this function is runnable
+            standalone without a caller having to re-run calibration first.
+
+    Returns:
+        One row per already-logged candidate: `style_id`, `seed`, `retry_round`,
+        `copy_check_pass_original`/`copy_check_pass_f1_corrected`,
+        `fidelity_pass_original`/`fidelity_pass_f2_corrected`, and
+        `overall_pass_original`/`overall_pass_f1_f2_corrected`.
+    """
+    if fidelity_thresholds is None:
+        calibration_df = pl.read_csv(CALIBRATION_RESULTS_PATH)
+        fidelity_thresholds = compute_fidelity_thresholds(summarize_calibration(calibration_df))
+
+    df = pl.read_csv(path)
+    rows: list[dict[str, Any]] = []
+    for row in df.iter_rows(named=True):
+        copy_result = SKILL.CopyCheckResult(
+            clip_margin=row["clip_margin"],
+            clip_copy_anchor_gen=row["clip_copy_anchor_gen"],
+            clip_copy_anchor_threshold=row["clip_copy_anchor_threshold"],
+            clip_below_copy_anchor=row["clip_below_copy_anchor"],
+            dino_margin=row["dino_margin"],
+            dino_copy_anchor_gen=row["dino_copy_anchor_gen"],
+            dino_copy_anchor_threshold=row["dino_copy_anchor_threshold"],
+            dino_below_copy_anchor=row["dino_below_copy_anchor"],
+        )
+        copy_pass_corrected = SKILL.copy_check_pass(copy_result, active_metrics=active_metrics)
+        fidelity_pass_corrected = SKILL.fidelity_pass_from_per_judge(
+            _available_judge_scores_from_row(row), fidelity_thresholds
+        )
+        rows.append(
+            {
+                "style_id": row["style_id"],
+                "seed": row["seed"],
+                "retry_round": row["retry_round"],
+                "copy_check_pass_original": row["copy_check_pass"],
+                "copy_check_pass_f1_corrected": copy_pass_corrected,
+                "fidelity_pass_original": row["fidelity_pass"],
+                "fidelity_pass_f2_corrected": fidelity_pass_corrected,
+                "overall_pass_original": row["overall_pass"],
+                "overall_pass_f1_f2_corrected": copy_pass_corrected and fidelity_pass_corrected,
+            }
+        )
+    out_df = pl.DataFrame(rows)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out_df.write_csv(output_path)
+    return out_df
+
+
 def main() -> None:
     """Run the full C7/E2 pipeline: calibration -> per-style QC-with-retries -> write artifacts."""
     briefs = final_concepts.load_design_briefs()
@@ -799,6 +956,12 @@ def main() -> None:
     calibration_summary = summarize_calibration(calibration_df)
     for judge_name, result in calibration_summary.items():
         print(f"  {judge_name}: {result}")
+
+    fidelity_thresholds = compute_fidelity_thresholds(calibration_summary)
+    print(
+        "Per-judge Gate-2 thresholds (task F2, 0.75 x each judge's own calibration ceiling): "
+        f"{fidelity_thresholds}"
+    )
 
     print("\n=== QC gate with retries ===")
     all_attempts: list[dict[str, Any]] = []
@@ -875,6 +1038,8 @@ def main() -> None:
             judge_panel_fn=judge_panel_fn,
             margin_fn=margin_fn,
             generate_fn=generate_fn,
+            active_metrics=GATE1_ACTIVE_METRICS,
+            per_judge_fidelity_thresholds=fidelity_thresholds,
         )
         final_attempt = attempts[-1]
         style_final_pass[style_id] = final_attempt["overall_pass"]

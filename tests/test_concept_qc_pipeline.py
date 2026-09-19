@@ -15,9 +15,11 @@ import pytest
 
 from nss.generate.concept_qc_pipeline import (
     MAX_RETRIES,
+    compute_fidelity_thresholds,
     load_copy_anchors_gen,
     parse_style_attributes,
     rescore_attempt_under_new_gate,
+    rescore_final_concepts_v2_under_f1_f2,
     rescore_results_csv,
     run_qc_with_retries,
     summarize_calibration,
@@ -428,3 +430,172 @@ def test_rescore_results_csv_against_real_9_logged_attempts(tmp_path: Path) -> N
     sweater = df.filter(pl.col("style_id") == sweater_style)
     assert sweater["copy_check_pass"].to_list() == [False, False, False]
     assert sweater["fidelity_pass"].to_list() == [False, False, False]
+
+
+# ---------------------------------------------------------------------------
+# rescore_attempt_under_new_gate -- active_metrics (task F1)
+# ---------------------------------------------------------------------------
+
+
+def test_rescore_attempt_under_new_gate_active_metrics_default_unchanged() -> None:
+    """Default `active_metrics` (both) reproduces task E2's original behavior exactly."""
+    result = rescore_attempt_under_new_gate(
+        clip_margin=0.5,  # not below its 0.09 threshold
+        dino_margin=0.2,  # below its 0.45 threshold
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+        fidelity_pass=True,
+    )
+    assert result["copy_check_pass"] is False  # CLIP alone fails the AND
+
+
+def test_rescore_attempt_under_new_gate_active_metrics_drops_clip() -> None:
+    """Dropping CLIP (task F1's metric-dropping mechanism) -- the SAME margins that failed above
+    now pass, since only DINOv2 is gated on."""
+    result = rescore_attempt_under_new_gate(
+        clip_margin=0.5,
+        dino_margin=0.2,
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+        fidelity_pass=True,
+        active_metrics=frozenset({"dinov2"}),
+    )
+    assert result["copy_check_pass"] is True
+    assert result["overall_pass_new_gate"] is True
+
+
+# ---------------------------------------------------------------------------
+# compute_fidelity_thresholds -- task F2
+# ---------------------------------------------------------------------------
+
+
+def test_compute_fidelity_thresholds_hand_computed_real_project_numbers() -> None:
+    """This project's real calibration means (`vlm_calibration_results.csv`) -- hand-verifiable:
+    0.75 * 0.8333... = 0.625, 0.75 * 0.5840686... = 0.4380514...."""
+    calibration_summary = {
+        "gemini": {"available": True, "positive_mean": 0.8333333333333334},
+        "groq": {"available": True, "positive_mean": 0.5840686274509804},
+    }
+    thresholds = compute_fidelity_thresholds(calibration_summary)
+    assert thresholds["gemini"] == pytest.approx(0.625)
+    assert thresholds["groq"] == pytest.approx(0.4380514705882353)
+
+
+def test_compute_fidelity_thresholds_excludes_unavailable_judges() -> None:
+    calibration_summary = {
+        "gemini": {"available": True, "positive_mean": 0.8},
+        "groq": {"available": False, "detail": "judge never available during calibration"},
+    }
+    thresholds = compute_fidelity_thresholds(calibration_summary)
+    assert set(thresholds) == {"gemini"}
+
+
+def test_compute_fidelity_thresholds_custom_fraction() -> None:
+    calibration_summary = {"gemini": {"available": True, "positive_mean": 1.0}}
+    thresholds = compute_fidelity_thresholds(calibration_summary, fraction=0.5)
+    assert thresholds["gemini"] == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# rescore_final_concepts_v2_under_f1_f2 -- tasks F1 + F2, applied to E5's 24 candidates
+# ---------------------------------------------------------------------------
+
+
+def _f1_f2_row(
+    *,
+    style_id: str = "style-a",
+    seed: int = 42,
+    clip_margin: float = 0.5,  # not below its 0.09 threshold
+    dino_margin: float = 0.2,  # below its 0.45 threshold
+    gemini_available: bool = True,
+    gemini_mean_score: float = 0.9,
+    groq_available: bool = True,
+    groq_mean_score: float = 0.5,
+) -> dict[str, Any]:
+    return {
+        "style_id": style_id,
+        "seed": seed,
+        "retry_round": 0,
+        "clip_margin": clip_margin,
+        "clip_copy_anchor_gen": 0.1,
+        "clip_copy_anchor_threshold": 0.09,
+        "clip_below_copy_anchor": clip_margin < 0.09,
+        "dino_margin": dino_margin,
+        "dino_copy_anchor_gen": 0.5,
+        "dino_copy_anchor_threshold": 0.45,
+        "dino_below_copy_anchor": dino_margin < 0.45,
+        "copy_check_pass": (clip_margin < 0.09) and (dino_margin < 0.45),  # the ORIGINAL verdict
+        "gemini_available": gemini_available,
+        "gemini_mean_score": gemini_mean_score,
+        "groq_available": groq_available,
+        "groq_mean_score": groq_mean_score,
+        "fidelity_pass": True,  # the ORIGINAL verdict -- arbitrary for this test, never recomputed
+        # from the OLD flat threshold logic by this function
+        "overall_pass": False,  # the ORIGINAL verdict, arbitrary
+    }
+
+
+def test_rescore_final_concepts_v2_drops_clip_and_applies_per_judge_thresholds(
+    tmp_path: Path,
+) -> None:
+    """Same scenario as `test_rescore_attempt_under_new_gate_active_metrics_drops_clip`, applied
+    through the full CSV re-score path, PLUS Gate 2's per-judge recombination: groq's raw mean_score
+    (0.5) is below the old flat 0.75 but above its own corrected threshold (0.4381)."""
+    path = tmp_path / "final_concepts_v2.csv"
+    output_path = tmp_path / "rescored.csv"
+    pl.DataFrame([_f1_f2_row()]).write_csv(path)
+
+    result = rescore_final_concepts_v2_under_f1_f2(
+        path=path,
+        output_path=output_path,
+        active_metrics=frozenset({"dinov2"}),
+        fidelity_thresholds={"gemini": 0.625, "groq": 0.4381},
+    )
+
+    assert output_path.exists()
+    row = result.row(0, named=True)
+    assert row["copy_check_pass_original"] is False  # CLIP-and-DINOv2 AND fails (original gate)
+    assert row["copy_check_pass_f1_corrected"] is True  # DINOv2-only passes (task F1)
+    assert row["fidelity_pass_f2_corrected"] is True  # both judges clear their own threshold
+    assert row["overall_pass_f1_f2_corrected"] is True
+
+
+def test_rescore_final_concepts_v2_fidelity_fails_if_one_judge_misses_its_own_threshold(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "final_concepts_v2.csv"
+    output_path = tmp_path / "rescored.csv"
+    pl.DataFrame([_f1_f2_row(groq_mean_score=0.1)]).write_csv(path)
+
+    result = rescore_final_concepts_v2_under_f1_f2(
+        path=path,
+        output_path=output_path,
+        active_metrics=frozenset({"clip", "dinov2"}),
+        fidelity_thresholds={"gemini": 0.625, "groq": 0.4381},
+    )
+
+    row = result.row(0, named=True)
+    assert row["fidelity_pass_f2_corrected"] is False  # groq's 0.1 < its own 0.4381
+    assert row["overall_pass_f1_f2_corrected"] is False
+
+
+def test_rescore_final_concepts_v2_unavailable_judge_excluded_from_per_judge_check(
+    tmp_path: Path,
+) -> None:
+    """A judge with `*_available=False` contributes no score and cannot block/enable Gate 2 on its
+    own -- only the AVAILABLE judge(s)' thresholds are checked."""
+    path = tmp_path / "final_concepts_v2.csv"
+    output_path = tmp_path / "rescored.csv"
+    pl.DataFrame(
+        [_f1_f2_row(groq_available=False, groq_mean_score=0.0, gemini_mean_score=0.9)]
+    ).write_csv(path)
+
+    result = rescore_final_concepts_v2_under_f1_f2(
+        path=path,
+        output_path=output_path,
+        active_metrics=frozenset({"clip", "dinov2"}),
+        fidelity_thresholds={"gemini": 0.625, "groq": 0.4381},
+    )
+
+    row = result.row(0, named=True)
+    assert row["fidelity_pass_f2_corrected"] is True  # gemini alone (0.9 >= 0.625) is sufficient

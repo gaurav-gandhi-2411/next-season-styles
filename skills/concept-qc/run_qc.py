@@ -26,6 +26,18 @@ DEFAULT_BINARIZE_THRESHOLD = 0.5
 DEFAULT_COPY_ANCHOR_DISCOUNT = 0.10
 LLM_CONSENSUS_LABEL = "LLM-consensus (NOT human ground truth)"
 
+# Gate 1's default metric set -- both CLIP and DINOv2 required (the original, strict joint-AND
+# convention). Calling code with evidence that one metric is non-discriminative even after
+# correcting its anchor construction (see `copy_check_pass`'s docstring) can narrow this via its
+# own `active_metrics` argument -- never done unconditionally by this generic skill module, since
+# "is metric X discriminative" is a per-project, per-measurement finding, not a skill-level default.
+GATE1_METRICS: frozenset[str] = frozenset({"clip", "dinov2"})
+
+# Gate 2's default threshold FRACTION (task F2): a judge's pass threshold is `fraction * that
+# judge's own positive-control calibration mean`, not a flat absolute score -- see
+# `judge_fidelity_threshold`.
+DEFAULT_FIDELITY_THRESHOLD_FRACTION = 0.75
+
 
 class JudgeCaller(Protocol):
     """A blind attribute-extraction callable (see `SKILL.md`'s "Blindness contract" section).
@@ -160,11 +172,45 @@ def copy_check(
     )
 
 
-def copy_check_pass(result: CopyCheckResult) -> bool:
-    """Gate-1 verdict: BOTH CLIP and DINOv2 margins must be below their copy-anchor thresholds --
-    the same strict joint-AND convention `MarginBandResult`'s old `margin_band_pass` used, kept for
-    consistency (see `SKILL.md`'s "Design notes")."""
-    return result["clip_below_copy_anchor"] and result["dino_below_copy_anchor"]
+def copy_check_pass(
+    result: CopyCheckResult, active_metrics: frozenset[str] = GATE1_METRICS
+) -> bool:
+    """Gate-1 verdict: every ACTIVE metric's margin must be below its copy-anchor threshold.
+
+    Defaults to BOTH CLIP and DINOv2 (`GATE1_METRICS`) -- the original, strict joint-AND
+    convention `MarginBandResult`'s old `margin_band_pass` used, kept for consistency (see
+    `SKILL.md`'s "Design notes"). `active_metrics` lets calling code DROP a metric it has measured
+    to be non-discriminative between the "genuinely a copy" and "genuinely unrelated" calibration
+    endpoints, even AFTER correcting that metric's own anchor construction (a metric with no real
+    separation between those two endpoints contributes noise, not signal, to an AND-of-both check
+    -- see `SKILL.md`'s "Gate 1: dropping a non-discriminative metric" section for a worked
+    example with real numbers).
+
+    Args:
+        result: Output of `copy_check`.
+        active_metrics: Which metrics (`"clip"`, `"dinov2"`) must independently pass for Gate 1 to
+            pass overall. Must be non-empty and contain only known metric names.
+
+    Returns:
+        `True` iff every metric named in `active_metrics` has its `*_below_copy_anchor` boolean
+        `True` in `result`.
+
+    Raises:
+        ValueError: if `active_metrics` is empty (a Gate 1 with zero active metrics is not a gate,
+            it is an unconditional pass, which must never happen silently -- see rule 98a) or
+            contains an unrecognized metric name.
+    """
+    if not active_metrics:
+        raise ValueError("active_metrics must be non-empty -- Gate 1 needs at least one metric")
+    unknown = active_metrics - GATE1_METRICS
+    if unknown:
+        raise ValueError(f"unknown metric(s) in active_metrics: {sorted(unknown)}")
+    checks: list[bool] = []
+    if "clip" in active_metrics:
+        checks.append(result["clip_below_copy_anchor"])
+    if "dinov2" in active_metrics:
+        checks.append(result["dino_below_copy_anchor"])
+    return all(checks)
 
 
 class JudgeResult(TypedDict):
@@ -440,36 +486,145 @@ def combine_judges(judge_results: dict[str, JudgeResult]) -> tuple[float, int]:
     return sum(contributing) / len(contributing), len(contributing)
 
 
+def judge_fidelity_threshold(
+    positive_control_mean: float, fraction: float = DEFAULT_FIDELITY_THRESHOLD_FRACTION
+) -> float:
+    """One judge's Gate-2 pass threshold: `fraction` of that judge's OWN calibration ceiling
+    (task F2).
+
+    Replaces a flat, judge-agnostic threshold (e.g. `DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD`, picked
+    without reference to any calibration data) with a PER-JUDGE value derived from what that judge
+    actually scores on a genuine positive control (a real image checked against its own TRUE
+    attributes) -- different judges can have very different achievable ceilings even when both are
+    doing a good job (verbose or hedging free-text extractions score lower under
+    `score_attribute_match`'s exact/containment/Jaccard rules than terse, well-matched ones, for
+    reasons that have nothing to do with attribute correctness). A flat threshold picked above one
+    judge's own ceiling makes Gate 2 mathematically impossible for that judge to ever pass, even on
+    genuine ground truth -- see `SKILL.md`'s "Gate 2" section for this project's real numbers.
+
+    Args:
+        positive_control_mean: This judge's mean `mean_score` across its positive-control runs
+            (real images checked against their own true attributes) -- the judge's own calibration
+            ceiling.
+        fraction: Fraction of that ceiling required to pass (default `0.75`, i.e. "must reach at
+            least three-quarters of what this judge scores on a genuine, correctly-labeled image"
+            -- the same 75% figure the old flat threshold used, now correctly scaled per judge
+            instead of applied as an absolute score).
+
+    Returns:
+        The per-judge Gate-2 threshold.
+    """
+    return fraction * positive_control_mean
+
+
+def per_judge_fidelity_pass(
+    available_judge_scores: dict[str, float], thresholds: dict[str, float]
+) -> dict[str, bool]:
+    """Per-judge Gate-2 pass/fail: each judge's mean_score >= its OWN calibrated threshold.
+
+    Args:
+        available_judge_scores: `{judge_name: mean_score}` for judges that actually produced a
+            score this run -- an unavailable judge must simply be ABSENT from this dict, never
+            included with a `None`/`0.0` placeholder (mirrors `combine_judges`'s convention of
+            only ever summing over judges that actually contributed a score).
+        thresholds: `{judge_name: threshold}` (typically `judge_fidelity_threshold`'s output, one
+            call per judge).
+
+    Returns:
+        `{judge_name: bool}`, one entry per key in `available_judge_scores`.
+
+    Raises:
+        KeyError: if a judge present in `available_judge_scores` has no entry in `thresholds` --
+            fail loud rather than silently skipping a judge whose threshold was never computed
+            (e.g. missing calibration data for that judge), per rule 98a: "couldn't verify" must
+            never be treated as a silent pass.
+    """
+    return {name: score >= thresholds[name] for name, score in available_judge_scores.items()}
+
+
+def fidelity_pass_from_per_judge(
+    available_judge_scores: dict[str, float], thresholds: dict[str, float]
+) -> bool:
+    """Gate-2 verdict under PER-JUDGE thresholds: every available judge must independently pass.
+
+    Same strict joint-AND convention Gate 1 uses (`copy_check_pass`'s default `GATE1_METRICS`) --
+    one judge's pass cannot outvote another's fail, and a judge that produced no score at all
+    contributes neither a pass nor a fail (it is simply absent from `available_judge_scores`).
+
+    Args:
+        available_judge_scores: `{judge_name: mean_score}` for judges that actually scored this
+            concept (see `per_judge_fidelity_pass`).
+        thresholds: `{judge_name: threshold}`.
+
+    Returns:
+        `False` if `available_judge_scores` is empty (no fidelity signal at all is never an
+        unconditional pass -- mirrors `combine_judges`'s `n_contributing_judges == 0` convention);
+        otherwise `True` iff every available judge's own pass/fail (`per_judge_fidelity_pass`) is
+        `True`.
+    """
+    if not available_judge_scores:
+        return False
+    return all(per_judge_fidelity_pass(available_judge_scores, thresholds).values())
+
+
+def _available_judge_scores(judge_results: dict[str, JudgeResult]) -> dict[str, float]:
+    """`{judge_name: mean_score}` for every judge in `judge_results` that actually scored."""
+    return {
+        name: r["mean_score"]
+        for name, r in judge_results.items()
+        if r["available"] and r["mean_score"] is not None
+    }
+
+
 def qc_verdict(
     style_id: str,
     margin: MarginBandResult,
     copy_check_result: CopyCheckResult,
     judge_results: dict[str, JudgeResult],
     attribute_fidelity_threshold: float = DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD,
+    active_metrics: frozenset[str] = GATE1_METRICS,
+    per_judge_fidelity_thresholds: dict[str, float] | None = None,
 ) -> QCVerdict:
     """Combine an already-computed copy-check result + judge panel into the final `QCVerdict`.
 
     `overall_pass` (task E2) is `copy_check_pass AND fidelity_pass` -- TWO one-sided tests: Gate 1
-    (`copy_check_pass`, both CLIP and DINOv2 margins below their per-style copy-anchor thresholds)
-    and Gate 2 (`fidelity_pass`, blind VLM attribute fidelity >= threshold). The OLD two-sided
-    `margin_band_pass` (BOTH `clip_in_band` AND `dino_in_band` against the real-space band) is still
-    computed and reported as a DIAGNOSTIC field but no longer gates `overall_pass` -- see `SKILL.md`
-    for the full rationale.
+    (`copy_check_pass`, every ACTIVE metric's margin below its per-style copy-anchor threshold --
+    see `active_metrics`/`copy_check_pass`) and Gate 2 (`fidelity_pass`, blind VLM attribute
+    fidelity). The OLD two-sided `margin_band_pass` (BOTH `clip_in_band` AND `dino_in_band` against
+    the real-space band) is still computed and reported as a DIAGNOSTIC field but no longer gates
+    `overall_pass` -- see `SKILL.md` for the full rationale.
 
     Args:
         style_id: Opaque identifier, passed through unchanged.
         margin: Output of the (external) two-sided margin-band scoring step -- diagnostic only.
         copy_check_result: Output of `copy_check` -- the actual Gate-1 signal.
         judge_results: Output of `run_judge`, one entry per judge.
-        attribute_fidelity_threshold: Minimum `consensus_mean_attribute_fidelity` to pass Gate 2.
+        attribute_fidelity_threshold: Minimum `consensus_mean_attribute_fidelity` to pass Gate 2
+            UNDER THE OLD, flat-threshold convention -- only used when
+            `per_judge_fidelity_thresholds` is `None` (the default, backward-compatible path).
+        active_metrics: Which Gate-1 metrics (`copy_check_pass`'s `active_metrics`) must pass.
+            Defaults to both (`GATE1_METRICS`) -- the original behavior.
+        per_judge_fidelity_thresholds: `{judge_name: threshold}` (task F2, typically
+            `judge_fidelity_threshold`'s output per judge). When supplied, Gate 2 uses
+            `fidelity_pass_from_per_judge` (every available judge independently above ITS OWN
+            threshold) INSTEAD OF the old flat-threshold-on-the-consensus-mean check --
+            `attribute_fidelity_threshold` is then ignored. `None` (the default) preserves the old
+            behavior unchanged, for backward compatibility.
 
     Returns:
-        A `QCVerdict`.
+        A `QCVerdict`. `consensus_mean_attribute_fidelity` is always the plain cross-judge mean
+        (`combine_judges`'s output) for reporting/diagnostics, regardless of which threshold
+        convention actually gates `fidelity_pass`.
     """
     consensus_fidelity, n_contributing = combine_judges(judge_results)
     margin_band_pass = margin["clip_in_band"] and margin["dino_in_band"]
-    copy_pass = copy_check_pass(copy_check_result)
-    fidelity_pass = consensus_fidelity >= attribute_fidelity_threshold
+    copy_pass = copy_check_pass(copy_check_result, active_metrics=active_metrics)
+    if per_judge_fidelity_thresholds is not None:
+        fidelity_pass = fidelity_pass_from_per_judge(
+            _available_judge_scores(judge_results), per_judge_fidelity_thresholds
+        )
+    else:
+        fidelity_pass = consensus_fidelity >= attribute_fidelity_threshold
     return QCVerdict(
         style_id=style_id,
         margin=margin,

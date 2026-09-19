@@ -1,0 +1,25 @@
+style_id,seed,retry_round,copy_check_pass_original,copy_check_pass_f1_corrected,fidelity_pass_original,fidelity_pass_f2_corrected,overall_pass_original,overall_pass_f1_f2_corrected
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,42,0,false,false,false,false,false,false
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,43,0,false,false,false,true,false,false
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,44,0,false,false,false,true,false,false
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,45,0,false,false,false,false,false,false
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,46,1,true,true,false,true,false,true
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,47,1,true,true,false,true,false,true
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,48,2,true,true,false,false,false,false
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,49,2,true,true,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",42,0,false,false,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",43,0,false,false,false,true,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",44,0,false,false,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",45,0,false,false,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",46,1,false,false,false,true,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",47,1,false,false,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",48,2,false,false,false,false,false,false
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",49,2,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,42,0,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,43,0,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,44,0,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,45,0,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,46,1,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,47,1,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,48,2,false,false,false,false,false,false
+Ladieswear || Sweater || Knitwear || Beige || Melange,49,2,false,false,false,false,false,false
