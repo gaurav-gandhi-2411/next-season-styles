@@ -6,12 +6,13 @@ from unittest.mock import patch
 
 import pytest
 
-from nss.generate import final_concepts
+from nss.generate import final_concepts, prompt_budget
 from nss.generate.final_concepts import (
     UNDERWEAR_STYLE_KEY,
     _distance_to_band,
     _slugify,
     build_generation_spec,
+    build_prompt_2,
     gemini_prompt_text,
     generate_gemini_candidate,
     load_design_briefs,
@@ -82,28 +83,132 @@ def test_strengthen_underwear_prompts_is_idempotent() -> None:
     assert once == twice
 
 
-def test_build_generation_spec_strengthens_only_underwear_style() -> None:
-    """Non-underwear styles pass through their brief's prompt/negative_prompt unchanged."""
-    brief = {
-        "rendered_prompt": "A sweater concept.",
-        "negative_prompt": "blurry, low-resolution",
+def _full_brief(**overrides: object) -> dict[str, object]:
+    """A realistic, fully-populated `design_briefs.json` entry (task F4's `build_generation_spec`
+    reads `silhouette`/`fabric_and_hand`/`colour_direction`/`detail_and_graphic_treatment`/
+    `change`/`negative_prompt` -- every `REQUIRED_BRIEF_KEYS` field, per
+    `skills/style-brief/generate_brief.py`)."""
+    brief: dict[str, object] = {
+        "silhouette": "semi-fitted through the body with ribbed hem and cuff finishing.",
+        "fabric_and_hand": "an engineered knit structure with stretch recovery.",
+        "colour_direction": "Beige as the anchor colour; camel as an adjacent accent.",
+        "detail_and_graphic_treatment": "melange heathered yarn-dye effect.",
+        "change": ["a trim or construction detail", "a small proportion tweak"],
+        "negative_prompt": "blurry, low-resolution, watermark",
     }
+    brief.update(overrides)
+    return brief
+
+
+def test_build_generation_spec_strengthens_only_underwear_style() -> None:
+    """Non-underwear styles never get the underwear framing suffix/human-model exclusions."""
     prompt, negative_prompt = build_generation_spec(
-        "Ladieswear || Sweater || Knitwear || Beige || Melange", brief
+        "Ladieswear || Sweater || Knitwear || Beige || Melange", _full_brief()
     )
-    assert prompt == brief["rendered_prompt"]
-    assert negative_prompt == brief["negative_prompt"]
+    assert "flat-lay or mannequin" not in prompt.lower()
+    assert "person" not in negative_prompt
+    assert prompt.startswith("Sweater, knitwear construction, beige melange.")
 
 
 def test_build_generation_spec_strengthens_underwear_style() -> None:
-    """The underwear style_key triggers `strengthen_underwear_prompts`."""
-    brief = {
-        "rendered_prompt": "An underwear bottom concept.",
-        "negative_prompt": "blurry, worn by a human model",
-    }
-    prompt, negative_prompt = build_generation_spec(UNDERWEAR_STYLE_KEY, brief)
+    """The underwear style is now triggered GENERICALLY off attribute values (task F4), not a
+    hardcoded `style_id` equality check -- `UNDERWEAR_STYLE_KEY` still exercises it."""
+    prompt, negative_prompt = build_generation_spec(
+        UNDERWEAR_STYLE_KEY,
+        _full_brief(
+            silhouette="brief/hipster-style silhouette, low- to mid-rise.",
+            fabric_and_hand="a lightweight, skin-friendly hand.",
+            colour_direction="Red as the anchor colour; burgundy as an adjacent accent.",
+            negative_prompt="blurry, worn by a human model",
+        ),
+    )
     assert "flat-lay or mannequin" in prompt.lower()
     assert "person" in negative_prompt
+    assert "model" in negative_prompt
+
+
+def test_build_generation_spec_generic_underwear_trigger_matches_any_matching_style_id() -> None:
+    """A DIFFERENT style_id with the same underwear/intimates attribute profile also gets the
+    framing requirement -- proving the trigger is attribute-value-keyed, not
+    `UNDERWEAR_STYLE_KEY`-string-keyed (task F4's core ask: this must survive a future retraining
+    run selecting a different underwear/intimates style)."""
+    prompt, negative_prompt = build_generation_spec(
+        "Ladieswear || Underwear top || Under-, Nightwear || Black || Solid", _full_brief()
+    )
+    assert "flat-lay or mannequin" in prompt.lower()
+    assert "person" in negative_prompt
+
+
+def test_build_generation_spec_keeps_prompt_and_negative_prompt_within_token_budget() -> None:
+    """The assembled prompt/negative_prompt both measure within SDXL's real 77-token budget."""
+    from nss.generate import prompt_budget
+
+    prompt, negative_prompt = build_generation_spec(
+        "Ladieswear || Sweater || Knitwear || Beige || Melange", _full_brief()
+    )
+    assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+    assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+
+
+def test_build_generation_spec_solid_style_gets_pattern_exclusion_terms() -> None:
+    """A Solid-pattern style's negative_prompt excludes floral/lace/pattern/print/embroidery
+    (task F4 rule table -- the real defect a Solid style drifting into a floral-lace pattern)."""
+    _prompt, negative_prompt = build_generation_spec(
+        "Ladieswear || T-shirt || Jersey Basic || Black || Solid", _full_brief()
+    )
+    for term in ("floral", "lace", "pattern", "print", "embroidery"):
+        assert term in negative_prompt
+
+
+def test_build_generation_spec_knitwear_style_gets_close_up_exclusion_terms() -> None:
+    """A Knitwear/Sweater style's negative_prompt excludes close-up/fabric-swatch framing terms
+    (task F4 rule table, generalizing E5's one-off Sweater-only hand fix)."""
+    _prompt, negative_prompt = build_generation_spec(
+        "Ladieswear || Sweater || Knitwear || Beige || Melange", _full_brief()
+    )
+    for term in ("close-up", "macro", "fabric swatch"):
+        assert term in negative_prompt
+
+
+def test_build_generation_spec_prefers_applied_changes_over_generic_change_axes() -> None:
+    """When a brief carries `applied_changes` (task E5's concrete, per-style novelty), the
+    assembled prompt uses that concrete text instead of the generic `change` axis descriptions.
+    Uses a deliberately SHORT descriptive fixture -- a verbose one can legitimately consume the
+    entire token budget on its own and correctly drop every novelty clause too (budget-fitting
+    working as intended, not a bug in this preference logic); this test isolates the concern it
+    actually checks by leaving plenty of budget headroom."""
+    prompt, _negative_prompt = build_generation_spec(
+        "Ladieswear || Sweater || Knitwear || Beige || Melange",
+        _full_brief(
+            applied_changes=["ribbed funnel neckline"],
+            silhouette="fitted.",
+            fabric_and_hand="soft knit.",
+            colour_direction="Beige.",
+            detail_and_graphic_treatment="melange.",
+        ),
+    )
+    assert "ribbed funnel neckline" in prompt
+    assert "a trim or construction detail" not in prompt
+
+
+def test_build_prompt_2_returns_short_attribute_only_clause() -> None:
+    """`build_prompt_2` (task F4: SDXL's second text encoder) returns the same short mandatory
+    clause `build_generation_spec` treats as never-dropped, well within the token budget alone."""
+    text = build_prompt_2("Ladieswear || T-shirt || Jersey Basic || Black || Solid")
+    assert text == "T-shirt, jersey basic construction, black solid."
+    assert prompt_budget.count_clip_tokens(text) <= prompt_budget.SDXL_TOKEN_BUDGET
+
+
+def test_build_prompt_2_includes_underwear_framing_requirement_generically() -> None:
+    """`build_prompt_2` for an underwear/intimates style also carries the hard no-human-model
+    framing requirement -- triggered off attribute values, not `UNDERWEAR_STYLE_KEY` equality, so
+    it applies to ANY style_id with a matching attribute profile."""
+    text = build_prompt_2(UNDERWEAR_STYLE_KEY)
+    assert "flat-lay or mannequin" in text.lower()
+
+    other_underwear_style = "Ladieswear || Underwear top || Under-, Nightwear || Black || Solid"
+    other_text = build_prompt_2(other_underwear_style)
+    assert "flat-lay or mannequin" in other_text.lower()
 
 
 def test_gemini_prompt_text_passes_through_for_non_underwear_styles() -> None:

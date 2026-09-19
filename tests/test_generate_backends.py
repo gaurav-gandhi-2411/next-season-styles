@@ -94,6 +94,8 @@ def test_local_sdxl_dispatch_writes_images_and_metadata(tmp_path: Path) -> None:
         42,
         2,
         None,
+        None,
+        None,
     )
     assert len(paths) == 2
     for path in paths:
@@ -134,9 +136,76 @@ def test_local_sdxl_passes_negative_prompt_through(tmp_path: Path) -> None:
         42,
         1,
         "person, human, model, face, skin, body, worn",
+        None,
+        None,
     )
     metadata = json.loads(paths[0].with_suffix(".json").read_text(encoding="utf-8"))
     assert metadata["negative_prompt"] == "person, human, model, face, skin, body, worn"
+
+
+def test_local_sdxl_passes_prompt_2_and_negative_prompt_2_through(tmp_path: Path) -> None:
+    """A caller-supplied prompt_2/negative_prompt_2 (task F4: SDXL's second text encoder) reaches
+    `_generate_local_sdxl` and the metadata sidecar."""
+    with (
+        patch.object(backends, "OUTPUT_ROOT", tmp_path),
+        patch.object(
+            backends, "_generate_local_sdxl", return_value=(_fake_images(1), 5.0)
+        ) as mock_gen,
+    ):
+        paths = generate_concept(
+            prompt="a red solid underwear bottom, product photography",
+            reference_images=[Path("data/images/0803986005.jpg")],
+            backend=backends.LOCAL_SDXL,
+            ip_adapter_scale=0.2,
+            seed=42,
+            n=1,
+            negative_prompt="person, human",
+            prompt_2="Underwear bottom, red solid.",
+            negative_prompt_2="person, human",
+        )
+
+    mock_gen.assert_called_once_with(
+        "a red solid underwear bottom, product photography",
+        [Path("data/images/0803986005.jpg")],
+        0.2,
+        42,
+        1,
+        "person, human",
+        "Underwear bottom, red solid.",
+        "person, human",
+    )
+    metadata = json.loads(paths[0].with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["prompt_2"] == "Underwear bottom, red solid."
+    assert metadata["negative_prompt_2"] == "person, human"
+
+
+def test_gemini_rejects_non_none_prompt_2() -> None:
+    """prompt_2 has no Gemini equivalent -- a non-None value must fail loudly, not be silently
+    dropped while looking honoured (same convention as ip_adapter_scale/negative_prompt)."""
+    with pytest.raises(ValueError, match="not applicable to the gemini backend"):
+        generate_concept(
+            prompt="p",
+            reference_images=[Path("ref.jpg")],
+            backend=backends.GEMINI,
+            ip_adapter_scale=None,
+            seed=42,
+            n=1,
+            prompt_2="attributes only",
+        )
+
+
+def test_gemini_rejects_non_none_negative_prompt_2() -> None:
+    """negative_prompt_2 has no Gemini equivalent -- same fail-loud convention."""
+    with pytest.raises(ValueError, match="not applicable to the gemini backend"):
+        generate_concept(
+            prompt="p",
+            reference_images=[Path("ref.jpg")],
+            backend=backends.GEMINI,
+            ip_adapter_scale=None,
+            seed=42,
+            n=1,
+            negative_prompt_2="no humans",
+        )
 
 
 def test_gemini_rejects_non_none_negative_prompt() -> None:
