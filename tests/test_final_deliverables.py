@@ -39,8 +39,8 @@ _BRIEF = {
 }
 
 
-def _make_v2_df(rows: list[dict[str, object]]) -> pl.DataFrame:
-    """Build a minimal synthetic `final_concepts_v2.csv`-shaped frame for unit tests."""
+def _make_v3_df(rows: list[dict[str, object]]) -> pl.DataFrame:
+    """Build a minimal synthetic `final_concepts_v3.csv`-shaped frame for unit tests."""
     return pl.DataFrame(rows)
 
 
@@ -83,7 +83,7 @@ def _row(
 
 def test_select_final_row_returns_the_is_selected_row() -> None:
     """`select_final_row` returns the one row flagged `is_selected`, not any other candidate."""
-    df = _make_v2_df(
+    df = _make_v3_df(
         [
             _row("style-a", 42, is_selected=False, selection_passed=False, fidelity=0.2),
             _row("style-a", 45, is_selected=True, selection_passed=False, fidelity=0.4),
@@ -98,7 +98,7 @@ def test_select_final_row_returns_the_is_selected_row() -> None:
 
 def test_select_final_row_no_match_raises() -> None:
     """A style_id with zero `is_selected` rows raises rather than silently returning nothing."""
-    df = _make_v2_df([_row("style-a", 42, is_selected=False, selection_passed=False, fidelity=0.2)])
+    df = _make_v3_df([_row("style-a", 42, is_selected=False, selection_passed=False, fidelity=0.2)])
 
     with pytest.raises(ValueError, match="Expected exactly 1 is_selected row"):
         select_final_row(df, "style-a")
@@ -106,7 +106,7 @@ def test_select_final_row_no_match_raises() -> None:
 
 def test_select_final_row_multiple_matches_raises() -> None:
     """More than one `is_selected` row for the same style is a data-integrity error, not silent."""
-    df = _make_v2_df(
+    df = _make_v3_df(
         [
             _row("style-a", 42, is_selected=True, selection_passed=False, fidelity=0.2),
             _row("style-a", 45, is_selected=True, selection_passed=False, fidelity=0.4),
@@ -193,7 +193,7 @@ def test_build_judge_scores_text_reports_passing_style() -> None:
 
 
 def test_main_writes_non_trivial_pngs(tmp_path: Path) -> None:
-    """`main()` runs end-to-end against the repo's real E5 artifacts and writes real PNGs."""
+    """`main()` runs end-to-end against the repo's real F5 artifacts and writes real PNGs."""
     hero_out = tmp_path / "FINAL_concepts.png"
     evidence_out = tmp_path / "evidence_chain.png"
 

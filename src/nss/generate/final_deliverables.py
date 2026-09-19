@@ -1,32 +1,40 @@
-"""Build the final deliverable figures from E5's real, current, already-generated evidence.
+"""Build the final deliverable figures from F5's real, current, already-generated evidence.
 
 Pure image composition -- no GPU, no generation, no scoring. Consumes artifacts already on disk:
 `reports/tables/design_briefs.json` (C5, updated by E5 with `applied_changes`),
 `reports/tables/exemplar_images_final_three.csv` (A8, real catalogue reference images),
-`reports/tables/final_concepts_v2.csv` (E5's full retry history under the corrected prompts: every
-attempt, every style, real CLIP/DINOv2 margins against the E2 sign-safe copy-anchor gate and the
-Groq VLM attribute-fidelity judge, plus the visual-QC-overridden final selection per style), and
+`reports/tables/final_concepts_v3.csv` (F5's full scored history under the F1-F4-corrected gate/
+prompt/reference pipeline: 4 seeds x 3 styles = 12 candidates, real CLIP/DINOv2 margins against the
+F1-corrected Gate 1 copy-anchor check and F2's per-judge-calibrated Gate 2 VLM fidelity thresholds,
+plus the visual-QC-overridden final selection per style), and
 `reports/tables/margin_anchors_clip.csv`/`..._dinov2.csv` (C2's original two-sided real-space band,
 shown in `evidence_chain.png` as a diagnostic only -- see that figure's docstring).
 
-SUPERSEDES task C8's `final_concepts.csv`/`concept_qc_results.csv`-based version of this module (see
-git history) -- E1/E2/E5 replaced the margin-anchor derivation, the QC gate, and the concept
-generation itself, so the deliverable figures must be rebuilt from the new artifacts, not patched
-around the old ones.
+SUPERSEDES task E8's `final_concepts_v2.csv`-based version of this module (see git history) -- F1
+(anchor-contamination fix), F2 (per-judge Gate-2 thresholds), F3 (screened full-garment references),
+F4 (77-token prompt-budget fix) and F5 (the final generation run itself) all postdate E8, so the
+deliverable figures must be rebuilt from the new artifact, not patched around the old one.
 
-HONEST RESULT, NOT SUPPRESSED: E5 found 0 of the 3 winning styles pass BOTH new E2 gates (Gate 1:
-sign-safe copy-anchor check on CLIP+DINOv2; Gate 2: VLM attribute fidelity >= 0.75) within the
-2-retry cap (`final_concepts_v2.csv`'s `selection_passed` column is `False` for all 3 `is_selected`
-rows). This module does not fabricate a passing result -- both figures it produces show the real
-generated images and the real scores, including the failures. A QC gate that correctly rejects real
-defects (colour/pattern drift, a texture-close-up reference image dominating conditioning) is a
+HONEST RESULT, NOT SUPPRESSED: F5 found 0 of the 12 generated candidates -- and so 0 of the 3
+winning styles -- pass BOTH gates (Gate 1: F1-corrected sign-safe copy-anchor check on CLIP+DINOv2;
+Gate 2: F2's per-judge-calibrated VLM attribute fidelity) within the fixed 4-seed budget
+(`final_concepts_v3.csv`'s `selection_passed` column is `False` for all 3 `is_selected` rows).
+Judge availability was severely constrained this run (Gemini's free-tier quota exhausted for the
+entire run, Groq's shared TPD budget exhausted after its first call) -- only 1 of 12 candidates
+received a real judge score from either provider, so no Cohen's kappa is computable and most rows'
+`fidelity_pass` defaults to fail for want of any judge, not necessarily poor attribute fidelity.
+This module does not fabricate a passing result -- both figures it produces show the real generated
+images and the real scores, including the failures and the judge-availability gap. A QC gate that
+correctly rejects real defects (a colour-block T-shirt failing DINOv2 over-similarity, a pattern-
+drift underwear candidate, a sweater failing the copy-check at the corrected higher scale) is a
 working gate, not a broken deliverable; that is the story these figures are built to tell.
 
 FIGURE SPLIT: `FINAL_concepts.png` (the hero) is a clean fashion deliverable -- one panel per
 winning style, the selected concept image, and a one-line rationale naming the concrete changes
 actually applied (drawn from each brief's `applied_changes` field). It carries NO QC status, no
 pass/fail stamps, no scores -- that belongs entirely in `evidence_chain.png`, which traces
-reference -> brief -> concept -> real margins/scores per style, including the honest 0/3 status.
+reference -> brief -> concept -> real margins/scores per style, including the honest 0/12
+candidates / 0/3 styles passing status and the judge-availability gap.
 
 Usage:
     uv run python -m nss.generate.final_deliverables
@@ -49,13 +57,13 @@ from PIL import Image
 from nss.generate.final_concepts import load_design_briefs, load_final_three_references
 from nss.generate.scale_sweep import CLIP_BAND_PATH, DINO_BAND_PATH, load_margin_band
 
-FINAL_CONCEPTS_V2_PATH = Path("reports/tables/final_concepts_v2.csv")
+FINAL_CONCEPTS_V3_PATH = Path("reports/tables/final_concepts_v3.csv")
 HERO_OUT_PATH = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT_PATH = Path("reports/figures/evidence_chain.png")
 
 ATTRIBUTE_FIDELITY_THRESHOLD = 0.75  # must match concept_qc_pipeline.ATTRIBUTE_FIDELITY_THRESHOLD.
 
-# Display order for both figures, matching `final_concepts_v2.csv`'s style_id values.
+# Display order for both figures, matching `final_concepts_v3.csv`'s style_id values.
 STYLE_ORDER: tuple[str, ...] = (
     "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
     "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
@@ -83,11 +91,11 @@ _PRESERVE_PREFIXES: dict[str, str] = {
 }
 
 
-def load_final_concepts_v2(path: Path = FINAL_CONCEPTS_V2_PATH) -> pl.DataFrame:
-    """Load `final_concepts_v2.csv` (E5's full retry-history + visual-QC-applied selection).
+def load_final_concepts_v3(path: Path = FINAL_CONCEPTS_V3_PATH) -> pl.DataFrame:
+    """Load `final_concepts_v3.csv` (F5's full scored history + visual-QC-applied selection).
 
     Args:
-        path: Path to `final_concepts_v2.csv`.
+        path: Path to `final_concepts_v3.csv`.
 
     Returns:
         The raw results frame, one row per `(style_id, seed)`.
@@ -99,7 +107,7 @@ def display_name(style_id: str) -> str:
     """Human-readable panel title for one `style_id` (see `STYLE_DISPLAY_NAMES`).
 
     Args:
-        style_id: A `design_briefs.json`/`final_concepts_v2.csv` `style_id`.
+        style_id: A `design_briefs.json`/`final_concepts_v3.csv` `style_id`.
 
     Returns:
         The registered display name.
@@ -114,14 +122,14 @@ def display_name(style_id: str) -> str:
 
 
 def select_final_row(df: pl.DataFrame, style_id: str) -> dict[str, Any]:
-    """Return the E5-selected (`is_selected == True`) row for one style.
+    """Return the F5-selected (`is_selected == True`) row for one style.
 
     Selection itself (including the manual visual-QC veto) already happened upstream in
     `nss.generate.final_concepts_v2.apply_visual_qc_and_rewrite` -- this module only reads the
     result, it never re-ranks candidates.
 
     Args:
-        df: Output of `load_final_concepts_v2`.
+        df: Output of `load_final_concepts_v3`.
         style_id: The style to look up.
 
     Returns:
@@ -214,10 +222,10 @@ class PanelData:
 def build_panel_data(
     df: pl.DataFrame, briefs: dict[str, dict[str, Any]], style_id: str
 ) -> PanelData:
-    """Assemble one style's `PanelData`: E5-selected row + brief-derived rationale.
+    """Assemble one style's `PanelData`: F5-selected row + brief-derived rationale.
 
     Args:
-        df: Output of `load_final_concepts_v2`.
+        df: Output of `load_final_concepts_v3`.
         briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
         style_id: The style to build panel data for.
 
@@ -239,7 +247,7 @@ def build_panel_data(
 def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
     """Build the `FINAL_concepts.png` hero figure: one clean panel per winning style.
 
-    Each panel shows the E5-selected generated concept image (`select_final_row`), captioned with
+    Each panel shows the F5-selected generated concept image (`select_final_row`), captioned with
     the style's human-readable name and a one-line design rationale naming the concrete changes
     actually applied. This is deliberately a clean fashion deliverable, NOT a QC dashboard -- no
     pass/fail stamps, no QC badges, no scores anywhere on this image. The full, honest QC trace
@@ -378,7 +386,7 @@ def build_margin_text(
     Both are clearly labeled so a reviewer never confuses the two.
 
     Args:
-        row: One `final_concepts_v2.csv` row (the E5-selected candidate for a style).
+        row: One `final_concepts_v3.csv` row (the F5-selected candidate for a style).
         real_space_clip_band: `(lower, upper)` C2 real-space CLIP band (diagnostic only).
         real_space_dino_band: `(lower, upper)` C2 real-space DINOv2 band (diagnostic only).
 
@@ -415,7 +423,7 @@ def build_judge_scores_text(row: dict[str, Any]) -> str:
     hiding the resulting single-judge (Groq-only) limitation.
 
     Args:
-        row: One `final_concepts_v2.csv` row (the E5-selected candidate for a style).
+        row: One `final_concepts_v3.csv` row (the F5-selected candidate for a style).
 
     Returns:
         A newline-joined text block: each judge's availability/score, consensus fidelity, and the
@@ -572,14 +580,14 @@ def build_evidence_chain_figure(
 
 
 def main(
-    final_concepts_v2_path: Path = FINAL_CONCEPTS_V2_PATH,
+    final_concepts_v3_path: Path = FINAL_CONCEPTS_V3_PATH,
     hero_out_path: Path = HERO_OUT_PATH,
     evidence_out_path: Path = EVIDENCE_OUT_PATH,
 ) -> tuple[Path, Path]:
-    """Run the full pipeline: load E5's selected candidates, build + save both figures.
+    """Run the full pipeline: load F5's selected candidates, build + save both figures.
 
     Args:
-        final_concepts_v2_path: Path to `final_concepts_v2.csv`.
+        final_concepts_v3_path: Path to `final_concepts_v3.csv`.
         hero_out_path: Destination for the hero figure; parent directories are created if missing.
         evidence_out_path: Destination for the evidence-chain figure; parent directories are
             created if missing.
@@ -587,7 +595,7 @@ def main(
     Returns:
         `(hero_out_path, evidence_out_path)`.
     """
-    df = load_final_concepts_v2(final_concepts_v2_path)
+    df = load_final_concepts_v3(final_concepts_v3_path)
     briefs = load_design_briefs()
     references = load_final_three_references()
     real_space_clip_band = load_margin_band(CLIP_BAND_PATH)
