@@ -276,6 +276,33 @@ def test_summarize_calibration_fails_on_insufficient_separation() -> None:
     assert summary["groq"]["gap"] == pytest.approx(0.1)
 
 
+def test_summarize_calibration_is_generic_across_arbitrary_judge_names() -> None:
+    """`summarize_calibration` groups purely by whatever `judge_name` values appear in `df` -- not
+    hardcoded to `"gemini"`/`"groq"` -- so swapping in a third/different-provider judge (task E6's
+    motivating scenario: replacing a dead judge with a differently-named live one) needs zero
+    changes to this function."""
+    df = pl.DataFrame(
+        [
+            {
+                "judge_name": "openrouter_qwen_vl",
+                "control_type": "positive",
+                "available": True,
+                "mean_score": 0.95,
+            },
+            {
+                "judge_name": "openrouter_qwen_vl",
+                "control_type": "negative",
+                "available": True,
+                "mean_score": 0.05,
+            },
+        ]
+    )
+    summary = summarize_calibration(df, pass_gap=0.3)
+    assert set(summary.keys()) == {"openrouter_qwen_vl"}
+    assert summary["openrouter_qwen_vl"]["passed"] is True
+    assert summary["openrouter_qwen_vl"]["gap"] == pytest.approx(0.9)
+
+
 def test_summarize_calibration_never_available_fails_without_crashing() -> None:
     df = pl.DataFrame(
         [

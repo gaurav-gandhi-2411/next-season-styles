@@ -15,16 +15,24 @@ in `client.models.list()`. `GEMINI_JUDGE_MODEL_ID` below uses the model the API 
 replacement, confirmed working end-to-end (text + vision, JSON response mode) against this
 project's key before being wired in here.
 
-GROQ VISION JUDGE AVAILABILITY (documented, not silently skipped): the task brief named Groq's
-"Llama 4 Scout vision" as Judge B (`meta-llama/llama-4-scout-17b-16e-instruct`). Tested directly
-against the live API on 2026-09-19 (this project's `GROQ_API_KEY`, which IS present and otherwise
-valid -- `client.models.list()` succeeds) and that model 404s (`model_not_found`) for this account,
-as do every other vision-capable Groq model name tried (`llama-3.2-11b-vision-preview` /
-`llama-3.2-90b-vision-preview`, both explicitly reported as decommissioned). No vision-capable
-model appears anywhere in this account's `client.models.list()` output. `check_groq_availability`
-performs this exact live check at runtime (never assumed from this docstring) and
-`extract_attributes_groq` raises `JudgeUnavailableError` when it fails, so the QC pipeline treats
-Judge B as a documented, reported "blocked" condition -- never silently skipped, never a crash.
+GROQ VISION JUDGE MODEL-ID CORRECTION (task E6, documented, not silently substituted): the task
+brief originally named Groq's "Llama 4 Scout vision" as Judge B
+(`meta-llama/llama-4-scout-17b-16e-instruct`), which 404s for this account, as do three other
+guessed vision model names -- see task C7's report for that history. Rather than guessing a 5th
+name, task E6 queried the LIVE `GET https://api.groq.com/openai/v1/models` endpoint directly
+(2026-09-19, this project's `GROQ_API_KEY`) and inspected every returned model's
+`input_modalities`. Exactly one model in the account's live list declares `"image"` as an input
+modality: `qwen/qwen3.8-27b` (Alibaba Cloud, `input_modalities: ["text", "image"]`,
+`output_modalities: ["text"]`, supports `json_mode`). Every other returned model is text-only
+(`openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `openai/gpt-oss-safeguard-20b`, `groq/compound`,
+`groq/compound-mini`, `allam-2-7b`, two `meta-llama/llama-prompt-guard-2-*` text classifiers) or
+audio-only (`whisper-large-v3`, `whisper-large-v3-turbo`; two `canopylabs/orpheus-*` TTS models).
+`GROQ_JUDGE_MODEL_ID` below is `qwen/qwen3.8-27b`, confirmed working end-to-end (vision input, JSON
+response mode, a real H&M catalogue image) against this project's key before being wired in here.
+`check_groq_availability` still performs a live reachability check at runtime (never assumed from
+this docstring) and `extract_attributes_groq` still raises `JudgeUnavailableError` on any future
+404/decommission, so the QC pipeline continues to treat a Groq outage as a documented, reported
+"blocked" condition -- never silently skipped, never a crash.
 """
 
 from __future__ import annotations
@@ -92,7 +100,7 @@ ATTRIBUTE_DIMENSIONS: tuple[str, ...] = (
 )
 
 GEMINI_JUDGE_MODEL_ID = "models/gemini-3.6-flash"  # see module docstring MODEL-ID DEVIATION note
-GROQ_JUDGE_MODEL_ID = "meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_JUDGE_MODEL_ID = "qwen/qwen3.8-27b"  # see module docstring GROQ VISION JUDGE MODEL-ID note
 
 
 def build_judge_prompt(dimensions: Sequence[str] = ATTRIBUTE_DIMENSIONS) -> str:
