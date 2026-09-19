@@ -67,12 +67,23 @@ margin-band scoring (CLIP + DINOv2, no external API) always runs.
 `briefs`/`generate`/`score`/`hero` stages call functions that read `design_briefs.json` /
 exemplar-reference paths from their REAL `reports/tables/` defaults regardless of this flag.
 
+BRIEFS-STAGE GUARD (load-bearing, see `is_curated_design_briefs`/`run_briefs_stage`): the real,
+committed `design_briefs.json` has been hand-refined (tasks C5/E5) with an `applied_changes` field
+per style and SDXL-77-CLIP-token-safe prompts -- neither of which the naive
+`build_design_briefs.build_all_design_briefs()` rebuild reproduces. So the `briefs` stage reuses an
+existing curated file untouched by default instead of silently overwriting it with a worse rebuild
+(which would also later crash the `hero` stage with a `KeyError` on the missing `applied_changes`
+key). Pass `--force-briefs` to genuinely rebuild from scratch anyway.
+
 Usage:
     uv run --no-sync python scripts/run_pipeline.py                       # full pipeline
     uv run --no-sync python scripts/run_pipeline.py --stop-after forecast # panel+features+
                                                                            # forecast+top-3 only
     uv run --no-sync python scripts/run_pipeline.py --stop-after briefs   # skip GPU generation
     uv run --no-sync python scripts/run_pipeline.py --n-seeds 2           # 2 seeds/style
+    uv run --no-sync python scripts/run_pipeline.py --force-briefs        # rebuild briefs (loses
+                                                                           # applied_changes/token
+                                                                           # -safety curation)
 """
 
 from __future__ import annotations
@@ -360,7 +371,42 @@ def run_exemplars_stage(
     return manifest_out_path
 
 
-def run_briefs_stage(final_three_path: Path, tables_out_dir: Path, images_dir: Path) -> Path:
+EXPECTED_N_DESIGN_BRIEFS = 3
+
+
+def is_curated_design_briefs(path: Path) -> bool:
+    """Whether `path` holds a real, hand-refined `design_briefs.json` (tasks C5/E5), not a stub.
+
+    "Real, refined" means: valid JSON, a list of exactly `EXPECTED_N_DESIGN_BRIEFS` (3) entries,
+    each with a non-empty `style_id` AND a non-empty `applied_changes` list -- the field E5 added
+    by hand that the naive `build_all_design_briefs()` rebuild does NOT reproduce (see module
+    docstring). A missing, empty, malformed, or stub file returns `False`, which is the correct
+    "genuinely clean state" signal for the from-scratch rebuild fallback in `run_briefs_stage`.
+
+    Args:
+        path: Path to `design_briefs.json`.
+
+    Returns:
+        `True` if `path` looks like a genuinely curated file; `False` otherwise (never raises on a
+        malformed file -- a parse error degrades to "not curated", not a crash).
+    """
+    if not path.exists():
+        return False
+    try:
+        briefs = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(briefs, list) or len(briefs) != EXPECTED_N_DESIGN_BRIEFS:
+        return False
+    return all(
+        isinstance(brief, dict) and brief.get("style_id") and brief.get("applied_changes")
+        for brief in briefs
+    )
+
+
+def run_briefs_stage(
+    final_three_path: Path, tables_out_dir: Path, images_dir: Path, force_briefs: bool = False
+) -> Path:
     """SHAP-verdict report + exemplar-image manifest + design briefs, built from THIS run's
     `final_three_path`.
 
@@ -368,14 +414,27 @@ def run_briefs_stage(final_three_path: Path, tables_out_dir: Path, images_dir: P
     `run_exemplars_stage` (above), and `nss.generate.build_design_briefs.build_all_design_briefs`
     (pure function) -- no brief-generation/classification logic is reimplemented here.
 
+    GUARD (do not remove without re-reading the module docstring's design_briefs.json note): the
+    real, committed `design_briefs.json` has been hand-refined across tasks C5/E5 -- it carries an
+    `applied_changes` field (used by the hero/evidence-chain figures; its absence is a `hero`-stage
+    `KeyError`) and SDXL-77-CLIP-token-safe prompts, NEITHER of which the naive
+    `build_all_design_briefs()` rebuild reproduces. So unless `force_briefs=True`, an existing
+    curated file (see `is_curated_design_briefs`) is left untouched and reused as-is instead of
+    being silently overwritten by a worse rebuild -- only a genuinely missing/stub file (a truly
+    clean checkout with `reports/tables/` wiped) falls through to the from-scratch build.
+
     Args:
         final_three_path: Path to THIS run's `top_styles_final_three.csv`.
         tables_out_dir: Directory to write `final_three_shap_verdict.csv`,
-            `exemplar_images_final_three.csv`, and `design_briefs.json` into.
+            `exemplar_images_final_three.csv`, and (if regenerated) `design_briefs.json` into.
         images_dir: Local image cache directory (see `run_exemplars_stage`).
+        force_briefs: Regenerate `design_briefs.json` from scratch even if an existing curated
+            file is present (accepts the known limitation that the naive rebuild will NOT
+            reproduce `applied_changes` or the truncation-safe prompt fixes -- see
+            `--force-briefs`'s CLI help text).
 
     Returns:
-        Path to the written `design_briefs.json`.
+        Path to `design_briefs.json` (existing curated file if reused, freshly written otherwise).
     """
     final_three = pl.read_csv(final_three_path)
     verdict = final_three_shap_verdict.build_verdict_table(final_three)
@@ -386,12 +445,20 @@ def run_briefs_stage(final_three_path: Path, tables_out_dir: Path, images_dir: P
     exemplar_manifest_path = tables_out_dir / select_final_three_exemplars.MANIFEST_OUT_PATH.name
     run_exemplars_stage(final_three_path, exemplar_manifest_path, images_dir)
 
+    design_briefs_path = tables_out_dir / build_design_briefs_mod.OUT_PATH.name
+    if not force_briefs and is_curated_design_briefs(design_briefs_path):
+        print(
+            f"[briefs] using existing curated {design_briefs_path} "
+            f"({EXPECTED_N_DESIGN_BRIEFS} styles, each with applied_changes) -- not "
+            "regenerating. Pass --force-briefs to override."
+        )
+        return design_briefs_path
+
     briefs = build_design_briefs_mod.build_all_design_briefs(
         top_styles_path=final_three_path,
         shap_verdict_path=shap_verdict_path,
         exemplar_images_path=exemplar_manifest_path,
     )
-    design_briefs_path = tables_out_dir / build_design_briefs_mod.OUT_PATH.name
     design_briefs_path.parent.mkdir(parents=True, exist_ok=True)
     design_briefs_path.write_text(json.dumps(briefs, indent=2), encoding="utf-8")
     print(f"[briefs] wrote {design_briefs_path} ({len(briefs)} design briefs)")
@@ -628,6 +695,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--generated-images-dir", type=Path, default=DEFAULT_GENERATED_IMAGES_DIR)
     parser.add_argument(
+        "--force-briefs",
+        action="store_true",
+        help="Regenerate design_briefs.json from scratch via build_all_design_briefs(), even if "
+        "an existing curated file (3 styles, each with an applied_changes field -- see "
+        "is_curated_design_briefs) is already present. Default: reuse the existing curated file "
+        "untouched, since it has been hand-refined (tasks C5/E5) with applied_changes entries "
+        "and SDXL-77-CLIP-token-safe prompts that the naive rebuild does NOT reproduce -- passing "
+        "this flag accepts that known regression (missing applied_changes will KeyError the hero "
+        "stage; unrefined prompts may exceed the CLIP token limit and get silently truncated) in "
+        "exchange for a genuinely from-scratch briefs rebuild.",
+    )
+    parser.add_argument(
         "--n-seeds",
         type=int,
         default=1,
@@ -698,7 +777,10 @@ def main() -> None:
     _run_stage(
         "briefs",
         lambda: run_briefs_stage(
-            forecast_result.final_three_path, args.tables_out_dir, args.images_dir
+            forecast_result.final_three_path,
+            args.tables_out_dir,
+            args.images_dir,
+            args.force_briefs,
         ),
     )
     if _stage_index(args.stop_after) < _stage_index("generate"):

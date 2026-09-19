@@ -8,18 +8,25 @@ whose entire point is demonstrating real, live behaviour.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
+import polars as pl
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
+import run_pipeline  # noqa: E402 -- see sys.path.insert above; module object needed for monkeypatching
 from run_pipeline import (  # noqa: E402 -- see sys.path.insert above
     DEFAULT_TABLES_DIR,
+    EXPECTED_N_DESIGN_BRIEFS,
     STAGE_ORDER,
     _stage_index,
     build_arg_parser,
+    build_design_briefs_mod,
+    is_curated_design_briefs,
+    run_briefs_stage,
     seeds_for_style,
 )
 
@@ -27,6 +34,7 @@ from nss.generate import (  # noqa: E402 -- see sys.path.insert above
     final_concepts,
     final_concepts_v2,
 )
+from nss.models import final_three_shap_verdict  # noqa: E402 -- see sys.path.insert above
 
 
 def test_stage_order_is_the_documented_seven_stages() -> None:
@@ -87,3 +95,163 @@ def test_arg_parser_rejects_n_seeds_outside_one_or_two() -> None:
     seeds via this script."""
     with pytest.raises(SystemExit):
         build_arg_parser().parse_args(["--n-seeds", "4"])
+
+
+def test_arg_parser_force_briefs_defaults_to_false() -> None:
+    """`--force-briefs` is opt-in -- the safe default is to reuse an existing curated
+    `design_briefs.json` rather than silently overwriting it (see `is_curated_design_briefs`)."""
+    args = build_arg_parser().parse_args([])
+    assert args.force_briefs is False
+    assert build_arg_parser().parse_args(["--force-briefs"]).force_briefs is True
+
+
+# --- is_curated_design_briefs / run_briefs_stage guard (this task) -----------------------------
+
+
+def _curated_briefs(n: int = EXPECTED_N_DESIGN_BRIEFS) -> list[dict[str, object]]:
+    """A synthetic, minimal "real, refined" `design_briefs.json` payload for guard tests."""
+    return [{"style_id": f"style-{i}", "applied_changes": [f"change-{i}"]} for i in range(n)]
+
+
+def test_is_curated_design_briefs_true_for_the_real_committed_file() -> None:
+    """The actual, hand-refined `reports/tables/design_briefs.json` this task exists to protect
+    passes the guard -- if this regresses, the guard would incorrectly treat the real file as a
+    stub and let the briefs stage silently overwrite it."""
+    assert is_curated_design_briefs(build_design_briefs_mod.OUT_PATH) is True
+
+
+def test_is_curated_design_briefs_false_when_file_missing(tmp_path: Path) -> None:
+    assert is_curated_design_briefs(tmp_path / "does_not_exist.json") is False
+
+
+def test_is_curated_design_briefs_false_for_malformed_json(tmp_path: Path) -> None:
+    path = tmp_path / "design_briefs.json"
+    path.write_text("{not valid json", encoding="utf-8")
+    assert is_curated_design_briefs(path) is False
+
+
+def test_is_curated_design_briefs_false_for_wrong_style_count(tmp_path: Path) -> None:
+    """A naive rebuild that only produced 2 of the 3 expected styles is not curated."""
+    path = tmp_path / "design_briefs.json"
+    path.write_text(json.dumps(_curated_briefs(n=2)), encoding="utf-8")
+    assert is_curated_design_briefs(path) is False
+
+
+def test_is_curated_design_briefs_false_when_applied_changes_missing(tmp_path: Path) -> None:
+    """The exact stub shape `build_all_design_briefs()` produces (no `applied_changes` field) --
+    this is the case the guard must catch to avoid the `hero`-stage `KeyError`."""
+    stub = [{"style_id": f"style-{i}"} for i in range(EXPECTED_N_DESIGN_BRIEFS)]
+    path = tmp_path / "design_briefs.json"
+    path.write_text(json.dumps(stub), encoding="utf-8")
+    assert is_curated_design_briefs(path) is False
+
+
+def test_is_curated_design_briefs_false_when_applied_changes_empty(tmp_path: Path) -> None:
+    stub = [
+        {"style_id": f"style-{i}", "applied_changes": []} for i in range(EXPECTED_N_DESIGN_BRIEFS)
+    ]
+    path = tmp_path / "design_briefs.json"
+    path.write_text(json.dumps(stub), encoding="utf-8")
+    assert is_curated_design_briefs(path) is False
+
+
+def _setup_briefs_stage_fixture(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path, dict[str, bool], Path]:
+    """Common fixture for `run_briefs_stage` guard tests: a scratch `tables_out_dir`, a minimal
+    `final_three_path` CSV, and every I/O-heavy collaborator monkeypatched to a cheap stub --
+    isolates the guard branch itself from the (already separately tested/proven) real
+    SHAP-verdict/exemplar/brief-generation logic.
+
+    Returns:
+        `(tables_out_dir, design_briefs_path, called, final_three_path)` where `called["build_all"]`
+        records whether `build_design_briefs_mod.build_all_design_briefs` was invoked.
+    """
+    tables_out_dir = tmp_path / "tables"
+    tables_out_dir.mkdir()
+    final_three_path = tmp_path / "top_styles_final_three.csv"
+    pl.DataFrame({"style_key": ["a"]}).write_csv(final_three_path)
+
+    monkeypatch.setattr(
+        final_three_shap_verdict,
+        "build_verdict_table",
+        lambda _final_three: pl.DataFrame({"style_key": ["a"]}),
+    )
+    monkeypatch.setattr(
+        run_pipeline, "run_exemplars_stage", lambda *_args, **_kwargs: tmp_path / "manifest.csv"
+    )
+    called = {"build_all": False}
+
+    def _fake_build_all(**_kwargs: object) -> list[dict[str, object]]:
+        called["build_all"] = True
+        return _curated_briefs()
+
+    monkeypatch.setattr(build_design_briefs_mod, "build_all_design_briefs", _fake_build_all)
+
+    design_briefs_path = tables_out_dir / build_design_briefs_mod.OUT_PATH.name
+    return tables_out_dir, design_briefs_path, called, final_three_path
+
+
+def test_run_briefs_stage_skips_regeneration_when_curated_file_already_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default (`force_briefs=False`) path: an existing curated `design_briefs.json` is left
+    byte-identical and `build_all_design_briefs` is never called."""
+    tables_out_dir, design_briefs_path, called, final_three_path = _setup_briefs_stage_fixture(
+        tmp_path, monkeypatch
+    )
+    original_text = json.dumps(_curated_briefs(), indent=4)  # deliberately different formatting
+    design_briefs_path.write_text(original_text, encoding="utf-8")
+
+    result = run_briefs_stage(final_three_path, tables_out_dir, tmp_path / "images")
+
+    assert result == design_briefs_path
+    assert called["build_all"] is False
+    assert design_briefs_path.read_text(encoding="utf-8") == original_text  # untouched, byte-exact
+
+
+def test_run_briefs_stage_regenerates_when_no_existing_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A genuinely clean state (no `design_briefs.json` at all) still falls back to the normal
+    from-scratch build -- the guard must not block a truly clean checkout."""
+    tables_out_dir, design_briefs_path, called, final_three_path = _setup_briefs_stage_fixture(
+        tmp_path, monkeypatch
+    )
+    assert not design_briefs_path.exists()
+
+    run_briefs_stage(final_three_path, tables_out_dir, tmp_path / "images")
+
+    assert called["build_all"] is True
+    assert design_briefs_path.exists()
+
+
+def test_run_briefs_stage_regenerates_when_existing_file_is_a_stub(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-curated stub (no `applied_changes`) is treated the same as "missing" -- regenerated,
+    not preserved."""
+    tables_out_dir, design_briefs_path, called, final_three_path = _setup_briefs_stage_fixture(
+        tmp_path, monkeypatch
+    )
+    stub = [{"style_id": f"style-{i}"} for i in range(EXPECTED_N_DESIGN_BRIEFS)]
+    design_briefs_path.write_text(json.dumps(stub), encoding="utf-8")
+
+    run_briefs_stage(final_three_path, tables_out_dir, tmp_path / "images")
+
+    assert called["build_all"] is True
+
+
+def test_run_briefs_stage_force_briefs_overrides_existing_curated_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`force_briefs=True` regenerates even when a valid curated file is already present."""
+    tables_out_dir, design_briefs_path, called, final_three_path = _setup_briefs_stage_fixture(
+        tmp_path, monkeypatch
+    )
+    original_text = json.dumps(_curated_briefs(), indent=4)
+    design_briefs_path.write_text(original_text, encoding="utf-8")
+
+    run_briefs_stage(final_three_path, tables_out_dir, tmp_path / "images", force_briefs=True)
+
+    assert called["build_all"] is True
