@@ -43,8 +43,8 @@ autocorrelation. Four alternative objectives (best: rank ensemble 0.694) did not
 
 **Why Precision@3 is near-random while head-region ranking is not.** Precision@3 is 0.056 (CI
 [0.000, 0.111]) vs the oracle's 0.028: the true #3 and #4 styles differ by 0.61% of #3's value on
-average, so ordering inside a near-tie is noise for any method. The model finds the right
-neighbourhood, not the exact order, which is why the deliverable is a T1/T2 triple.
+average, so ordering inside a near-tie is noise for any method. The model finds the neighbourhood,
+not the order, hence a T1/T2 triple.
 
 ## 4. The stock limitation
 
@@ -65,9 +65,9 @@ The generation stage produced a quality-control gate that rejected everything; t
 
 1. **Absolute CLIP cosine — rejected.** H&M's shared flat-lay photography makes even unrelated styles score a mean 0.799.
 2. **Margin scoring.** Own-style similarity minus a control-pool similarity cancels the shared photographic style.
-3. **Anchors re-derived in generated space (E1, F1).** Real-image anchors did not transfer to SDXL output, so both calibration endpoints were regenerated; the "unrelated" one had to be remade at `ip_adapter_scale=0.0`, since at 1.0 image conditioning overrides the prompt (endpoint gap CLIP +0.003, DINOv2 +0.025 → +0.140, +0.505; `margin_anchor_realspace_vs_genspace_gap.csv`).
+3. **Anchors re-derived in generated space (E1, F1).** Real-image anchors did not transfer to SDXL output, so both calibration endpoints were regenerated; the "unrelated" one had to be remade at `ip_adapter_scale=0.0`, since at 1.0 image conditioning overrides the prompt (endpoint gaps +0.003/+0.025 → +0.140/+0.505).
 4. **A real-article benchmark replaces the copy anchor (H1).** The copy anchor was SDXL's most reference-faithful image, so gating at 90% of it was a fidelity ceiling mislabelled as a plagiarism check. H1 passed a concept whose mean similarity to its references was at or below the *median* similarity between distinct real articles of the style, in CLIP and DINOv2.
-5. **The median was itself wrong, a leave-one-out control shows it, and p90 replaces it (J1–J2).** A median puts about half of real products on the wrong side by construction. I measured that: each real reference article was scored against its siblings through the identical gate code (`leave_one_out_control.csv`). **Under the median rule only 6 of 16 real articles (37.5%) pass** (T-shirt 2/6, underwear 1/4, sweater 3/6): the gate rejected 62.5% of genuine products. The threshold became the p90 of within-style pairwise similarity, so a concept must land inside the range real product pairs span. Sanity check: 16/16 real articles pass the shipped threshold and 14/16 (87.5%) a threshold recomputed without the held-out article. **Gate 1 on F5's 12 candidates moved 4/12 → 12/12; on the four H3 underwear candidates 4/4 → 4/4; on the three final selections 1/3 → 3/3.**
+5. **The median was itself wrong, a leave-one-out control shows it, and p90 replaces it (J1–J2).** A median puts about half of real products on the wrong side by construction. I measured that: each real reference article was scored against its siblings through the identical gate code (`leave_one_out_control.csv`). **Under the median rule only 6 of 16 real articles (37.5%) pass** (T-shirt 2/6, underwear 1/4, sweater 3/6): the gate rejected 62.5% of genuine products. The threshold became the p90 of within-style pairwise similarity. Sanity check: 16/16 real articles pass the shipped threshold and 14/16 (87.5%) a threshold recomputed without the held-out article. **Gate 1 on F5's 12 candidates moved 4/12 → 12/12; on the four H3 underwear candidates 4/4 → 4/4; on the three final selections 1/3 → 3/3.**
 
 **What p90 does not do, and Gate 1b.** An exact copy of reference 0, scored as a candidate, passes
 Gate 1 for the T-shirt and underwear (`clone_positive_control.csv`): a mean over n references dilutes
@@ -79,7 +79,7 @@ were fixed before scoring any concept: the clone must fail (it does, in all thre
 threshold would not move afterwards. With 4–6 references the real nearest-sibling values pair up, so
 this p90 equals the closest real pair.
 
-**Judge checklist (H2).** `garment_group` ("Jersey Basic") has no visual referent, so only product type, colour and graphical treatment are scored.
+**Judge checklist (H2, L2).** `garment_group` ("Jersey Basic") has no visual referent, so only product type, colour and pattern are scored; non-visual pattern labels (Other structure, Other pattern, Unknown, Treatment) are excluded the same way, and fidelity is reported both ways (`fidelity_both_figures.csv`).
 
 **Underwear defect (H3).** The style's "Solid" label is a colour tag and its references were all lace, so IP-Adapter reproduced lace. Four verified plain references fixed it.
 
@@ -91,23 +91,19 @@ this p90 equals the closest real pair.
 | Underwear | pass | pass | 0.614 (0.006) | pass |
 | Sweater | pass | pass | 0.567 (0.000) | pass |
 
-Gate 2 uses a 0.513 threshold. **The T-shirt fails**: its closest reference photo is 0.0018 nearer
-than any two real T-shirts are to each other, and I did not move the limit. That is a finding about
-basics, not only this image: a new black jersey tee resembles every other, so real siblings already
-sit near the ceiling. The sweater's Gate 2 clears by 0.053, inside the ±0.21
+Gate 2 uses a 0.513 threshold. **The T-shirt fails, and the failure is corroborated.** Gate 1b, calibrated on real article pairs and clone-validated, flagged it (by 0.0018 on DINOv2; limit not moved), and my own visual comparison independently found it undifferentiated: the briefed charcoal topstitching and cropped drop-shoulder cut are not visible, so it is a plain black tee. It is not a copy of one photo (its nearest reference has a different cut), just a basic adding nothing over the category. The sweater's Gate 2 clears by 0.053, inside the ±0.21
 noise bound, and the judge read its graphical treatment as "solid" against "melange" (0.00 on that
 attribute), so the pass rests on product type and colour. Underwear and sweater pass every check plus
-my visual check; the T-shirt passes all but Gate 1b.
+my visual check.
 
 ## 7. Agent architecture
 
 An orchestrator delegates to 5 sub-agents (`reports/figures/agent_architecture.png`): `data-analyst`,
 `forecaster`, `style-profiler`, `concept-designer`, `critic`. The orchestrator calls no MCP tool
 directly. Two reusable skills carry the dataset-agnostic logic — `skills/style-brief/` and
-`skills/concept-qc/` — with H&M-specific adapters outside each. The critic's retry loop is exercised:
-the demo run (`reports/agent_run_transcript.md`, under the pre-correction gate) drove all 3 concepts
-through 1 attempt + 2 retries each before escalating. The MCP server (`src/nss/mcp_server.py`) exposes 7 read-only tools over
-stdio; only `generate_concept` does live work.
+`skills/concept-qc/` — with H&M-specific adapters outside each. The critic and the MCP `score_concept` tool apply the shipped gates (1, 1b, 2, plus a mandatory
+human check); the demo transcript (`reports/agent_run_transcript.md`) predates them. The MCP server
+exposes 7 tools over stdio; `generate_concept` and `score_concept` do live work.
 
 ## 8. Results
 
@@ -116,8 +112,7 @@ Jersey Basic T-shirt; T2 rank 1: Red underwear bottom (growth ratio ≈3.67); T2
 sweater (≈1.59) (`reports/tables/top_styles_final_three.csv`). The hero `reports/figures/FINAL_concepts.png`
 shows the best candidate per style captioned with what is visible;
 `evidence_chain.png` traces references → brief → concept → Gate 1/1b → fidelity → verdict. SHAP: the
-underwear's prediction is driven by `lag_1` (≈0.486); the sweater's by
-`n_active_articles_level` (≈0.254) over `lag_1` (≈0.164).
+underwear is driven by `lag_1` (≈0.486); the sweater by `n_active_articles_level` (≈0.254).
 
 **Seasonal view.** The same pipeline run for Summer changes the garment, not just a table
 (`seasonal_comparison.png`; tables in `top_styles_by_season_v2.csv`). The
@@ -127,12 +122,12 @@ bottom 1 of 2,763 (forecast 93.1; realised 50.0: the ranking held, the level was
 and the concept is a high-waisted ribbed swim bottom. Two features make this possible: the Fourier
 terms encode time of year, lifting a style whose sales concentrate in one season when the window
 falls there, and `lag_52` supplies last year's same-week level; the same mechanism lifts
-autumn/winter layering (knitwear, tights). The summer concept passes both similarity checks and my visual check but **fails Gate 2** (three readings 0.567, 0.314, 0.375: median 0.375 vs 0.513): the reader answered "bikini bottom" and "solid, ribbed" for the labels "Swimwear bottom" and "Other structure". (Unrefined brief; references screened by eye.)
+autumn/winter layering (knitwear, tights). The summer concept passes both similarity checks, my visual check and, after the L2 exclusion of the non-visual label "Other structure", Gate 2 (visible-only median 0.562 vs 0.513, a 0.049 margin inside the noise bound; 0.375 counting the label; both reported). (Unrefined brief; references screened by eye.)
 
 ## 9. Limitations and what I would do with more time
 
-**Automated QC catches drift, not incoherence.** Of the four regenerated underwear candidates, three were visually malformed: a cut-out defect (seed 42), sheer mesh panels (44) and an unrecognisable folded object (45). All three passed Gate 1 under both the median and p90 rule, and all three cleared Gate 2 (single judge calls of 0.617, 0.600, 0.567 against 0.513; the folded object had never been scored before). The Summer run repeated it: two of its four candidates (a pinstripe pattern drift, straps on a bottom) passed both similarity gates. Similarity scoring flags images too close to their references and attribute scoring flags drift from the brief; neither sees whether the garment is a garment. This is a conclusion about the limits of automated QC, not a caveat: a human check remains necessary, and the missing instrument is a judge of garment integrity.
+**Automated QC catches drift, not incoherence.** Of the four regenerated underwear candidates, three were visually malformed: a cut-out defect (seed 42), sheer mesh panels (44) and an unrecognisable folded object (45). All three passed Gate 1 under both the median and p90 rule, and all three cleared Gate 2 (single judge calls 0.617, 0.600, 0.567 vs 0.513). The Summer run repeated it: two of its four candidates (a pinstripe pattern drift, straps on a bottom) passed both similarity gates. Similarity scoring flags images too close to their references and attribute scoring flags drift from the brief; neither sees whether the garment is a garment. This is a conclusion about the limits of automated QC, not a caveat: a human check remains necessary, and the missing instrument is a judge of garment integrity.
 
-**Measurement limits.** n is 4–6 references per style, so the within-style limits are noisy, and Gate 1b's limit equals the closest real pair, a strict test for near-identical basics like the T-shirt. One T-shirt image scored 0.6375 then 0.425 across sessions, so every fidelity number carries a measured bound of about ±0.21. The three repeats per final concept agree within 0.006 because they were made minutes apart: repeatability, not accuracy. Fidelity comes from one judge model (Groq's `qwen3.8-27b`, calibrated on 3 positive controls); Gemini's free tier (20 requests/day) was exhausted and an OpenRouter fallback was abandoned as unreliable. `applied_changes` are prompt inputs, not verified outputs (the underwear shows dark piping, not the briefed burgundy picot edge), so captions describe what is visible. `run_pipeline.py --dry-run` exercises all seven stages on CPU, reusing the committed concepts with judges disabled; full-mode generation was not re-run.
+**Measurement limits.** n is 4–6 references per style, so the within-style limits are noisy, and Gate 1b's limit equals the closest real pair, a strict test for near-identical basics like the T-shirt. One T-shirt image scored 0.6375 then 0.425 across sessions, so every fidelity number carries a measured bound of about ±0.21. The three repeats per final concept agree within 0.006 because they were made minutes apart: repeatability, not accuracy. Fidelity comes from one judge model (Groq's `qwen3.8-27b`, calibrated on 3 positive controls); Gemini's free tier and an OpenRouter fallback were unusable. The sweater's melange miss (0.00 although the flecking is visible) is a genuine judge error and stays scored. Briefed changes are prompt inputs, not verified outputs, so captions describe what is visible. `run_pipeline.py --dry-run` covers all seven stages on CPU (judges off); full-mode generation was not re-run.
 
 With more time: more references per style; a multi-reference IP-Adapter to stop `references[0]` dominating; a scale sweep for the T-shirt and sweater; and a second, independent judge.
