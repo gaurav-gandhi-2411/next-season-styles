@@ -56,6 +56,7 @@ def loo_rows(
             held_thr[s] = style_benchmark(others)[stat]
             rec[f"{s}_loo_sim"] = sims[s]
             rec[f"{s}_threshold_full"] = full_thr[s]
+            rec[f"{s}_pair_max"] = full[s]["pair_max"]  # reference only, never gated
             rec[f"{s}_pass_full"] = SKILL.within_style_novelty_pass({s: sims[s]}, {s: full_thr[s]})
             rec[f"{s}_threshold_heldout"] = held_thr[s]
             rec[f"{s}_pass_heldout"] = SKILL.within_style_novelty_pass(
