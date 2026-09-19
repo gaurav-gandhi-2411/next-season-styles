@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram deliverables test lint clean
+.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram deliverables pipeline test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -78,6 +78,15 @@ agent-diagram:
 # evidence. Pure image composition, no GPU/generation/scoring required.
 deliverables:
 	uv run python -m nss.generate.final_deliverables
+
+# End-to-end, non-interactive reproduction (task D3): panel -> features -> forecast -> top-3 ->
+# briefs -> generate -> score -> hero image, in one command, via scripts/run_pipeline.py. GPU
+# required (local_sdxl generation). Generates only 1 seed/style by default (see that script's
+# docstring SCOPING-DOWN) and writes generate/score/hero output to reports/pipeline_run/
+# (isolated from the real C6-C8 deliverables) -- never re-run this expecting it to reproduce C6's
+# exact 4-seed selection. Same PYTHONHASHSEED=0 rationale as `forecast`/`forecast-diversity`.
+pipeline:
+	PYTHONHASHSEED=0 uv run python scripts/run_pipeline.py
 
 test:
 	uv run pytest --cov=src/nss

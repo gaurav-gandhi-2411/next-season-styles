@@ -9,6 +9,12 @@ data/images/*
 !data/images/.gitkeep
 data/generated/
 
+# scripts/run_pipeline.py's scoped-down (1-2 seed) generate/score/hero output -- isolated from
+# the real reports/tables/final_concepts.csv, reports/tables/concept_qc_results.csv, and
+# reports/figures/FINAL_concepts.png|evidence_chain.png, which remain the authoritative,
+# committed C6-C8 deliverables (see that script's module docstring STAGE-OUTPUT ISOLATION).
+reports/pipeline_run/
+
 # Python
 __pycache__/
 *.pyc
