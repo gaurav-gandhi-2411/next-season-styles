@@ -15,7 +15,12 @@ import pytest
 
 from nss.generate.final_concepts import Candidate
 from nss.generate.final_concepts_v2 import (
+    F5_OUTPUT_DIR,
+    F5_OUTPUT_TABLE_PATH,
+    F5_RETRY_SEED_ROUNDS,
     INITIAL_SEEDS,
+    OUTPUT_DIR,
+    OUTPUT_TABLE_PATH,
     RETRY_SEED_ROUNDS,
     apply_visual_qc_and_rewrite,
     run_style_with_retries,
@@ -418,3 +423,158 @@ def test_apply_visual_qc_and_rewrite_is_idempotent(tmp_path: Path) -> None:
     twice = apply_visual_qc_and_rewrite(path=csv_path, disqualified_seeds_by_style=vetoes)
 
     assert once.equals(twice)
+
+
+# ---------------------------------------------------------------------------
+# Task F5 constants -- exactly 4 seeds/style (12 candidates total), own output paths
+# ---------------------------------------------------------------------------
+
+
+def test_f5_retry_seed_rounds_is_empty() -> None:
+    """F5's task brief specifies exactly 12 candidates (4 seeds x 3 styles) and instructs reporting
+    a genuine gate failure rather than retrying with fresh seeds -- a regression here would mean
+    F5 silently started generating more than the specified 12 candidates."""
+    assert F5_RETRY_SEED_ROUNDS == ()
+
+
+def test_f5_output_paths_are_isolated_from_e5s() -> None:
+    """F5 must never overwrite E5's `final_concepts_v2.csv`/`data/generated/final_concepts_v2/`
+    deliverable -- both stay independently auditable (mirrors `screen_references.py`'s CANONICAL
+    SOURCE convention)."""
+    assert F5_OUTPUT_TABLE_PATH != OUTPUT_TABLE_PATH
+    assert F5_OUTPUT_DIR != OUTPUT_DIR
+
+
+# ---------------------------------------------------------------------------
+# rescore_f5_judges -- fakes only, no real API calls (task F5's judge-quota-exhaustion retry)
+# ---------------------------------------------------------------------------
+
+
+def test_rescore_f5_judges_refreshes_judge_columns_without_touching_copy_check(
+    tmp_path: Path,
+) -> None:
+    """A row whose original run had ZERO contributing judges (both providers quota-exhausted) gets
+    fresh judge scores on rescore; `copy_check_pass`/margins (deterministic, CPU-only) are left
+    untouched."""
+    from nss.generate.final_concepts_v2 import rescore_f5_judges
+
+    csv_path = tmp_path / "final_concepts_v3.csv"
+    unscored = _scored(42, overall_pass=False, mean_attribute_fidelity=0.0)
+    unscored.update(
+        gemini_available=False,
+        gemini_mean_score=None,
+        gemini_excluded_reason="gemini judge call failed: 429 RESOURCE_EXHAUSTED",
+        groq_available=False,
+        groq_mean_score=None,
+        groq_excluded_reason="groq judge call failed: 429 rate_limit_exceeded",
+        n_contributing_judges=0,
+    )
+    write_results_table(
+        {
+            _STYLE: {
+                "all_scored": [unscored],
+                "selection": {
+                    "selected": unscored,
+                    "passed": False,
+                    "selection_mode": "fallback_no_pass",
+                    "all_disqualified": False,
+                },
+                "n_retry_rounds_used": 0,
+                "seeds_tried": [42],
+            }
+        },
+        path=csv_path,
+    )
+
+    def fake_judge_panel_fn(
+        image_path: Path,
+        ground_truth: dict[str, str],
+        backend: str,
+        groq_available: bool,
+        groq_detail: str,
+    ) -> dict[str, Any]:
+        return {
+            "gemini": {"available": False, "mean_score": None, "excluded_reason": "still 429"},
+            "groq": {"available": True, "mean_score": 0.9, "excluded_reason": None},
+        }
+
+    def fake_groq_check_fn() -> tuple[bool, str]:
+        return True, "OK"
+
+    def fake_combine_judges_fn(judges: dict[str, Any]) -> tuple[float, int]:
+        return 0.9, 1
+
+    def fake_fidelity_pass_fn(scores: dict[str, float], thresholds: dict[str, float]) -> bool:
+        return all(scores[name] >= thresholds[name] for name in scores)
+
+    rescored = rescore_f5_judges(
+        path=csv_path,
+        judge_panel_fn=fake_judge_panel_fn,
+        groq_check_fn=fake_groq_check_fn,
+        combine_judges_fn=fake_combine_judges_fn,
+        fidelity_pass_fn=fake_fidelity_pass_fn,
+        fidelity_thresholds={"gemini": 0.625, "groq": 0.4381},
+    )
+
+    row = rescored.row(0, named=True)
+    assert row["gemini_available"] is False
+    assert row["groq_available"] is True
+    assert row["groq_mean_score"] == 0.9
+    assert row["mean_attribute_fidelity"] == 0.9
+    assert row["n_contributing_judges"] == 1
+    assert row["fidelity_pass"] is True
+    assert row["copy_check_pass"] == unscored["copy_check_pass"]  # untouched
+    assert row["clip_margin"] == unscored["clip_margin"]  # untouched
+    assert row["overall_pass"] == (row["copy_check_pass"] and True)
+
+
+def test_rescore_f5_judges_never_re_queries_a_row_that_already_has_a_real_score(
+    tmp_path: Path,
+) -> None:
+    """Regression test for the real defect task F5 found and fixed before committing: a row that
+    ALREADY has `n_contributing_judges > 0` (a genuine judge score from a prior run) must be left
+    byte-identical, never re-queried and silently overwritten by a fresh (possibly failed) attempt.
+    """
+    from nss.generate.final_concepts_v2 import rescore_f5_judges
+
+    csv_path = tmp_path / "final_concepts_v3.csv"
+    already_scored = _scored(42, overall_pass=False, mean_attribute_fidelity=0.2125)
+    already_scored.update(
+        gemini_available=False,
+        gemini_mean_score=None,
+        gemini_excluded_reason="gemini judge call failed: 429 RESOURCE_EXHAUSTED",
+        groq_available=True,
+        groq_mean_score=0.2125,
+        groq_excluded_reason=None,
+        n_contributing_judges=1,
+    )
+    write_results_table(
+        {
+            _STYLE: {
+                "all_scored": [already_scored],
+                "selection": {
+                    "selected": already_scored,
+                    "passed": False,
+                    "selection_mode": "fallback_no_pass",
+                    "all_disqualified": False,
+                },
+                "n_retry_rounds_used": 0,
+                "seeds_tried": [42],
+            }
+        },
+        path=csv_path,
+    )
+
+    def fail_if_called(*args: object, **kwargs: object) -> dict[str, Any]:
+        raise AssertionError("judge_panel_fn must never be called for an already-scored row")
+
+    rescored = rescore_f5_judges(
+        path=csv_path,
+        judge_panel_fn=fail_if_called,
+        groq_check_fn=lambda: (True, "OK"),
+        combine_judges_fn=lambda judges: (0.0, 0),
+    )
+
+    row = rescored.row(0, named=True)
+    assert row["groq_mean_score"] == 0.2125
+    assert row["n_contributing_judges"] == 1
