@@ -18,8 +18,12 @@
       "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
       "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
     ],
-    "rendered_prompt": "T-shirt, jersey basic construction. Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour: Black, anchor tone (optional accent: charcoal or ink navy). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
-    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+    "rendered_prompt": "T-shirt, jersey basic construction, black solid, relaxed straight-body silhouette, crew neckline. New design changes: adjacent charcoal contrast topstitching at neckline and cuffs; cropped dropped-shoulder hem at hip length. Soft stretch jersey fabric. Clean studio product photography, plain background.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography",
+    "applied_changes": [
+      "adjacent-colourway (charcoal) contrast topstitching at the crew neckline and cuffs -- trim/construction detail",
+      "cropped, dropped-shoulder hem falling at hip length -- proportion tweak"
+    ]
   },
   {
     "style_id": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
@@ -40,8 +44,12 @@
       "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
       "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
     ],
-    "rendered_prompt": "Underwear bottom, under-, nightwear construction. Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour: Red, anchor tone (optional accent: burgundy or brick). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
-    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+    "rendered_prompt": "Underwear bottom, flat-lay or mannequin product-catalogue framing only -- no human model, no worn-on-body shot, no person in frame. Red solid, under-, nightwear construction, brief/hipster silhouette, low-to-mid rise. New design changes: adjacent burgundy picot-edge trim at waistband; mid-rise waistband.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography",
+    "applied_changes": [
+      "adjacent-colourway (burgundy) picot-edge trim at the waistband and leg openings -- trim/construction detail",
+      "mid-rise waistband raised from low-rise -- proportion tweak, within the brief/hipster category's normal range"
+    ]
   },
   {
     "style_id": "Ladieswear || Sweater || Knitwear || Beige || Melange",
@@ -62,7 +70,11 @@
       "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
       "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
     ],
-    "rendered_prompt": "Sweater, knitwear construction. Silhouette: semi-fitted through the body with ribbed hem and cuff finishing. Fabric: an engineered knit structure with stretch recovery and a soft, insulating hand. Colour: Beige, anchor tone (optional accent: warm oatmeal or camel). Surface treatment: melange heathered yarn-dye effect for textural depth without a literal print. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.",
-    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography"
+    "rendered_prompt": "Sweater, full-garment product-catalogue photography, complete silhouette in frame, flat-lay or mannequin, NOT a close-up or fabric-texture shot. Beige melange knitwear, semi-fitted silhouette, ribbed hem and cuffs. New design changes: ribbed funnel neckline instead of crew neckline; adjacent camel contrast ribbing at cuffs and hem.",
+    "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography, close-up, macro, fabric swatch, texture detail, cropped, zoomed",
+    "applied_changes": [
+      "ribbed funnel neckline in place of the plain crew neckline -- neckline variant",
+      "adjacent-colourway (camel) contrast ribbing at cuffs and hem -- trim/construction detail"
+    ]
   }
 ]
