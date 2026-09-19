@@ -37,6 +37,7 @@ def tracked_files(root: Path = REPO_ROOT) -> list[Path]:
 
 def build_zip(root: Path = REPO_ROOT, out_path: Path = OUT_PATH) -> tuple[int, int]:
     """Write the zip; returns `(n_files, size_bytes)`. Raises before writing on any denylist hit."""
+    out_path.unlink(missing_ok=True)  # never leave a stale zip behind if this run aborts
     files: list[Path] = []
     for rel in tracked_files(root):
         reason = denied_reason(root / rel, root=root)

@@ -76,12 +76,14 @@ def test_ordinary_deliverables_are_allowed(path: str) -> None:
 
 def test_key_shaped_content_is_refused_under_an_innocent_name(tmp_path: Path) -> None:
     f = tmp_path / "notes.txt"
-    f.write_text('{"type": "service_account", "private_key": "x"}', encoding="utf-8")
+    # Built at runtime so this test file itself never contains a key-shaped literal (the share zip
+    # scans every tracked file, and would rightly refuse it).
+    f.write_text('{"type": "' + 'service_account", "private' + '_key": "x"}', encoding="utf-8")
     assert secret_content_reason(f) is not None
     with pytest.raises(UnshareableFileError):
         assert_shareable(f)
     g = tmp_path / "readme.md"
-    g.write_text("-----BEGIN PRIVATE KEY-----\nabc\n", encoding="utf-8")
+    g.write_text("-----BEGIN " + "PRIVATE KEY-----\nabc\n", encoding="utf-8")
     with pytest.raises(UnshareableFileError):
         assert_shareable(g)
 
