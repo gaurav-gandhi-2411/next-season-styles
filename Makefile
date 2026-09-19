@@ -1,4 +1,4 @@
-.PHONY: setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram deliverables pipeline test lint clean
+.PHONY: share-zip submission setup data panel eda validate-styles backtest train forecast forecast-diversity exemplars sweep agent-diagram deliverables pipeline test lint clean
 
 # Install dependencies via uv (falls back to documented venv workflow if uv
 # is unavailable — see README).
@@ -98,3 +98,11 @@ lint:
 clean:
 	rm -rf .pytest_cache .ruff_cache .coverage htmlcov
 	find . -type d -name "__pycache__" -exec rm -rf {} +
+
+# Reviewer bundle (reports/SUBMISSION/), rebuilt from source and verified; denylist enforced.
+submission:
+	uv run python scripts/build_submission.py
+
+# Shareable zip of the repo: tracked files only, no data/, .env, vertex-sa.json, .venv or caches.
+share-zip:
+	uv run python scripts/make_share_zip.py

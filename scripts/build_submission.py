@@ -20,6 +20,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from nss.share_safety import assert_shareable, manual_handling_warning
+
 BUNDLE = Path("reports/SUBMISSION")
 SOURCES: dict[str, Path] = {
     "FINAL_concepts.png": Path("reports/figures/FINAL_concepts.png"),
@@ -60,6 +62,7 @@ def build() -> list[str]:
     for name, src in SOURCES.items():
         if not src.exists():
             raise SystemExit(f"missing source for {name}: {src}")
+        assert_shareable(src)  # denylist: never copy .env, key-shaped files or key-shaped content
         shutil.copyfile(src, BUNDLE / name)
     (BUNDLE / "README.md").write_text(README, encoding="utf-8")
     return sorted(p.name for p in BUNDLE.iterdir())
@@ -96,8 +99,14 @@ def verify() -> list[str]:
 
 def main() -> int:
     """Build then verify; non-zero exit on any problem."""
+    print(manual_handling_warning(Path(".")))
     names = build()
     problems = verify()
+    for f in sorted(BUNDLE.iterdir()):  # second barrier: scan what was actually written
+        try:
+            assert_shareable(f, root=BUNDLE)
+        except Exception as exc:  # noqa: BLE001 - report every problem, then fail
+            problems.append(str(exc))
     print("bundle:", ", ".join(names))
     for p in problems:
         print("PROBLEM:", p)

@@ -43,3 +43,4 @@ Thumbs.db
 vertex-sa.json
 *-sa.json
 *service-account*.json
+dist/
