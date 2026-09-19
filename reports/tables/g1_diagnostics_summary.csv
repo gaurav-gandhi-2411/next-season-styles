@@ -1,0 +1,13 @@
+diagnostic,metric,value,ci_low,ci_high,lightgbm_pooled_value
+a_persistence_oracle,precision_at_3,0.027777777777777776,0.0,0.08333333333333333,0.05555555555555555
+a_persistence_oracle,hit_at_3_in_top10,0.16666666666666666,0.027777777777777776,0.3333333333333333,0.5
+a_persistence_oracle,hit_at_3_in_top20,0.2222222222222222,0.08333333333333333,0.47222222222222215,0.7222222222222222
+b_compression,std_ratio_pred_over_true,0.8203131394995935,,,
+b_compression,spread_ratio_pred_over_true_p99_minus_median,0.896832894367836,,,
+c_head_churn,pooled_fraction_top3_in_earlier_top20,0.1111111111111111,,,
+d_near_tie,gap_3_vs_4_pct_mean,0.6103599774235363,,,
+d_near_tie,gap_3_vs_4_pct_median,0.5649369734443848,,,
+d_near_tie,gap_3_vs_5_pct_mean,1.7757828015015766,,,
+d_near_tie,gap_3_vs_5_pct_median,1.4610373794610343,,,
+d_near_tie,gap_3_vs_10_pct_mean,4.723832955938989,,,
+d_near_tie,gap_3_vs_10_pct_median,4.764485017403927,,,
