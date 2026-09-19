@@ -84,9 +84,12 @@ FINAL_CONCEPTS_PATH = Path("reports/tables/final_concepts.csv")
 QC_RESULTS_PATH = Path("reports/tables/concept_qc_results.csv")
 CALIBRATION_RESULTS_PATH = Path("reports/tables/vlm_calibration_results.csv")
 RETRY_OUTPUT_DIR = Path("data/generated/concept_qc_retries")
+MARGIN_ANCHORS_GEN_PATH = Path("reports/tables/margin_anchors_generated_space.csv")
+RESCORED_RESULTS_PATH = Path("reports/tables/concept_qc_rescored_under_new_gate.csv")
 
 MAX_RETRIES = 2
 ATTRIBUTE_FIDELITY_THRESHOLD = SKILL.DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD  # 0.75
+COPY_ANCHOR_DISCOUNT = SKILL.DEFAULT_COPY_ANCHOR_DISCOUNT  # 0.10 -- see run_qc.py's Gate 1 note
 
 # A judge PASSES calibration iff mean(positive control scores) - mean(negative control scores) >=
 # this gap -- a deliberately conservative, clear-separation requirement (NOT "any positive gap
@@ -147,6 +150,33 @@ def parse_style_attributes(style_id: str) -> dict[str, str]:
         "graphical_treatment": pattern,
         "garment_group": garment_group,
     }
+
+
+def load_copy_anchors_gen(path: Path = MARGIN_ANCHORS_GEN_PATH) -> dict[str, dict[str, float]]:
+    """Load per-style `copy_anchor_gen` mean margins (task E1) for the E2 Gate-1 copy check.
+
+    Deliberately PER-STYLE, never pooled: the Sweater style's CLIP `copy_anchor_gen` (-0.0472) is
+    NEGATIVE while the T-shirt/Underwear bottom styles' are positive (and even sign-flipped
+    relative to their own `unrelated_anchor_gen` -- see `SKILL.md`'s "Gate 1" section) -- a pooled
+    mean across styles this different would be meaningless, and
+    `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold` is specifically designed to stay
+    correct per-style regardless of sign.
+
+    Args:
+        path: Path to `margin_anchors_generated_space.csv` (task E1's derived anchors).
+
+    Returns:
+        `{style_key: {"clip": mean_copy_anchor_clip, "dinov2": mean_copy_anchor_dinov2}}`, excluding
+        the `ALL_STYLES_POOLED` aggregate row.
+    """
+    df = pl.read_csv(path)
+    df = df.filter(
+        (pl.col("anchor_type") == "copy_anchor_gen") & (pl.col("style_key") != "ALL_STYLES_POOLED")
+    )
+    result: dict[str, dict[str, float]] = {}
+    for row in df.iter_rows(named=True):
+        result.setdefault(row["style_key"], {})[row["embedding_space"]] = float(row["mean"])
+    return result
 
 
 def run_judge_panel(
@@ -308,21 +338,32 @@ def run_qc_with_retries(
     generation_backend: str,
     clip_band: tuple[float, float],
     dino_band: tuple[float, float],
+    clip_copy_anchor_gen: float,
+    dino_copy_anchor_gen: float,
     judge_panel_fn: Callable[[Path], dict[str, Any]],
     margin_fn: Callable[[Path], dict[str, Any]],
     generate_fn: Callable[[float, int], Path],
     all_scales: Sequence[float] = SCALES,
     max_retries: int = MAX_RETRIES,
     attribute_fidelity_threshold: float = ATTRIBUTE_FIDELITY_THRESHOLD,
+    copy_anchor_discount: float = COPY_ANCHOR_DISCOUNT,
     secondary_favors_higher: bool = True,
 ) -> list[dict[str, Any]]:
-    """Run the C7 QC gate for one style, retrying up to `max_retries` times on failure.
+    """Run the C7/E2 QC gate for one style, retrying up to `max_retries` times on failure.
 
     Every attempt (the original C6 candidate, attempt 0, plus up to `max_retries` retries) is
     scored and appended to the returned list -- nothing is discarded, per the task's explicit
     requirement that the full retry history is itself the deliverable. `judge_panel_fn`/
     `margin_fn`/`generate_fn` are injected so this function is fully unit-testable with fakes (no
     real API/GPU calls) -- see `tests/test_concept_qc_pipeline.py`.
+
+    `overall_pass` (task E2) is Gate 1 (`copy_check_pass`, both CLIP and DINOv2 margins below their
+    per-style `copy_anchor_gen`-derived thresholds) AND Gate 2 (`fidelity_pass`). `clip_band`/
+    `dino_band` (the OLD two-sided real-space band) are STILL used, unchanged, to pick the retry
+    DIRECTION via `choose_next_retry_value` (an orthogonal concern -- which way to move
+    `ip_adapter_scale` -- from the only per-style monotonic-trend evidence this project has, see the
+    module's RETRY-VALUE RATIONALE docstring) and are still reported as `margin_band_pass`
+    diagnostics, but no longer gate `overall_pass`.
 
     Args:
         style_id: Opaque identifier, passed through.
@@ -335,15 +376,20 @@ def run_qc_with_retries(
         ground_truth: Output of `parse_style_attributes`.
         generation_backend: Identifier of the generation backend (`nss.generate.backends.LOCAL_SDXL`
             for every retry in this project).
-        clip_band: `(lower, upper)` CLIP margin band.
-        dino_band: `(lower, upper)` DINOv2 margin band.
+        clip_band: `(lower, upper)` CLIP margin band -- retry-DIRECTION heuristic input + diagnostic
+            reporting only (see above), does NOT gate `overall_pass`.
+        dino_band: `(lower, upper)` DINOv2 margin band -- same caveat as `clip_band`.
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1) -- the actual
+            Gate-1 input.
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean (task E1).
         judge_panel_fn: `image_path -> {"gemini": JudgeResult, "groq": JudgeResult}`.
         margin_fn: `image_path -> MarginBandResult`.
         generate_fn: `(new_scale, attempt_number) -> new_image_path` -- generates one retry
             candidate (only called when a retry is actually triggered).
         all_scales: The full tested `ip_adapter_scale` range (`nss.generate.scale_sweep.SCALES`).
         max_retries: Maximum number of retries (task C7: 2).
-        attribute_fidelity_threshold: Minimum consensus mean attribute fidelity to pass.
+        attribute_fidelity_threshold: Minimum consensus mean attribute fidelity to pass Gate 2.
+        copy_anchor_discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold`.
         secondary_favors_higher: See `skills/concept-qc/run_qc.py`'s
             `choose_next_retry_value` -- this project's own evidence (module docstring
             RETRY-VALUE RATIONALE) says `True`.
@@ -362,7 +408,16 @@ def run_qc_with_retries(
     for attempt_number in range(max_retries + 1):
         tried_scales.add(scale)
         judges = judge_panel_fn(image_path)
-        verdict = SKILL.qc_verdict(style_id, margin, judges, attribute_fidelity_threshold)
+        copy_check_result = SKILL.copy_check(
+            margin["clip_margin"],
+            margin["dino_margin"],
+            clip_copy_anchor_gen,
+            dino_copy_anchor_gen,
+            copy_anchor_discount,
+        )
+        verdict = SKILL.qc_verdict(
+            style_id, margin, copy_check_result, judges, attribute_fidelity_threshold
+        )
         is_last = attempt_number == max_retries
         retry_triggered = not verdict["overall_pass"] and not is_last
 
@@ -393,6 +448,13 @@ def run_qc_with_retries(
                 "dino_margin": margin["dino_margin"],
                 "dino_in_band": margin["dino_in_band"],
                 "margin_band_pass": verdict["margin_band_pass"],
+                "clip_copy_anchor_gen": clip_copy_anchor_gen,
+                "clip_copy_anchor_threshold": copy_check_result["clip_copy_anchor_threshold"],
+                "clip_below_copy_anchor": copy_check_result["clip_below_copy_anchor"],
+                "dino_copy_anchor_gen": dino_copy_anchor_gen,
+                "dino_copy_anchor_threshold": copy_check_result["dino_copy_anchor_threshold"],
+                "dino_below_copy_anchor": copy_check_result["dino_below_copy_anchor"],
+                "copy_check_pass": verdict["copy_check_pass"],
                 "judges": judges,
                 "mean_attribute_fidelity": verdict["consensus_mean_attribute_fidelity"],
                 "n_contributing_judges": verdict["n_contributing_judges"],
@@ -542,6 +604,10 @@ def compute_overall_kappa(
 def write_results_csv(attempts: list[dict[str, Any]], path: Path = QC_RESULTS_PATH) -> None:
     """Flatten the full retry history (every style, every attempt) into `concept_qc_results.csv`.
 
+    `overall_pass` reflects the E2 gate (`copy_check_pass AND fidelity_pass`); `margin_band_pass`
+    (the old two-sided real-space band) is retained as a DIAGNOSTIC-ONLY column -- see
+    `skills/concept-qc/run_qc.py`'s `QCVerdict` docstring.
+
     Args:
         attempts: Concatenated output of `run_qc_with_retries` across every style, with
             `style_final_pass`/`n_attempts_for_style` already added per attempt.
@@ -563,6 +629,13 @@ def write_results_csv(attempts: list[dict[str, Any]], path: Path = QC_RESULTS_PA
                 "dino_margin": a["dino_margin"],
                 "dino_in_band": a["dino_in_band"],
                 "margin_band_pass": a["margin_band_pass"],
+                "clip_copy_anchor_gen": a["clip_copy_anchor_gen"],
+                "clip_copy_anchor_threshold": a["clip_copy_anchor_threshold"],
+                "clip_below_copy_anchor": a["clip_below_copy_anchor"],
+                "dino_copy_anchor_gen": a["dino_copy_anchor_gen"],
+                "dino_copy_anchor_threshold": a["dino_copy_anchor_threshold"],
+                "dino_below_copy_anchor": a["dino_below_copy_anchor"],
+                "copy_check_pass": a["copy_check_pass"],
                 "gemini_available": gemini["available"],
                 "gemini_mean_score": gemini["mean_score"],
                 "gemini_raw_json": (
@@ -598,8 +671,111 @@ def load_selected_candidates(path: Path = FINAL_CONCEPTS_PATH) -> dict[str, dict
     return {row["style_id"]: row for row in df.iter_rows(named=True)}
 
 
+def rescore_attempt_under_new_gate(
+    clip_margin: float,
+    dino_margin: float,
+    clip_copy_anchor_gen: float,
+    dino_copy_anchor_gen: float,
+    fidelity_pass: bool,
+    discount: float = COPY_ANCHOR_DISCOUNT,
+) -> dict[str, Any]:
+    """Re-evaluate ONE already-computed `(clip_margin, dino_margin, fidelity_pass)` triple (task E2
+    part 3) against the NEW Gate-1 copy-check -- never recomputes an embedding, a margin, or a VLM
+    judge call. `fidelity_pass` (Gate 2, UNCHANGED by task E2) is reused verbatim from the
+    already-logged `concept_qc_results.csv` row.
+
+    Args:
+        clip_margin: Already-logged CLIP margin for this attempt.
+        dino_margin: Already-logged DINOv2 margin for this attempt.
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1,
+            `margin_anchors_generated_space.csv`).
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean.
+        fidelity_pass: The already-logged Gate 2 (attribute-fidelity) verdict, reused unchanged.
+        discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold` for the sign-safety
+            reasoning.
+
+    Returns:
+        A flat dict with the new gate's per-metric thresholds/verdicts, `copy_check_pass`,
+        `fidelity_pass` (passthrough), and `overall_pass_new_gate`.
+    """
+    result = SKILL.copy_check(
+        clip_margin, dino_margin, clip_copy_anchor_gen, dino_copy_anchor_gen, discount
+    )
+    copy_pass = SKILL.copy_check_pass(result)
+    return {
+        "clip_margin": clip_margin,
+        "clip_copy_anchor_gen": clip_copy_anchor_gen,
+        "clip_copy_anchor_threshold": result["clip_copy_anchor_threshold"],
+        "clip_below_copy_anchor": result["clip_below_copy_anchor"],
+        "dino_margin": dino_margin,
+        "dino_copy_anchor_gen": dino_copy_anchor_gen,
+        "dino_copy_anchor_threshold": result["dino_copy_anchor_threshold"],
+        "dino_below_copy_anchor": result["dino_below_copy_anchor"],
+        "copy_check_pass": copy_pass,
+        "fidelity_pass": fidelity_pass,
+        "overall_pass_new_gate": copy_pass and fidelity_pass,
+    }
+
+
+def rescore_results_csv(
+    results_path: Path = QC_RESULTS_PATH,
+    anchors_path: Path = MARGIN_ANCHORS_GEN_PATH,
+    output_path: Path = RESCORED_RESULTS_PATH,
+    discount: float = COPY_ANCHOR_DISCOUNT,
+) -> pl.DataFrame:
+    """Re-score every row already logged in `concept_qc_results.csv` under the E2 gate (task E2
+    part 3).
+
+    Reads ONLY already-computed values (`clip_margin`, `dino_margin`, `fidelity_pass`) from the C7
+    run -- never regenerates an image, recomputes an embedding, or re-calls a VLM judge. Writes
+    `output_path` and returns the resulting DataFrame.
+
+    Args:
+        results_path: Path to the already-logged `concept_qc_results.csv` (C7 run).
+        anchors_path: Path to `margin_anchors_generated_space.csv` (task E1).
+        output_path: Destination for the re-scored CSV.
+        discount: See `rescore_attempt_under_new_gate`.
+
+    Returns:
+        One row per already-logged attempt: `style_id`, `attempt_number`,
+        `mean_attribute_fidelity`, `n_contributing_judges`, the OLD gate's
+        `margin_band_pass_old_diagnostic`/`overall_pass_old_gate` (kept for comparison), and every
+        new-gate column from `rescore_attempt_under_new_gate`.
+    """
+    results_df = pl.read_csv(results_path)
+    copy_anchors = load_copy_anchors_gen(anchors_path)
+
+    rows: list[dict[str, Any]] = []
+    for row in results_df.iter_rows(named=True):
+        style_id = row["style_id"]
+        anchors = copy_anchors[style_id]
+        rescored = rescore_attempt_under_new_gate(
+            clip_margin=row["clip_margin"],
+            dino_margin=row["dino_margin"],
+            clip_copy_anchor_gen=anchors["clip"],
+            dino_copy_anchor_gen=anchors["dinov2"],
+            fidelity_pass=row["fidelity_pass"],
+            discount=discount,
+        )
+        rows.append(
+            {
+                "style_id": style_id,
+                "attempt_number": row["attempt_number"],
+                "mean_attribute_fidelity": row["mean_attribute_fidelity"],
+                "n_contributing_judges": row["n_contributing_judges"],
+                "margin_band_pass_old_diagnostic": row["margin_band_pass"],
+                "overall_pass_old_gate": row["overall_pass"],
+                **rescored,
+            }
+        )
+    out_df = pl.DataFrame(rows)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    out_df.write_csv(output_path)
+    return out_df
+
+
 def main() -> None:
-    """Run the full C7 pipeline: calibration -> per-style QC-with-retries -> write artifacts."""
+    """Run the full C7/E2 pipeline: calibration -> per-style QC-with-retries -> write artifacts."""
     briefs = final_concepts.load_design_briefs()
     style_references = final_concepts.load_final_three_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
@@ -607,8 +783,10 @@ def main() -> None:
 
     clip_band = load_margin_band(CLIP_BAND_PATH)
     dino_band = load_margin_band(DINO_BAND_PATH)
-    print(f"CLIP band: {clip_band}")
-    print(f"DINOv2 band: {dino_band}")
+    copy_anchors = load_copy_anchors_gen()
+    print(f"CLIP band (diagnostic only, see E2): {clip_band}")
+    print(f"DINOv2 band (diagnostic only, see E2): {dino_band}")
+    print(f"Copy anchors (generated space, Gate 1): {copy_anchors}")
 
     groq_available, groq_detail = vlm_judges.check_groq_availability()
     print(f"\nGroq judge availability: {groq_available} ({groq_detail})")
@@ -692,6 +870,8 @@ def main() -> None:
             generation_backend=backends.LOCAL_SDXL,
             clip_band=clip_band,
             dino_band=dino_band,
+            clip_copy_anchor_gen=copy_anchors[style_id]["clip"],
+            dino_copy_anchor_gen=copy_anchors[style_id]["dinov2"],
             judge_panel_fn=judge_panel_fn,
             margin_fn=margin_fn,
             generate_fn=generate_fn,

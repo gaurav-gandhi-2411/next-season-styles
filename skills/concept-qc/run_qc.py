@@ -23,6 +23,7 @@ from typing import Protocol, TypedDict
 
 DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD = 0.75
 DEFAULT_BINARIZE_THRESHOLD = 0.5
+DEFAULT_COPY_ANCHOR_DISCOUNT = 0.10
 LLM_CONSENSUS_LABEL = "LLM-consensus (NOT human ground truth)"
 
 
@@ -55,7 +56,14 @@ class JudgeUnavailableError(RuntimeError):
 
 
 class MarginBandResult(TypedDict):
-    """One image's already-computed CLIP + DINOv2 margin-band scoring result.
+    """One image's already-computed CLIP + DINOv2 two-sided margin-band scoring result.
+
+    DIAGNOSTIC ONLY as of task E2 -- this two-sided band (estimated from real-catalogue reference
+    images, cross-applied to a DIFFERENT distribution of generated images) no longer gates
+    `overall_pass`. It is still computed and reported alongside every `QCVerdict` for comparison,
+    but the actual pass/fail decision is `copy_check_pass` (Gate 1, see `CopyCheckResult`) AND
+    `fidelity_pass` (Gate 2). See `SKILL.md`'s "Gate 1: the sign-safe discount formula" section for
+    the full rationale.
 
     Computed entirely OUTSIDE this module (`nss.generate.clip_scoring` / `dino_scoring` /
     `margin_scoring`) -- this skill only reads the already-derived booleans/floats, never
@@ -66,6 +74,97 @@ class MarginBandResult(TypedDict):
     clip_in_band: bool
     dino_margin: float
     dino_in_band: bool
+
+
+class CopyCheckResult(TypedDict):
+    """One image's Gate-1 ("not a copy") result: BOTH CLIP and DINOv2 margins checked against a
+    per-style, per-embedding-space threshold derived from that style's OWN `copy_anchor_gen` (task
+    E1's generated-space anchors -- see `SKILL.md`'s "Gate 1" section). Replaces the DIAGNOSTIC-ONLY
+    `MarginBandResult.clip_in_band`/`dino_in_band` as the actual gating signal (task E2).
+    """
+
+    clip_margin: float
+    clip_copy_anchor_gen: float
+    clip_copy_anchor_threshold: float
+    clip_below_copy_anchor: bool
+    dino_margin: float
+    dino_copy_anchor_gen: float
+    dino_copy_anchor_threshold: float
+    dino_below_copy_anchor: bool
+
+
+def copy_anchor_threshold(
+    copy_anchor_gen: float, discount: float = DEFAULT_COPY_ANCHOR_DISCOUNT
+) -> float:
+    """A `discount`-fraction-stricter Gate-1 threshold from a per-style `copy_anchor_gen` mean.
+
+    SIGN-SAFE BY CONSTRUCTION -- this is the reason the formula is `copy_anchor_gen - discount *
+    abs(copy_anchor_gen)` and NOT the naive `copy_anchor_gen * (1 - discount)`. Both formulas agree
+    when `copy_anchor_gen` is positive (`0.90 * x == x - 0.10 * abs(x)` for `x > 0`), but they
+    DISAGREE, in exactly the direction that matters, when `copy_anchor_gen` is negative (this
+    project's Sweater-style CLIP anchor, `-0.0472`): multiplying a negative number by `0.90` moves
+    it TOWARD zero (`-0.0472 * 0.90 = -0.0425`, a HIGHER/less-negative value than the anchor
+    itself), which would make Gate 1 *easier* to pass than the un-discounted anchor -- the opposite
+    of what a "10% stricter" threshold is supposed to do. Subtracting `discount * abs(x)` instead
+    always moves the threshold AWAY from zero in the same direction the anchor already points
+    (`-0.0472 - 0.10 * 0.0472 = -0.0519`, MORE negative, i.e. strictly stricter), so the invariant
+    `copy_anchor_threshold(x, discount) < x` holds for any nonzero `x` and any `discount > 0`,
+    regardless of `x`'s sign -- see this module's test suite for a parametrized check of exactly
+    that invariant over both a positive and a negative anchor.
+
+    Args:
+        copy_anchor_gen: This style's mean `copy_anchor_gen` margin (task E1's
+            `reports/tables/margin_anchors_generated_space.csv`), in ONE embedding space (CLIP or
+            DINOv2 -- call this once per space).
+        discount: Fraction of the anchor's own magnitude to subtract, moving the threshold strictly
+            away from zero in the anchor's own direction (default `0.10`, i.e. 10% stricter).
+
+    Returns:
+        The Gate-1 threshold: a generated image's margin in this embedding space must be STRICTLY
+        BELOW this value to pass (see `copy_check`).
+    """
+    return copy_anchor_gen - discount * abs(copy_anchor_gen)
+
+
+def copy_check(
+    clip_margin: float,
+    dino_margin: float,
+    clip_copy_anchor_gen: float,
+    dino_copy_anchor_gen: float,
+    discount: float = DEFAULT_COPY_ANCHOR_DISCOUNT,
+) -> CopyCheckResult:
+    """Gate 1 ("not a copy"): score one image's CLIP + DINOv2 margins against their per-style
+    copy-anchor thresholds.
+
+    Args:
+        clip_margin: The image's already-computed CLIP margin.
+        dino_margin: The image's already-computed DINOv2 margin.
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1).
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean (task E1).
+        discount: See `copy_anchor_threshold`.
+
+    Returns:
+        A `CopyCheckResult` with both per-space thresholds and pass booleans.
+    """
+    clip_threshold = copy_anchor_threshold(clip_copy_anchor_gen, discount)
+    dino_threshold = copy_anchor_threshold(dino_copy_anchor_gen, discount)
+    return CopyCheckResult(
+        clip_margin=clip_margin,
+        clip_copy_anchor_gen=clip_copy_anchor_gen,
+        clip_copy_anchor_threshold=clip_threshold,
+        clip_below_copy_anchor=clip_margin < clip_threshold,
+        dino_margin=dino_margin,
+        dino_copy_anchor_gen=dino_copy_anchor_gen,
+        dino_copy_anchor_threshold=dino_threshold,
+        dino_below_copy_anchor=dino_margin < dino_threshold,
+    )
+
+
+def copy_check_pass(result: CopyCheckResult) -> bool:
+    """Gate-1 verdict: BOTH CLIP and DINOv2 margins must be below their copy-anchor thresholds --
+    the same strict joint-AND convention `MarginBandResult`'s old `margin_band_pass` used, kept for
+    consistency (see `SKILL.md`'s "Design notes")."""
+    return result["clip_below_copy_anchor"] and result["dino_below_copy_anchor"]
 
 
 class JudgeResult(TypedDict):
@@ -80,11 +179,18 @@ class JudgeResult(TypedDict):
 
 
 class QCVerdict(TypedDict):
-    """The combined margin-band + blind-VLM-panel QC verdict for one generated concept image."""
+    """The combined copy-check + blind-VLM-panel QC verdict for one generated concept image.
+
+    `overall_pass` is `copy_check_pass AND fidelity_pass` (task E2) -- `margin`/`margin_band_pass`
+    (the OLD two-sided real-space band) are retained verbatim as a DIAGNOSTIC field only, reported
+    for comparison but no longer part of the gate. See `SKILL.md`'s "Gate 1" section.
+    """
 
     style_id: str
     margin: MarginBandResult
     margin_band_pass: bool
+    copy_check: CopyCheckResult
+    copy_check_pass: bool
     judges: dict[str, JudgeResult]
     consensus_mean_attribute_fidelity: float
     n_contributing_judges: int
@@ -337,36 +443,44 @@ def combine_judges(judge_results: dict[str, JudgeResult]) -> tuple[float, int]:
 def qc_verdict(
     style_id: str,
     margin: MarginBandResult,
+    copy_check_result: CopyCheckResult,
     judge_results: dict[str, JudgeResult],
     attribute_fidelity_threshold: float = DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD,
 ) -> QCVerdict:
-    """Combine an already-computed margin-band result + judge panel into the final `QCVerdict`.
+    """Combine an already-computed copy-check result + judge panel into the final `QCVerdict`.
 
-    `margin_band_pass` requires BOTH `clip_in_band` AND `dino_in_band` -- see `SKILL.md`'s "Design
-    notes" and worked examples for why this is deliberately stricter than C6's own CLIP-primary
-    selection rule (a re-check gate, not a ranking rule, is held to the stricter joint bar).
+    `overall_pass` (task E2) is `copy_check_pass AND fidelity_pass` -- TWO one-sided tests: Gate 1
+    (`copy_check_pass`, both CLIP and DINOv2 margins below their per-style copy-anchor thresholds)
+    and Gate 2 (`fidelity_pass`, blind VLM attribute fidelity >= threshold). The OLD two-sided
+    `margin_band_pass` (BOTH `clip_in_band` AND `dino_in_band` against the real-space band) is still
+    computed and reported as a DIAGNOSTIC field but no longer gates `overall_pass` -- see `SKILL.md`
+    for the full rationale.
 
     Args:
         style_id: Opaque identifier, passed through unchanged.
-        margin: Output of the (external) margin-band scoring step.
+        margin: Output of the (external) two-sided margin-band scoring step -- diagnostic only.
+        copy_check_result: Output of `copy_check` -- the actual Gate-1 signal.
         judge_results: Output of `run_judge`, one entry per judge.
-        attribute_fidelity_threshold: Minimum `consensus_mean_attribute_fidelity` to pass.
+        attribute_fidelity_threshold: Minimum `consensus_mean_attribute_fidelity` to pass Gate 2.
 
     Returns:
         A `QCVerdict`.
     """
     consensus_fidelity, n_contributing = combine_judges(judge_results)
     margin_band_pass = margin["clip_in_band"] and margin["dino_in_band"]
+    copy_pass = copy_check_pass(copy_check_result)
     fidelity_pass = consensus_fidelity >= attribute_fidelity_threshold
     return QCVerdict(
         style_id=style_id,
         margin=margin,
         margin_band_pass=margin_band_pass,
+        copy_check=copy_check_result,
+        copy_check_pass=copy_pass,
         judges=judge_results,
         consensus_mean_attribute_fidelity=consensus_fidelity,
         n_contributing_judges=n_contributing,
         fidelity_pass=fidelity_pass,
-        overall_pass=margin_band_pass and fidelity_pass,
+        overall_pass=copy_pass and fidelity_pass,
         label=LLM_CONSENSUS_LABEL,
     )
 

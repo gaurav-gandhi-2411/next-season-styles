@@ -22,6 +22,9 @@ from run_qc import (  # noqa: E402 -- import must follow sys.path setup above
     choose_next_retry_value,
     cohens_kappa,
     combine_judges,
+    copy_anchor_threshold,
+    copy_check,
+    copy_check_pass,
     is_self_scoring_contamination,
     mean_score,
     qc_verdict,
@@ -236,13 +239,21 @@ def test_combine_judges_no_judges_available_returns_zero_and_zero() -> None:
     assert n == 0
 
 
-def test_qc_verdict_overall_pass_requires_both_margin_and_fidelity() -> None:
-    """margin_band_pass requires BOTH clip_in_band and dino_in_band (see SKILL.md worked
-    examples) -- a fidelity-passing, DINOv2-failing concept still fails overall."""
+def test_qc_verdict_overall_pass_requires_both_copy_check_and_fidelity() -> None:
+    """overall_pass (task E2) is copy_check_pass AND fidelity_pass -- a fidelity-passing,
+    DINOv2-copy-check-failing concept still fails overall. `margin_band_pass` (the OLD two-sided
+    band) is still computed/reported but does NOT affect `overall_pass`."""
     margin = {"clip_margin": 0.05, "clip_in_band": True, "dino_margin": 0.7, "dino_in_band": False}
+    copy = copy_check(
+        clip_margin=0.05,
+        dino_margin=0.7,
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+    )
     judges = {"gemini": _judge(True, 0.9), "groq": _judge(False, None)}
-    verdict = qc_verdict("style-a", margin, judges)
+    verdict = qc_verdict("style-a", margin, copy, judges)
     assert verdict["margin_band_pass"] is False
+    assert verdict["copy_check_pass"] is False  # dino_margin 0.7 not below its 0.45 threshold
     assert verdict["fidelity_pass"] is True
     assert verdict["overall_pass"] is False
     assert verdict["label"] == "LLM-consensus (NOT human ground truth)"
@@ -250,9 +261,104 @@ def test_qc_verdict_overall_pass_requires_both_margin_and_fidelity() -> None:
 
 def test_qc_verdict_passes_when_both_conditions_met() -> None:
     margin = {"clip_margin": 0.05, "clip_in_band": True, "dino_margin": 0.2, "dino_in_band": True}
+    copy = copy_check(
+        clip_margin=0.05,
+        dino_margin=0.2,
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+    )
     judges = {"gemini": _judge(True, 0.9), "groq": _judge(True, 0.85)}
-    verdict = qc_verdict("style-a", margin, judges)
+    verdict = qc_verdict("style-a", margin, copy, judges)
+    assert verdict["copy_check_pass"] is True
     assert verdict["overall_pass"] is True
+
+
+def test_qc_verdict_overall_pass_can_differ_from_margin_band_pass() -> None:
+    """A concept OUTSIDE the old two-sided band (margin_band_pass=False, e.g. clip_in_band=False)
+    can still pass overall under the new gate, since margin_band_pass no longer gates -- this is
+    the concrete demonstration that the old band is diagnostic-only now."""
+    margin = {"clip_margin": 0.05, "clip_in_band": False, "dino_margin": 0.2, "dino_in_band": True}
+    copy = copy_check(
+        clip_margin=0.05,
+        dino_margin=0.2,
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+    )
+    judges = {"gemini": _judge(True, 0.9), "groq": _judge(True, 0.85)}
+    verdict = qc_verdict("style-a", margin, copy, judges)
+    assert verdict["margin_band_pass"] is False
+    assert verdict["overall_pass"] is True
+
+
+# ---------------------------------------------------------------------------
+# copy_anchor_threshold / copy_check / copy_check_pass -- task E2's Gate 1
+# ---------------------------------------------------------------------------
+
+
+def test_copy_anchor_threshold_positive_anchor_matches_naive_multiplication() -> None:
+    """For a POSITIVE anchor, the sign-safe formula agrees with the naive `anchor * 0.90`."""
+    assert copy_anchor_threshold(0.1359, discount=0.10) == pytest.approx(0.1359 * 0.90)
+
+
+def test_copy_anchor_threshold_negative_anchor_edge_case() -> None:
+    """NEGATIVE-ANCHOR EDGE CASE (this project's real Sweater CLIP anchor, -0.0472): the naive
+    `anchor * 0.90` would give -0.0425 -- HIGHER (less negative) than the anchor itself, which
+    would make Gate 1 easier to pass than an un-discounted anchor, the wrong direction. The
+    sign-safe formula instead gives -0.0519 -- MORE negative (stricter), the correct direction."""
+    anchor = -0.04717115908861158
+    naive_wrong = anchor * 0.90  # -0.04245..., LESS negative than the anchor -- wrong direction
+    correct = copy_anchor_threshold(anchor, discount=0.10)
+    assert correct == pytest.approx(-0.051888274997472738)
+    assert correct < anchor  # stricter: further from zero in the anchor's own direction
+    assert naive_wrong > anchor  # the naive formula is demonstrably backwards here
+    assert correct != pytest.approx(naive_wrong)
+
+
+def test_copy_anchor_threshold_always_stricter_than_anchor_regardless_of_sign() -> None:
+    """The general, sign-independent invariant: `copy_anchor_threshold(x) < x` for any nonzero `x`
+    and any `discount > 0` -- true for both a positive and a negative anchor."""
+    for anchor in (0.1359, 0.6811, -0.04717, -0.0001):
+        assert copy_anchor_threshold(anchor, discount=0.10) < anchor
+
+
+def test_copy_check_negative_anchor_gate_behaves_correctly() -> None:
+    """End-to-end Gate-1 check on the real Sweater CLIP numbers: a margin between the naive-wrong
+    threshold and the correct threshold must FAIL (still too copy-like), not pass."""
+    clip_anchor = -0.04717115908861158
+    dino_anchor = 0.07352664197484653
+    # A margin exactly at the (incorrect) naive threshold -0.0425 would pass a buggy `* 0.90` gate,
+    # but must FAIL the correct, stricter -0.0519 threshold.
+    result = copy_check(
+        clip_margin=-0.0425,
+        dino_margin=0.01,
+        clip_copy_anchor_gen=clip_anchor,
+        dino_copy_anchor_gen=dino_anchor,
+    )
+    assert result["clip_below_copy_anchor"] is False
+    assert copy_check_pass(result) is False
+
+    # A margin genuinely below the correct threshold passes.
+    result_passing = copy_check(
+        clip_margin=-0.06,
+        dino_margin=0.01,
+        clip_copy_anchor_gen=clip_anchor,
+        dino_copy_anchor_gen=dino_anchor,
+    )
+    assert result_passing["clip_below_copy_anchor"] is True
+    assert copy_check_pass(result_passing) is True
+
+
+def test_copy_check_requires_both_spaces() -> None:
+    """copy_check_pass requires BOTH clip_below_copy_anchor AND dino_below_copy_anchor."""
+    result = copy_check(
+        clip_margin=0.05,  # below its threshold (0.09)
+        dino_margin=0.6,  # NOT below its threshold (0.45)
+        clip_copy_anchor_gen=0.1,
+        dino_copy_anchor_gen=0.5,
+    )
+    assert result["clip_below_copy_anchor"] is True
+    assert result["dino_below_copy_anchor"] is False
+    assert copy_check_pass(result) is False
 
 
 # ---------------------------------------------------------------------------
