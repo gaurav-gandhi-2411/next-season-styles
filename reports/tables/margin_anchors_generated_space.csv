@@ -1,0 +1,17 @@
+style_key,anchor_type,embedding_space,n,mean,median,std
+Ladieswear || Sweater || Knitwear || Beige || Melange,copy_anchor_gen,clip,3,-0.04717115908861158,-0.04632756561040874,0.00998716700638436
+Ladieswear || Sweater || Knitwear || Beige || Melange,copy_anchor_gen,dinov2,3,0.07352664197484653,0.07522019408643246,0.018808163830362733
+Ladieswear || Sweater || Knitwear || Beige || Melange,unrelated_anchor_gen,clip,3,-0.04108042617638904,-0.042432051897048906,0.00664738349024713
+Ladieswear || Sweater || Knitwear || Beige || Melange,unrelated_anchor_gen,dinov2,3,0.053026386102040614,0.05384605117142201,0.028469176669588012
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,copy_anchor_gen,clip,3,0.13587470962887718,0.1396258899143764,0.006533175481931714
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,copy_anchor_gen,dinov2,3,0.6811162972024509,0.682196224800178,0.011645032774061816
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,unrelated_anchor_gen,clip,3,0.12832221303667343,0.1271056958607265,0.0050236734726728915
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,unrelated_anchor_gen,dinov2,3,0.6652961308047886,0.6651976974947112,0.022015389969928155
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",copy_anchor_gen,clip,3,0.19932445883750916,0.20076864957809448,0.003431071280808978
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",copy_anchor_gen,dinov2,3,0.7903936879398922,0.777477216720581,0.02391746365585346
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",unrelated_anchor_gen,clip,3,0.1921704356869062,0.189712256193161,0.009267347423099585
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",unrelated_anchor_gen,dinov2,3,0.7515249120692412,0.738583018630743,0.03809416449029142
+ALL_STYLES_POOLED,copy_anchor_gen,clip,9,0.09600933645925826,0.1396258899143764,0.11101809912104915
+ALL_STYLES_POOLED,copy_anchor_gen,dinov2,9,0.5150122090390632,0.682196224800178,0.3348745841024011
+ALL_STYLES_POOLED,unrelated_anchor_gen,clip,9,0.0931374075157302,0.1271056958607265,0.10457678502498087
+ALL_STYLES_POOLED,unrelated_anchor_gen,dinov2,9,0.48994914299202347,0.6651976974947112,0.33085164865522515
