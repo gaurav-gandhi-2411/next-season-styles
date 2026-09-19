@@ -483,6 +483,18 @@ stored per-attribute score set (`data/generated/judge_cache.jsonl`, judged once 
 on the same T-shirt image with the same checklist scored 0.425 where F5 had stored 0.6375 -- single
 judge calls carry roughly +/-0.2 on one image; treat per-candidate fidelity as coarse.
 
+## Gate 2 fidelity is a median of repeated calls, with a stated noise bound (tasks J3/J4)
+
+A single judge call is not a precise measurement: the same T-shirt image scored 0.6375 and then
+0.425 across sessions (~0.21). Each FINAL concept is therefore judged 3 times per judge
+(`nss.generate.judge_repeat`, raw calls in `data/generated/judge_repeat_j4.jsonl`, summary in
+`reports/tables/j4_judge_repeats.csv`); the per-judge MEDIAN is compared with that judge's own
+calibrated threshold, and every fidelity number is reported with the +/-0.21 cross-call bound. Three
+same-session repeats agreed to <= 0.006 (the T-shirt and sweater each returned three identical scores), so they show
+repeatability, not accuracy -- they do not shrink the cross-session bound. A judge with 1..2 of 3
+calls (quota ran out) yields Gate 2 = inconclusive, never a pass. Final medians (Groq
+`qwen3.8-27b`): T-shirt 0.900, underwear 0.614, sweater 0.567, each vs a 0.513 threshold.
+
 ## Design notes
 
 - **`copy_check_pass` requires BOTH metrics below their thresholds, deliberately stricter than a
