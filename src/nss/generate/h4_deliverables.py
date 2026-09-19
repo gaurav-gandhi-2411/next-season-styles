@@ -133,9 +133,10 @@ def gate2_result(image: Path) -> dict[str, Any]:
 
 
 def selection_rows() -> list[dict[str, Any]]:
-    """One row per style: Gate 1 (p90), the un-gated NN diagnostic, Gate 2 (median of repeats)."""
+    """One row per style: Gate 1 (p90), Gate 1b (nearest reference, K2), Gate 2 (median)."""
     f5 = pl.read_csv("reports/tables/gate1_rescored_within_style.csv")
     h3 = pl.read_csv("reports/tables/h3_underwear_scored.csv")
+    gate1b = pl.read_csv("reports/tables/gate1b_nearest_reference.csv")
     rows = []
     for sid in STYLE_ORDER:
         seed, src = SELECTED[sid]
@@ -146,6 +147,9 @@ def selection_rows() -> list[dict[str, Any]]:
             else f5.filter((pl.col("style_id") == sid) & (pl.col("seed") == seed)).to_dicts()[0]
         )
         gate1 = bool(g["gate1_pass"] if src == "h3" else g["gate1_new_pass"])
+        b = gate1b.filter(pl.col("style_id") == sid).to_dicts()[0]
+        assert b["final_image"] == str(img), "Gate 1b was scored on a different image"
+        gate1b_ok = bool(b["final_joint_pass"])
         g2 = gate2_result(img)
         gate2 = g2["gate2_pass"]
         rows.append(
@@ -158,14 +162,11 @@ def selection_rows() -> list[dict[str, Any]]:
                 "dinov2_mean_sim": g["dinov2_mean_sim"],
                 "dinov2_benchmark_p90": g["dinov2_benchmark"],
                 "gate1_pass": gate1,
-                "clip_max_sim": g["clip_max_sim"],
-                "clip_nn_benchmark": g["clip_nn_benchmark"],
-                "dinov2_max_sim": g["dinov2_max_sim"],
-                "dinov2_nn_benchmark": g["dinov2_nn_benchmark"],
-                "nn_diagnostic_flags_copy": bool(
-                    g["clip_max_sim"] > g["clip_nn_benchmark"]
-                    or g["dinov2_max_sim"] > g["dinov2_nn_benchmark"]
-                ),
+                "clip_max_sim": b["final_clip_max_sim"],
+                "clip_gate1b_threshold": b["clip_threshold_p90"],
+                "dinov2_max_sim": b["final_dinov2_max_sim"],
+                "dinov2_gate1b_threshold": b["dinov2_threshold_p90"],
+                "gate1b_pass": gate1b_ok,
                 "judges": ",".join(g2["judges"]) or None,
                 "n_judge_calls": g2.get("n_calls"),
                 "fidelity_median": g2.get("fidelity_median"),
@@ -176,9 +177,9 @@ def selection_rows() -> list[dict[str, Any]]:
                 "human_check": HUMAN_CHECK[sid],
                 "overall": (
                     "PASS"
-                    if gate1 and gate2
+                    if gate1 and gate1b_ok and gate2
                     else "FAIL"
-                    if (not gate1 or gate2 is False)
+                    if (not gate1 or not gate1b_ok or gate2 is False)
                     else "GATE 2 INCONCLUSIVE"
                     if g2["judges"]
                     else "GATE 2 NOT MEASURED"
@@ -194,7 +195,6 @@ def _gate_text(r: dict[str, Any]) -> str:
     def mark(ok: bool) -> str:
         return "PASS" if ok else "FAIL"
 
-    nn = "flags a copy" if r["nn_diagnostic_flags_copy"] else "clear"
     return "\n".join(
         [
             "Gate 1 -- range check: similarity to",
@@ -209,9 +209,13 @@ def _gate_text(r: dict[str, Any]) -> str:
             "",
             f"Gate 1: {mark(r['gate1_pass'])}",
             "",
-            "Not gated -- nearest-reference check:",
-            f"closest ref CLIP {r['clip_max_sim']:.3f} vs {r['clip_nn_benchmark']:.3f}",
-            f"DINOv2 {r['dinov2_max_sim']:.3f} vs {r['dinov2_nn_benchmark']:.3f}: {nn}",
+            "Gate 1b -- closest single reference must",
+            "be <= p90 of real nearest-sibling sim:",
+            f"CLIP   {r['clip_max_sim']:.3f} <= {r['clip_gate1b_threshold']:.3f}  "
+            f"{mark(r['clip_max_sim'] <= r['clip_gate1b_threshold'])}",
+            f"DINOv2 {r['dinov2_max_sim']:.3f} <= {r['dinov2_gate1b_threshold']:.3f}  "
+            f"{mark(r['dinov2_max_sim'] <= r['dinov2_gate1b_threshold'])}",
+            f"Gate 1b: {mark(r['gate1b_pass'])}",
         ]
     )
 
@@ -255,7 +259,7 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
         "Real references",
         "Design brief (inputs, not verified)",
         "Generated concept",
-        "Gate 1: vs real within-style p90",
+        "Gate 1 + 1b: vs real within-style",
         "Gate 2: attribute fidelity + noise",
         "Verdict",
     )
@@ -297,7 +301,7 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
     for ax, t in zip(axes[0], titles, strict=True):
         ax.set_title(t, fontsize=10.5, fontweight="bold", pad=10)
     fig.suptitle(
-        "Evidence chain: references -> brief -> concept -> Gate 1 (real within-style p90) -> "
+        "Evidence chain: references -> brief -> concept -> Gate 1 (p90) + Gate 1b (nearest ref) -> "
         "Gate 2 (median of repeated calls + noise bound) -> verdict",
         fontsize=14,
         fontweight="bold",

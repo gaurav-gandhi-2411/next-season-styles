@@ -461,6 +461,29 @@ plagiarism detector.
 both; final selections: median 1/3 -> p90 3/3
 (`gate1_rescored_within_style.csv`, `h3_underwear_scored.csv`).
 
+## CURRENT Gate 1b: nearest-reference check, calibrated on real articles (task K2)
+
+The clone control showed Gate 1 (mean over references) cannot detect a copy of one reference, and
+a copy detector that passes an exact copy is broken -- established by the control, independent of
+any candidate. Gate 1b looks at the NEAREST reference instead: a concept's max cosine to any of its
+style's references must be at or below the **p90 of the real-article nearest-sibling distribution**
+(each real reference's max cosine to the OTHER references, the same leave-one-out set as J1), per
+style, per space, joint AND, through the same `within_style_novelty_pass`
+(`nss.generate.gate1b_nearest_reference`, `reports/tables/gate1b_nearest_reference.csv`). Not a raw
+cut: a raw nearest-reference threshold would repeat the median error.
+
+Verification (declared before scoring candidates): the exact clone of reference 0 **fails** in all
+three styles (max cosine 1.000 vs thresholds 0.911-0.985), so the check works and is gated. Real
+articles pass their own threshold 100% (n=4-6). Stated properties: (1) with n=4-6, nearest-sibling
+values come in mutual pairs, so the p90 equals the max real nearest-sibling value in every
+style/space -- Gate 1b reads "no closer to a reference than the closest real pair is"; (2) a real
+article's nearest sibling is over n-1 references, a concept's over n (slightly stricter for
+concepts); (3) the concept is IP-Adapter-conditioned on reference 0, so some closeness is structural.
+
+Finals: underwear PASS (0.912/0.921 vs 0.950/0.955), sweater PASS (0.963/0.918 vs 0.985/0.942),
+**T-shirt FAIL on DINOv2** (0.913 vs 0.911; CLIP 0.971 vs 0.978 passes). The threshold was not
+adjusted after seeing this.
+
 ## CURRENT Gate 2 checklist: visually observable attributes only (task H2)
 
 The judge is asked for `product_type`, `colour_family` and `graphical_treatment` only.
