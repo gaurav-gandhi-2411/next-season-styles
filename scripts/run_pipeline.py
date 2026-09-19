@@ -40,7 +40,9 @@ prompts -- reusing its own `score_candidate`/`select_final_candidate`/`write_res
 `nss.generate.final_concepts.select_best_candidate` (old two-sided real-space band) /
 `nss.generate.concept_qc_pipeline.run_qc_with_retries` (old QC gate) path this script used before.
 The `hero` stage calls `nss.generate.final_deliverables.main(final_concepts_v2_path=..., ...)`,
-E8's current signature.
+E8's current signature. `generate`/`score` also load reference images via
+`nss.generate.screen_references.load_screened_references` (task F3), not
+`final_concepts.load_final_three_references` -- see that module's docstring for why.
 
 SCOPING-DOWN (documented, not silently done): task D3's purpose is proving the WIRING between
 already-tested stages works end-to-end from one command, not re-deriving E5's full adaptive
@@ -109,6 +111,7 @@ from nss.generate import (
     final_concepts,
     final_concepts_v2,
     final_deliverables,
+    screen_references,
     vlm_judges,
 )
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
@@ -788,7 +791,10 @@ def main() -> None:
         return
 
     design_briefs = final_concepts.load_design_briefs()
-    style_references = final_concepts.load_final_three_references()
+    # F3: screened (full-garment only, best-selling-first) references, not the unscreened,
+    # arbitrarily-alphabetically-ordered `final_concepts.load_final_three_references` -- see
+    # `nss.generate.screen_references` module docstring for the mechanism this fixes.
+    style_references = screen_references.load_screened_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
 
     candidates_by_style = _run_stage(

@@ -6,8 +6,9 @@ VLM attribute-fidelity judges, and never gates on the E2 copy-check. Reusing it 
 bolting the entire E2 gate + a different selection rule + an adaptive per-style retry loop onto a
 module whose docstring and tests are explicitly about the C6 band-based rule -- more surface area
 changed than added. This module instead REUSES `final_concepts.py`'s still-valid, unchanged
-primitives (`load_design_briefs`, `load_final_three_references`, `build_generation_spec`,
-`generate_candidates_for_style`, `strengthen_underwear_prompts`, `Candidate`, `_slugify`) and
+primitives (`load_design_briefs`, `build_generation_spec`, `generate_candidates_for_style`,
+`strengthen_underwear_prompts`, `Candidate`, `_slugify` -- `load_final_three_references` itself was
+later swapped for `screen_references.load_screened_references`, task F3, see below) and
 `concept_qc_pipeline.py`'s still-valid E2 gate primitives (`run_judge_panel`,
 `load_copy_anchors_gen`, `parse_style_attributes`, `SKILL`), and adds only what task E5 actually
 needs: the corrected prompts (`reports/tables/design_briefs.json`, edited directly -- not
@@ -65,6 +66,14 @@ SCOPE for task E5's authorized changes (framing prompt fix, scale=0.45, novelty-
 reported here as a genuine, mechanism-backed failure per the task's explicit instruction not to
 loosen the gate or silently paper over it.
 
+FIXED IN TASK F3 (not deferred again -- see `nss.generate.screen_references`'s module docstring for
+the full mechanism/fix): `main()` below now loads references via
+`screen_references.load_screened_references` instead of `final_concepts.
+load_final_three_references` -- a VLM-screened, full-garment-only, best-selling-first ordering, so
+`reference_images[0]` (the only image `backends._generate_local_sdxl` ever conditions on) is no
+longer the Sweater's arbitrary alphabetically-first candidate (which happened to be a texture
+close-up) but the best-selling image every reachable judge classified as a full-garment shot.
+
 TWO-PHASE VRAM-SAFE PROCESS, PER SEED-ROUND (not once for the whole run, unlike C6's
 `final_concepts.main`): this module's retry loop is ADAPTIVE -- whether a retry round is even
 needed depends on whether the previous round's CPU-scored, API-judged results passed. That
@@ -86,7 +95,7 @@ from typing import Any
 
 import polars as pl
 
-from nss.generate import backends, vlm_judges
+from nss.generate import backends, screen_references, vlm_judges
 from nss.generate.concept_qc_pipeline import (
     ATTRIBUTE_FIDELITY_THRESHOLD,
     COPY_ANCHOR_DISCOUNT,
@@ -101,7 +110,6 @@ from nss.generate.final_concepts import (
     build_generation_spec,
     generate_candidates_for_style,
     load_design_briefs,
-    load_final_three_references,
 )
 from nss.generate.scale_sweep import free_sdxl_pipeline
 
@@ -487,7 +495,7 @@ def main() -> None:
     """Run the full E5 pipeline: per-style adaptive generate -> free VRAM -> full-gate score ->
     select -> write, across every winning style."""
     briefs = load_design_briefs()
-    style_references = load_final_three_references()
+    style_references = screen_references.load_screened_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
     copy_anchors = load_copy_anchors_gen()
     groq_available, groq_detail = vlm_judges.check_groq_availability()
