@@ -506,6 +506,42 @@ stored per-attribute score set (`data/generated/judge_cache.jsonl`, judged once 
 on the same T-shirt image with the same checklist scored 0.425 where F5 had stored 0.6375 -- single
 judge calls carry roughly +/-0.2 on one image; treat per-candidate fidelity as coarse.
 
+## Gate 2 checklist, completed: non-visual pattern labels are excluded too (task L2)
+
+H2 dropped `garment_group` ("Jersey Basic") because it has no visual referent. The same defect
+remained in `graphical_appearance_name`: the Summer concept scored 0 on "Other structure", an
+internal catch-all the judge cannot name, while correctly describing the image as "solid, ribbed".
+The `graphical_treatment` attribute is therefore EXCLUDED when the style's pattern label is one of
+(`nss.generate.fidelity.NON_VISUAL_GRAPHICAL_VALUES`, checked against all 30 values in
+`articles.csv`):
+
+| Excluded pattern label | Why it is not a describable visual pattern |
+|---|---|
+| `Other structure` | internal catch-all for any texture not otherwise listed |
+| `Other pattern` | internal catch-all for any pattern not otherwise listed |
+| `Unknown` | no information |
+| `Treatment` | a fabric finishing process, not something visible |
+
+Every other value is kept, including vague-sounding ones (`Contrast`, `Mixed solid/pattern`,
+`Neps`, `Metallic`): a judge miss on a describable pattern is a real error. In particular the
+sweater's `Melange` scored 0 although melange IS visible; that is a genuine judge error, stays in
+the score and is listed in the limitations.
+
+Fidelity is always reported BOTH ways (`reports/tables/fidelity_both_figures.csv`): all three
+attributes, and visual-only (the gated figure). No new threshold: the per-judge threshold is the
+calibrated `0.75 x positive mean` (0.513 for Groq) and is unchanged. Caveats stated, not hidden:
+that threshold was calibrated on three-attribute means, and `product_type` is the attribute that
+usually scores lowest (terse catalogue words vs the judge's longer descriptions), so a two-attribute
+mean is not perfectly like-for-like. Recomputed from the persisted per-attribute scores (no judge
+re-call): the three AW2020 concepts are unchanged (no excluded attribute applies; T-shirt 0.900,
+underwear 0.614, sweater 0.567); the Summer concept moves from 0.375 (all attributes, fail) to
+0.562 (visual-only, pass by 0.049, well inside the +/-0.21 noise bound).
+
+**Agent layer / MCP (task L1):** `agents/critic.md` and the MCP `score_concept` tool now run these
+shipped gates (`nss.generate.qc_gates`: Gate 1, Gate 1b with live clone validation, optional Gate 2,
+human check always required). `qc_verdict` / `copy_check` in `run_qc.py` are retained only to
+reproduce the historical margin-band results.
+
 ## Gate 2 fidelity is a median of repeated calls, with a stated noise bound (tasks J3/J4)
 
 A single judge call is not a precise measurement: the same T-shirt image scored 0.6375 and then

@@ -223,7 +223,14 @@ def run_judge_panel(
     Returns:
         `{"gemini": JudgeResult, "groq": JudgeResult}`.
     """
-    dimensions = tuple(dimensions or vlm_judges.ATTRIBUTE_DIMENSIONS)
+    if dimensions is None:
+        # Task L2: drop `graphical_treatment` when the style's pattern label is a non-visual
+        # catch-all (explicit list in `nss.generate.fidelity`), so the judge is never scored on a
+        # word it cannot name from a picture.
+        from nss.generate.fidelity import applicable_dimensions
+
+        dimensions = applicable_dimensions(ground_truth.get("graphical_treatment", ""))
+    dimensions = tuple(dimensions)
     ground_truth = {d: ground_truth[d] for d in dimensions}
     gemini_result = SKILL.run_judge(
         "gemini",
