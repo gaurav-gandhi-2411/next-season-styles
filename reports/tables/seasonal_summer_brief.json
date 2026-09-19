@@ -1,0 +1,29 @@
+{
+  "style_id": "Ladieswear || Swimwear bottom || Swimwear || Black || Other structure",
+  "silhouette": "Swimwear swimwear bottom: true-to-category proportions, cut for everyday wearability. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.",
+  "fabric_and_hand": "Swimwear fabrication with a hand and drape consistent with the stated construction family.",
+  "colour_direction": "Black as the anchor colour (the attribute that won); charcoal or ink navy as an optional adjacent/complementary accent, not a replacement for the anchor.",
+  "detail_and_graphic_treatment": "Other structure surface treatment, kept as the reference point for any derived concept",
+  "preserve": [
+    "garment category: Swimwear bottom",
+    "construction/fabrication family: Swimwear",
+    "anchor colour: Black",
+    "surface treatment: Other structure",
+    "overall silhouette proportions (true-to-category proportions, cut for everyday wearability)",
+    "the winning combination as a whole -- performance is driven by persistence of demand for this exact combination, not a seasonal/calendar cue, so the concept must read as recognisably the same style rather than a reinterpretation of a seasonal theme"
+  ],
+  "change": [
+    "one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment)",
+    "a trim or construction detail (topstitch colour, binding, rib width, hardware finish)",
+    "a small proportion tweak within the category's normal range (hem length, cuff width, rise)"
+  ],
+  "rendered_prompt": "Swimwear bottom, swimwear construction, black other structure. Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment). Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish). Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise). Silhouette: true-to-category proportions, cut for everyday wearability. Fabric: a hand and drape consistent with the stated construction family. Colour accent option: charcoal or ink navy. Surface treatment: Other structure surface treatment, kept as the reference point for any derived concept. Product photography of the garment itself, clean studio background, even lighting, no styling props.",
+  "negative_prompt": "blurry, distorted proportions, extra limbs, warped seams, low-resolution, watermark, text overlay, logo, duplicate garments, mismatched colourway, worn by a human model, face, skin, lifestyle photography",
+  "attribute_clause": "Swimwear bottom, swimwear construction, black other structure.",
+  "novelty_clauses": [
+    "Novel accent: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment).",
+    "Novel accent: a trim or construction detail (topstitch colour, binding, rib width, hardware finish).",
+    "Novel accent: a small proportion tweak within the category's normal range (hem length, cuff width, rise)."
+  ],
+  "descriptive_clause": "Silhouette: true-to-category proportions, cut for everyday wearability. Fabric: a hand and drape consistent with the stated construction family. Colour accent option: charcoal or ink navy. Surface treatment: Other structure surface treatment, kept as the reference point for any derived concept. Product photography of the garment itself, clean studio background, even lighting, no styling props."
+}
