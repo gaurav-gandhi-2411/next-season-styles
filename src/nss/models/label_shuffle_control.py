@@ -45,7 +45,13 @@ PANEL_PATH = Path("data/processed/style_week_panel.parquet")
 OUT_PATH = Path("reports/tables/label_shuffle_control.csv")
 COMMITTED_SUMMARY = Path("reports/tables/backtest_summary_v2.csv")
 SHUFFLE_SEEDS = (42, 43, 44)  # repo-wide seed 42, then its two successors
-REPORT_METRICS = ("hit_at_3_in_top20", "hit_at_3_in_top10", "spearman_rho", "ndcg_at_10")
+REPORT_METRICS = (
+    "hit_at_3_in_top20",
+    "hit_at_3_in_top10",
+    "precision_at_3",
+    "spearman_rho",
+    "ndcg_at_10",
+)
 N_PICKS_PER_ORIGIN = 3  # Hit@3: each origin contributes 3 top-3 picks
 
 
