@@ -1,5 +1,11 @@
 # Agent Run Transcript -- next-season-styles (task D4)
 
+> **Superseded QC.** This run (task D4) predates the quality-gate corrections (WRITEUP §6: within-style
+> p90 range check, nearest-reference Gate 1b, three-attribute fidelity). Its 0/3 outcome reflects the
+> old margin-band gate, which the leave-one-out control later showed rejected real products. The agent
+> definitions and the MCP `score_concept` tool still use that old scoring; the final verdicts are in
+> `reports/tables/final_selection_h4.csv`. The transcript is kept unedited as a record of the retry loop.
+
 ## Request
 
 > find next season's winning styles and generate concepts

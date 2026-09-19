@@ -42,6 +42,6 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 
 - The black T-shirt **fails** the nearest-reference check (0.0018 over on one measure); the underwear and sweater pass every check.
 - Automatic checks passed visibly malformed candidates (three underwear, two summer); a human check is required.
-- Fidelity scores come from one noisy judge (about ±0.21 across sessions); the summer concept's attribute check is undecided (two readings that disagree by 0.25).
+- Fidelity scores come from one noisy judge (about ±0.21 across sessions); the summer concept **fails** the attribute check (median 0.375 vs 0.513; readings spread 0.25) while passing both similarity checks.
 - The summer forecast ranked the right style first but overshot its level (93.1 predicted vs 50.0 realised).
 - Full-mode generation was not re-run in the final session; the dry run covers wiring.

@@ -494,7 +494,7 @@ def summer_block() -> str:
 <div class=check><div class=chk-head><span class=chk-title>Not a copy of any single photo</span>{verdict_word(bool(sel["gate1b_pass"]))}</div>
 <p class=chk-body>Closest reference photo: CLIP {_num(sel["clip_max_sim"])} (limit {_num(sel["clip_gate1b_threshold"])}), DINOv2 {_num(sel["dinov2_max_sim"])} (limit {_num(sel["dinov2_gate1b_threshold"])}). An exact copy fails this test.</p></div>
 <div class=check><div class=chk-head><span class=chk-title>Matches the style's attributes</span>{verdict_word(None if len(reads) < 3 else sorted(reads[:3])[1] >= 0.513)}</div>
-<p class=chk-body>{g2}</p><p class=gloss>The style's pattern label is "Other structure", a catalogue term with little visual meaning, so the image reader answered "solid, ribbed" and scored 0 on that attribute. The reference photos were screened by eye because the automatic framing check was out of free quota.</p></div>"""
+<p class=chk-body>{g2}</p><p class=gloss>The style's labels ("Swimwear bottom", "Other structure") are catalogue terms with little visual meaning: the image reader answered "bikini bottom" and "solid, ribbed", which scores low on both. The failure is real under the rule fixed beforehand, but it is partly a labelling artifact, and the readings themselves vary by 0.25. The reference photos were screened by eye because the automatic framing check was out of free quota.</p></div>"""
 
 
 def seasonal_section() -> str:
