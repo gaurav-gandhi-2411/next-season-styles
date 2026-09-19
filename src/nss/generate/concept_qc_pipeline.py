@@ -297,6 +297,8 @@ def generate_retry_candidate(
     ip_adapter_scale: float,
     attempt_number: int,
     output_dir: Path = RETRY_OUTPUT_DIR,
+    prompt_2: str | None = None,
+    negative_prompt_2: str | None = None,
 ) -> Path:
     """Generate ONE retry candidate via C6's own generation primitive (same seed, new scale).
 
@@ -318,6 +320,11 @@ def generate_retry_candidate(
         ip_adapter_scale: The new (adjusted) scale for this retry.
         attempt_number: 1 or 2 (this project's retry numbering; 0 is the original C6 candidate).
         output_dir: Directory to write the labeled retry image into.
+        prompt_2: Optional text prompt for SDXL's second text encoder (task F4 -- see
+            `nss.generate.final_concepts.build_prompt_2`). `None` (the default) leaves diffusers'
+            own default (reuses `prompt`) -- behavior-identical to callers written before this
+            parameter existed.
+        negative_prompt_2: Optional negative prompt for encoder 2, same default convention.
 
     Returns:
         Path to the saved, labeled retry image.
@@ -332,6 +339,8 @@ def generate_retry_candidate(
         seed=seed,
         n=1,
         negative_prompt=negative_prompt,
+        prompt_2=prompt_2,
+        negative_prompt_2=negative_prompt_2,
     )
     source_path = paths[0]
     dest_path = (
@@ -970,6 +979,7 @@ def main() -> None:
         row = selected[style_id]
         ground_truth = parse_style_attributes(style_id)
         prompt, negative_prompt = final_concepts.build_generation_spec(style_id, brief)
+        prompt_2 = final_concepts.build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
         references = style_references[style_id]
 
         from nss.generate import clip_scoring, dino_scoring
@@ -1005,9 +1015,18 @@ def main() -> None:
             negative_prompt: str = negative_prompt,
             references: list[Path] = references,
             seed: int = int(row["chosen_seed"]),
+            prompt_2: str = prompt_2,
         ) -> Path:
             new_path = generate_retry_candidate(
-                style_id, prompt, negative_prompt, references, seed, scale, attempt_number
+                style_id,
+                prompt,
+                negative_prompt,
+                references,
+                seed,
+                scale,
+                attempt_number,
+                prompt_2=prompt_2,
+                negative_prompt_2=negative_prompt,
             )
             vram_before, vram_after = free_sdxl_pipeline()
             print(

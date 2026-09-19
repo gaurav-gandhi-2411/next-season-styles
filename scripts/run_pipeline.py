@@ -520,7 +520,9 @@ def run_generate_stage(
     primitive `nss.generate.final_concepts_v2`'s own `generate_fn` closure calls (see that
     module's `main`) -- at E5's `final_concepts_v2.IP_ADAPTER_SCALE=0.45` operating point (C6's
     superseded 0.2 is never used here). Only the SEED COUNT differs from E5's own round-0 batch
-    (see `seeds_for_style`), never the scale or the generation primitive itself.
+    (see `seeds_for_style`), never the scale or the generation primitive itself. Also passes
+    `final_concepts.build_prompt_2(style_id)` (task F4) as `prompt_2`/`negative_prompt_2`, the same
+    second-text-encoder wiring `final_concepts_v2.main`'s own `generate_fn` closure now applies.
 
     Args:
         design_briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
@@ -534,6 +536,7 @@ def run_generate_stage(
     all_candidates: dict[str, list[final_concepts.Candidate]] = {}
     for style_id, brief in design_briefs.items():
         prompt, negative_prompt = final_concepts.build_generation_spec(style_id, brief)
+        prompt_2 = final_concepts.build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
         seeds = seeds_for_style(style_id, n_seeds)
         references = style_references[style_id]
         print(f"[generate] style={style_id!r} seeds={seeds} references={len(references)}")
@@ -545,6 +548,8 @@ def run_generate_stage(
             seeds=seeds,
             ip_adapter_scale=final_concepts_v2.IP_ADAPTER_SCALE,
             output_dir=generated_images_dir,
+            prompt_2=prompt_2,
+            negative_prompt_2=negative_prompt,
         )
 
     vram_before, vram_after = free_sdxl_pipeline()

@@ -83,6 +83,12 @@ SDXL pipeline again. So each seed round is: generate (loads/reuses the cached pi
 per-retry convention (`generate_retry_candidate` + `free_sdxl_pipeline()` inside `generate_fn`),
 extended here to a whole batch of seeds per round instead of one retry at a time.
 
+WIRED TO TASK F4's SECOND-TEXT-ENCODER SUPPORT (post-F4): `main()`'s `generate_fn` closure now
+passes `final_concepts.build_prompt_2(style_id)` as `generate_candidates_for_style`'s `prompt_2`
+(and reuses the already-built `negative_prompt` as `negative_prompt_2`), so the active E5/F5
+generation path benefits from F4's short, budget-safe attribute-clause reinforcement on SDXL's
+second text encoder, not just the superseded `final_concepts.main` C6 path.
+
 Usage:
     uv run python -m nss.generate.final_concepts_v2
 """
@@ -108,6 +114,7 @@ from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_
 from nss.generate.final_concepts import (
     Candidate,
     build_generation_spec,
+    build_prompt_2,
     generate_candidates_for_style,
     load_design_briefs,
 )
@@ -509,6 +516,7 @@ def main() -> None:
     results: dict[str, dict[str, Any]] = {}
     for style_id, brief in briefs.items():
         prompt, negative_prompt = build_generation_spec(style_id, brief)
+        prompt_2 = build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
         references = style_references[style_id]
         ground_truth = parse_style_attributes(style_id)
         clip_refs = [clip_scoring.embed_image(p) for p in references]
@@ -517,6 +525,7 @@ def main() -> None:
         print(f"\nStyle: {style_id}")
         print(f"Prompt: {prompt!r}")
         print(f"Negative prompt: {negative_prompt!r}")
+        print(f"Prompt (encoder 2): {prompt_2!r}")
 
         def generate_fn(
             style_id: str,
@@ -525,6 +534,7 @@ def main() -> None:
             references: list[Path],
             seeds: tuple[int, ...],
             retry_round: int,
+            prompt_2: str = prompt_2,
         ) -> list[Candidate]:
             candidates = generate_candidates_for_style(
                 style_id,
@@ -534,6 +544,8 @@ def main() -> None:
                 seeds=seeds,
                 ip_adapter_scale=IP_ADAPTER_SCALE,
                 output_dir=OUTPUT_DIR,
+                prompt_2=prompt_2,
+                negative_prompt_2=negative_prompt,
             )
             vram_before, vram_after = free_sdxl_pipeline()
             print(
