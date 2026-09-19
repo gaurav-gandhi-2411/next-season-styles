@@ -8,6 +8,7 @@ import pytest
 
 from nss.generate import final_concepts, prompt_budget
 from nss.generate.final_concepts import (
+    DESIGN_BRIEFS_PATH,
     UNDERWEAR_STYLE_KEY,
     _distance_to_band,
     _slugify,
@@ -145,6 +146,27 @@ def test_build_generation_spec_keeps_prompt_and_negative_prompt_within_token_bud
 
     prompt, negative_prompt = build_generation_spec(
         "Ladieswear || Sweater || Knitwear || Beige || Melange", _full_brief()
+    )
+    assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+    assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+
+
+@pytest.mark.skipif(
+    not DESIGN_BRIEFS_PATH.exists(), reason="requires the real committed design_briefs.json"
+)
+def test_build_generation_spec_underwear_style_real_brief_fits_token_budget() -> None:
+    """Real-data regression test (task F5): the synthetic `_full_brief()` fixture above never
+    exercises this combination, because it under-counts what the REAL `design_briefs.json`
+    underwear entry's `negative_prompt` already contains. Task F5's first actual end-to-end run
+    hit a real `ValueError` here -- the F4 `negative_prompt_rules` rule table's terms, layered on
+    top of this style's own already-long base `negative_prompt` plus `strengthen_underwear_prompts`
+    's full term list, totalled 83 tokens, 6 over SDXL's 77-token budget (see
+    `UNDERWEAR_NEGATIVE_TERMS`'s TRIMMED comment for the fix and mechanism). This test uses the
+    REAL, committed brief so a future edit to either term list or to `design_briefs.json` itself
+    that reintroduces an over-budget negative_prompt fails loudly here, not mid-GPU-run."""
+    briefs = load_design_briefs(DESIGN_BRIEFS_PATH)
+    prompt, negative_prompt = build_generation_spec(
+        UNDERWEAR_STYLE_KEY, briefs[UNDERWEAR_STYLE_KEY]
     )
     assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
     assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET

@@ -94,6 +94,19 @@ UNDERWEAR_STYLE_KEY = "Ladieswear || Underwear bottom || Under-, Nightwear || Re
 # "body"/"nude" terms that could still let a human figure into frame without technically being
 # "worn by a model" (e.g. a person merely holding or posed near the garment). Each term is only
 # appended if not already present in the brief's negative_prompt (idempotent).
+#
+# TRIMMED (task F5, real defect found -- not silently patched): the original list also included
+# "underwear model" and "human figure". Combined with task F4's `negative_prompt_rules` rule table
+# (also applied to this style, ahead of this list, and itself adding "person"/"body") and this
+# style's `design_briefs.json` base `negative_prompt` (which already contains the substring "human
+# model"), the FULL assembled negative_prompt reached 83 tokens -- 6 OVER SDXL's 77-token budget,
+# discovered only now because this is the first run that actually exercises the F4 rule table and
+# this list together for this exact style (`build_generation_spec` correctly refused to silently
+# truncate, per its own documented contract -- see that function's Raises section). Both dropped
+# terms are literal redundant compounds of terms already guaranteed present elsewhere in this same
+# list ("underwear model" duplicates "model"; "human figure" duplicates "human") -- removing them
+# drops no distinct negative-prompt CONCEPT, only redundant phrasing, and brings the assembled
+# negative_prompt to exactly 77/77 tokens (measured, `tests/test_final_concepts.py`).
 UNDERWEAR_NEGATIVE_TERMS = (
     "person",
     "human",
@@ -106,8 +119,6 @@ UNDERWEAR_NEGATIVE_TERMS = (
     "nude",
     "nudity",
     "lingerie editorial",
-    "underwear model",
-    "human figure",
     "torso",
     "hips",
     "legs",
