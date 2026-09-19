@@ -86,14 +86,36 @@ Usage:
     uv run --no-sync python scripts/run_pipeline.py --force-briefs        # rebuild briefs (loses
                                                                            # applied_changes/token
                                                                            # -safety curation)
+    uv run --no-sync python scripts/run_pipeline.py --dry-run             # no GPU, no VLM judges,
+                                                                           # scratch-only writes
+
+DRY-RUN MODE (`--dry-run`, task K4 -- for reviewers without a GPU): exercises the wiring of EVERY
+stage (panel -> features -> forecast -> briefs -> generate -> score -> hero) but writes ONLY under
+a scratch directory (default `<tempdir>/nss_dry_run`, override with `--scratch-dir`) and never
+touches `data/` or `reports/`. Differences from the full run, all deliberate and printed:
+  * panel: the existing `data/processed/style_week_panel.parquet` is loaded READ-ONLY (a missing
+    panel is a hard error -- run `make data` first; dry-run never rebuilds or writes it);
+  * forecast/briefs: identical code, tables go to `<scratch>/tables` (the committed curated
+    `design_briefs.json` is copied there so the briefs stage reuses it, as in a normal run). The
+    exemplar step still DOWNLOADS the product photos it has no local copy of (16 small images in
+    the reference run) into `<scratch>/images`, so dry-run needs internet for that step;
+  * generate: SDXL is SKIPPED; the three committed final concepts in `reports/concepts/` (the
+    same images `evidence_chain.png` shows) are used as the candidates;
+  * score: real CLIP + DINOv2 wiring runs, but the network VLM judges are DISABLED, so attribute
+    fidelity is skipped (Gate 2 has no signal) -- Gate 1 numbers are real, verdicts are not;
+  * hero: the same `final_deliverables.main` call, writing figures to `<scratch>/pipeline_out`.
+The full mode (no flag) is the reproduction path and needs a CUDA GPU for the generate stage.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import shutil
+import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -115,6 +137,8 @@ from nss.generate import (
     vlm_judges,
 )
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
+from nss.generate.final_deliverables import STYLE_ORDER
+from nss.generate.h4_deliverables import SELECTED
 from nss.generate.scale_sweep import free_sdxl_pipeline
 from nss.models import diversity_forecast, final_forecast, final_three_shap_verdict
 
@@ -132,6 +156,122 @@ DEFAULT_TABLES_DIR = Path("reports/tables")
 DEFAULT_IMAGES_DIR = Path("data/images")
 DEFAULT_PIPELINE_OUT_DIR = Path("reports/pipeline_run")
 DEFAULT_GENERATED_IMAGES_DIR = Path("data/generated/pipeline_run")
+
+# --- Dry-run mode (task K4) ---------------------------------------------------------------------
+REPO_ROOT = Path(__file__).resolve().parent.parent
+# The three final concepts, committed so a reviewer without a GPU (or without data/generated/) can
+# still run every stage: style order matches `final_deliverables.STYLE_ORDER` (T-shirt, underwear,
+# sweater); the seeds are the ones `h4_deliverables.SELECTED` records for the shipped deliverable.
+DRY_RUN_CONCEPTS_DIR = Path("reports/concepts")
+DRY_RUN_CONCEPT_FILES: dict[str, str] = dict(
+    zip(
+        STYLE_ORDER,
+        (
+            f"black-jersey-basic-tshirt_seed{SELECTED[STYLE_ORDER[0]][0]}.png",
+            f"red-underwear-bottom_seed{SELECTED[STYLE_ORDER[1]][0]}.png",
+            f"beige-melange-sweater_seed{SELECTED[STYLE_ORDER[2]][0]}.png",
+        ),
+        strict=True,
+    )
+)
+DRY_RUN_JUDGES_DISABLED_MSG = "dry-run: judges disabled"
+# Directories dry-run must never write into (resolved against the repo root).
+DRY_RUN_PROTECTED_DIRS: tuple[str, ...] = ("data", "reports")
+
+
+def default_dry_run_scratch_dir() -> Path:
+    """Default scratch root for `--dry-run`: `<system temp dir>/nss_dry_run`."""
+    return Path(tempfile.gettempdir()) / "nss_dry_run"
+
+
+@dataclass(frozen=True)
+class DryRunPaths:
+    """Every path a dry run may WRITE to -- all under one scratch root."""
+
+    root: Path
+    tables_dir: Path
+    pipeline_out_dir: Path
+    generated_images_dir: Path
+    images_dir: Path
+
+
+def resolve_dry_run_paths(scratch_dir: Path, repo_root: Path = REPO_ROOT) -> DryRunPaths:
+    """Resolve the dry-run output layout under `scratch_dir`, refusing unsafe roots.
+
+    Raises:
+        ValueError: if `scratch_dir` is (or is inside) the repo's `data/` or `reports/`, or is an
+            ancestor of either -- a dry run must never be able to write there.
+    """
+    root = scratch_dir.resolve()
+    for name in DRY_RUN_PROTECTED_DIRS:
+        protected = (repo_root / name).resolve()
+        if root == protected or root.is_relative_to(protected) or protected.is_relative_to(root):
+            raise ValueError(
+                f"--scratch-dir {root} overlaps the protected directory {protected}; a dry run "
+                "must write only to a scratch location outside data/ and reports/."
+            )
+    return DryRunPaths(
+        root=root,
+        tables_dir=root / "tables",
+        pipeline_out_dir=root / "pipeline_out",
+        generated_images_dir=root / "generated",
+        images_dir=root / "images",
+    )
+
+
+def prepare_dry_run_scratch(paths: DryRunPaths, briefs_source: Path) -> Path:
+    """Create the scratch layout and copy the committed curated briefs into it (read-only source).
+
+    Returns the scratch copy of `design_briefs.json`, so the briefs stage reuses it via
+    `is_curated_design_briefs` exactly as a normal run reuses the committed file.
+    """
+    for directory in (
+        paths.tables_dir,
+        paths.pipeline_out_dir,
+        paths.generated_images_dir,
+        paths.images_dir,
+    ):
+        directory.mkdir(parents=True, exist_ok=True)
+    dest = paths.tables_dir / briefs_source.name
+    shutil.copy2(briefs_source, dest)
+    return dest
+
+
+def build_dry_run_candidates(
+    style_ids: list[str], concepts_dir: Path = DRY_RUN_CONCEPTS_DIR
+) -> dict[str, list[final_concepts.Candidate]]:
+    """One `Candidate` per style from the committed final concept images (no SDXL call).
+
+    Raises:
+        FileNotFoundError: if a style's committed concept image is missing.
+        KeyError: if a style has no registered dry-run concept file.
+    """
+    out: dict[str, list[final_concepts.Candidate]] = {}
+    for style_id in style_ids:
+        path = concepts_dir / DRY_RUN_CONCEPT_FILES[style_id]
+        if not path.exists():
+            raise FileNotFoundError(f"committed final concept image missing: {path}")
+        out[style_id] = [final_concepts.Candidate(style_id, SELECTED[style_id][0], path)]
+    return out
+
+
+@contextlib.contextmanager
+def judges_disabled() -> Iterator[None]:
+    """Make the network Gemini judge raise `JudgeUnavailableError` for the duration (dry-run).
+
+    `concept_qc_pipeline.run_judge_panel` looks `vlm_judges.extract_attributes_gemini` up at call
+    time, so swapping the module attribute is enough; it is always restored.
+    """
+
+    def _disabled(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        raise vlm_judges.JudgeUnavailableError(DRY_RUN_JUDGES_DISABLED_MSG)
+
+    original = vlm_judges.extract_attributes_gemini
+    vlm_judges.extract_attributes_gemini = _disabled  # type: ignore[assignment]
+    try:
+        yield
+    finally:
+        vlm_judges.extract_attributes_gemini = original
 
 
 def _stage_index(stage: str) -> int:
@@ -566,6 +706,7 @@ def run_score_stage(
     control_images: list[Path],
     candidates_by_style: dict[str, list[final_concepts.Candidate]],
     out_table_path: Path,
+    judges_enabled: bool = True,
 ) -> pl.DataFrame:
     """Score every round-0 candidate against the FULL E2 gate and select the final concept per
     style.
@@ -593,6 +734,9 @@ def run_score_stage(
         candidates_by_style: Output of `run_generate_stage`.
         out_table_path: Destination CSV for the full per-style scored history + selection (same
             shape as `nss.generate.final_concepts_v2.OUTPUT_TABLE_PATH`).
+        judges_enabled: `False` (dry-run only) skips the Groq reachability ping and reports Groq
+            as unavailable; the caller also wraps the call in `judges_disabled()` so the Gemini
+            judge makes no network call either.
 
     Returns:
         The written results `DataFrame`, post visual-QC rewrite (output of
@@ -600,13 +744,17 @@ def run_score_stage(
     """
     from nss.generate import clip_scoring, dino_scoring
 
-    try:
-        groq_available, groq_detail = vlm_judges.check_groq_availability()
-    except Exception as exc:  # noqa: BLE001 -- deliberate: any unexpected error must degrade, not crash.
-        groq_available, groq_detail = (
-            False,
-            f"availability check raised an unexpected error: {exc!r}",
-        )
+    if not judges_enabled:
+        groq_available, groq_detail = False, DRY_RUN_JUDGES_DISABLED_MSG
+        print("[score] DRY RUN: VLM judges disabled -- attribute fidelity (Gate 2) is SKIPPED")
+    else:
+        try:
+            groq_available, groq_detail = vlm_judges.check_groq_availability()
+        except Exception as exc:  # noqa: BLE001 -- deliberate: any unexpected error must degrade, not crash.
+            groq_available, groq_detail = (
+                False,
+                f"availability check raised an unexpected error: {exc!r}",
+            )
     print(f"[score] groq_available={groq_available} ({groq_detail})")
 
     copy_anchors = concept_qc_pipeline.load_copy_anchors_gen()
@@ -722,7 +870,41 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Seeds per style for the generate stage (see module docstring SCOPING-DOWN).",
     )
     parser.add_argument("--stop-after", choices=STAGE_ORDER, default=STAGE_ORDER[-1])
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Exercise every stage's wiring WITHOUT a GPU or network judges, writing only to a "
+        "scratch directory (see module docstring DRY-RUN MODE). Panel is loaded read-only; SDXL "
+        "is skipped in favour of the committed final concepts in reports/concepts/; VLM judges "
+        "are disabled (Gate 2 skipped). Touches nothing under data/ or reports/.",
+    )
+    parser.add_argument(
+        "--scratch-dir",
+        type=Path,
+        default=None,
+        help="Scratch root for --dry-run outputs (default: <system temp dir>/nss_dry_run). Must "
+        "lie outside the repo's data/ and reports/ directories.",
+    )
     return parser
+
+
+def dry_run_arg_conflicts(args: argparse.Namespace) -> list[str]:
+    """Flags that cannot be combined with `--dry-run` because they name (or cause) writes to the
+    real `data/` / `reports/` locations. Empty list = no conflict."""
+    conflicts: list[str] = []
+    if args.rebuild_panel:
+        conflicts.append("--rebuild-panel (would write data/processed)")
+    if args.force_briefs:
+        conflicts.append("--force-briefs (would rewrite design_briefs.json)")
+    for flag, value, default in (
+        ("--tables-out-dir", args.tables_out_dir, DEFAULT_TABLES_DIR),
+        ("--pipeline-out-dir", args.pipeline_out_dir, DEFAULT_PIPELINE_OUT_DIR),
+        ("--generated-images-dir", args.generated_images_dir, DEFAULT_GENERATED_IMAGES_DIR),
+        ("--images-dir", args.images_dir, DEFAULT_IMAGES_DIR),
+    ):
+        if value != default:
+            conflicts.append(f"{flag} (dry-run outputs are placed by --scratch-dir)")
+    return conflicts
 
 
 def _print_summary(timings: dict[str, float], t_start: float) -> None:
@@ -741,8 +923,40 @@ def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
 
-    if args.tables_out_dir != DEFAULT_TABLES_DIR and _stage_index(args.stop_after) > _stage_index(
-        "forecast"
+    dry_run: bool = args.dry_run
+    tables_dir: Path = args.tables_out_dir
+    images_dir: Path = args.images_dir
+    pipeline_out_dir: Path = args.pipeline_out_dir
+    generated_dir: Path = args.generated_images_dir
+    briefs_path: Path = final_concepts.DESIGN_BRIEFS_PATH
+    if dry_run:
+        conflicts = dry_run_arg_conflicts(args)
+        if conflicts:
+            parser.error("--dry-run cannot be combined with: " + "; ".join(conflicts))
+        if not args.panel_path.exists():
+            raise SystemExit(
+                f"[dry-run] {args.panel_path} not found. Dry-run loads the panel READ-ONLY and "
+                "never builds or writes it -- fetch and build the data first (`make data`, "
+                "`make panel`)."
+            )
+        try:
+            paths = resolve_dry_run_paths(args.scratch_dir or default_dry_run_scratch_dir())
+        except ValueError as exc:
+            parser.error(str(exc))
+        briefs_path = prepare_dry_run_scratch(paths, final_concepts.DESIGN_BRIEFS_PATH)
+        tables_dir, images_dir = paths.tables_dir, paths.images_dir
+        pipeline_out_dir, generated_dir = paths.pipeline_out_dir, paths.generated_images_dir
+        print(
+            f"=== DRY RUN: all writes go to {paths.root}; no GPU, no network judges "
+            "(Gate 2 skipped); nothing under data/ or reports/ is modified ==="
+        )
+    elif args.scratch_dir is not None:
+        parser.error("--scratch-dir is only meaningful with --dry-run")
+
+    if (
+        not dry_run
+        and tables_dir != DEFAULT_TABLES_DIR
+        and _stage_index(args.stop_after) > _stage_index("forecast")
     ):
         parser.error(
             "--tables-out-dir may only be combined with --stop-after panel/features/forecast -- "
@@ -763,7 +977,10 @@ def main() -> None:
     panel = _run_stage(
         "panel",
         lambda: run_panel_stage(
-            args.rebuild_panel, args.transactions_dir, args.articles_path, args.panel_path
+            False if dry_run else args.rebuild_panel,
+            args.transactions_dir,
+            args.articles_path,
+            args.panel_path,
         ),
     )
     if _stage_index(args.stop_after) < _stage_index("features"):
@@ -776,7 +993,7 @@ def main() -> None:
         return
 
     forecast_result: ForecastStageResult = _run_stage(
-        "forecast", lambda: run_forecast_stage(panel, args.tables_out_dir)
+        "forecast", lambda: run_forecast_stage(panel, tables_dir)
     )
     if _stage_index(args.stop_after) < _stage_index("briefs"):
         _print_summary(timings, t_start)
@@ -786,46 +1003,55 @@ def main() -> None:
         "briefs",
         lambda: run_briefs_stage(
             forecast_result.final_three_path,
-            args.tables_out_dir,
-            args.images_dir,
-            args.force_briefs,
+            tables_dir,
+            images_dir,
+            False if dry_run else args.force_briefs,
         ),
     )
     if _stage_index(args.stop_after) < _stage_index("generate"):
         _print_summary(timings, t_start)
         return
 
-    design_briefs = final_concepts.load_design_briefs()
+    design_briefs = final_concepts.load_design_briefs(briefs_path)
     # F3: screened (full-garment only, best-selling-first) references, not the unscreened,
     # arbitrarily-alphabetically-ordered `final_concepts.load_final_three_references` -- see
     # `nss.generate.screen_references` module docstring for the mechanism this fixes.
     style_references = screen_references.load_screened_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
 
-    candidates_by_style = _run_stage(
-        "generate",
-        lambda: run_generate_stage(
-            design_briefs,
-            style_references,
-            args.n_seeds,
-            args.generated_images_dir,
-        ),
-    )
+    if dry_run:
+        print("[generate] DRY RUN: SDXL skipped; using the committed final concepts")
+        candidates_by_style = _run_stage(
+            "generate", lambda: build_dry_run_candidates(list(design_briefs))
+        )
+    else:
+        candidates_by_style = _run_stage(
+            "generate",
+            lambda: run_generate_stage(
+                design_briefs,
+                style_references,
+                args.n_seeds,
+                generated_dir,
+            ),
+        )
     if _stage_index(args.stop_after) < _stage_index("score"):
         _print_summary(timings, t_start)
         return
 
-    final_concepts_v2_path = args.pipeline_out_dir / "tables" / "final_concepts_v2.csv"
-    _run_stage(
-        "score",
-        lambda: run_score_stage(
-            design_briefs,
-            style_references,
-            control_images,
-            candidates_by_style,
-            final_concepts_v2_path,
-        ),
-    )
+    final_concepts_v2_path = pipeline_out_dir / "tables" / "final_concepts_v2.csv"
+    score_ctx = judges_disabled() if dry_run else contextlib.nullcontext()
+    with score_ctx:
+        _run_stage(
+            "score",
+            lambda: run_score_stage(
+                design_briefs,
+                style_references,
+                control_images,
+                candidates_by_style,
+                final_concepts_v2_path,
+                judges_enabled=not dry_run,
+            ),
+        )
     if _stage_index(args.stop_after) < _stage_index("hero"):
         _print_summary(timings, t_start)
         return
@@ -834,8 +1060,8 @@ def main() -> None:
         "hero",
         lambda: final_deliverables.main(
             final_concepts_v3_path=final_concepts_v2_path,
-            hero_out_path=args.pipeline_out_dir / "figures" / "FINAL_concepts.png",
-            evidence_out_path=args.pipeline_out_dir / "figures" / "evidence_chain.png",
+            hero_out_path=pipeline_out_dir / "figures" / "FINAL_concepts.png",
+            evidence_out_path=pipeline_out_dir / "figures" / "evidence_chain.png",
         ),
     )
     print(
