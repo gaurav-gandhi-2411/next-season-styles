@@ -93,6 +93,7 @@ def test_local_sdxl_dispatch_writes_images_and_metadata(tmp_path: Path) -> None:
         0.6,
         42,
         2,
+        None,
     )
     assert len(paths) == 2
     for path in paths:
@@ -104,6 +105,53 @@ def test_local_sdxl_dispatch_writes_images_and_metadata(tmp_path: Path) -> None:
     assert metadata["ip_adapter_scale"] == 0.6
     assert metadata["seed"] == 42
     assert metadata["index"] == 0
+    assert metadata["negative_prompt"] is None
+
+
+def test_local_sdxl_passes_negative_prompt_through(tmp_path: Path) -> None:
+    """A caller-supplied negative_prompt reaches `_generate_local_sdxl` and the metadata sidecar,
+    not just the (already-tested) default-None case above."""
+    with (
+        patch.object(backends, "OUTPUT_ROOT", tmp_path),
+        patch.object(
+            backends, "_generate_local_sdxl", return_value=(_fake_images(1), 5.0)
+        ) as mock_gen,
+    ):
+        paths = generate_concept(
+            prompt="a red solid underwear bottom, product photography",
+            reference_images=[Path("data/images/0803986005.jpg")],
+            backend=backends.LOCAL_SDXL,
+            ip_adapter_scale=0.2,
+            seed=42,
+            n=1,
+            negative_prompt="person, human, model, face, skin, body, worn",
+        )
+
+    mock_gen.assert_called_once_with(
+        "a red solid underwear bottom, product photography",
+        [Path("data/images/0803986005.jpg")],
+        0.2,
+        42,
+        1,
+        "person, human, model, face, skin, body, worn",
+    )
+    metadata = json.loads(paths[0].with_suffix(".json").read_text(encoding="utf-8"))
+    assert metadata["negative_prompt"] == "person, human, model, face, skin, body, worn"
+
+
+def test_gemini_rejects_non_none_negative_prompt() -> None:
+    """Gemini's image API has no negative-prompt equivalent -- a non-None value must fail loudly,
+    not be silently dropped while looking honoured (same convention as ip_adapter_scale)."""
+    with pytest.raises(ValueError, match="not applicable to the gemini backend"):
+        generate_concept(
+            prompt="p",
+            reference_images=[Path("ref.jpg")],
+            backend=backends.GEMINI,
+            ip_adapter_scale=None,
+            seed=42,
+            n=1,
+            negative_prompt="no humans",
+        )
 
 
 def test_gemini_dispatch_records_ip_adapter_scale_as_null(tmp_path: Path) -> None:

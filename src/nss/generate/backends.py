@@ -118,6 +118,7 @@ def _generate_local_sdxl(
     ip_adapter_scale: float | None,
     seed: int,
     n: int,
+    negative_prompt: str | None = None,
 ) -> tuple[list[Image.Image], float]:
     """Generate `n` images with the local SDXL + IP-Adapter Plus backend.
 
@@ -129,6 +130,10 @@ def _generate_local_sdxl(
             (1.0, set implicitly by `load_ip_adapter`) rather than calling `set_ip_adapter_scale`.
         seed: Seed for a single `torch.Generator` shared across the `n`-image batch.
         n: Number of images to generate (one `pipe()` call with `num_images_per_prompt=n`).
+        negative_prompt: Optional negative prompt passed straight through to the SDXL pipeline's
+            own `negative_prompt` argument (standard classifier-free-guidance negative
+            conditioning). `None` (the default) leaves diffusers' own default of no negative
+            conditioning -- behavior-identical to callers written before this parameter existed.
 
     Returns:
         The `n` generated PIL images and the wall-clock seconds the batched generation call took.
@@ -146,6 +151,7 @@ def _generate_local_sdxl(
     start = time.perf_counter()
     result = pipe(
         prompt=prompt,
+        negative_prompt=negative_prompt,
         ip_adapter_image=reference_image,
         height=IMAGE_SIZE,
         width=IMAGE_SIZE,
@@ -272,6 +278,7 @@ def generate_concept(
     ip_adapter_scale: float | None,
     seed: int,
     n: int,
+    negative_prompt: str | None = None,
 ) -> list[Path]:
     """Generate `n` fashion concept images from `prompt` (+ `reference_images`) via `backend`.
 
@@ -286,16 +293,21 @@ def generate_concept(
             wasn't.
         seed: Base random seed (deterministic for `local_sdxl`; best-effort for `gemini`).
         n: Number of images to generate.
+        negative_prompt: Optional negative prompt, `"local_sdxl"` only (passed straight through to
+            the SDXL pipeline's own `negative_prompt` argument). Must be `None` for `"gemini"`
+            (raises `ValueError` otherwise) -- Gemini's image API has no negative-prompt
+            equivalent, same fail-loud convention as `ip_adapter_scale` above.
 
     Returns:
         Paths to the `n` saved PNG files under `data/generated/<backend>/`. A JSON metadata
         sidecar (same stem, `.json`) is written next to each image recording backend, prompt,
-        reference image paths, seed, the `ip_adapter_scale` actually applied (`null` for
-        `"gemini"`), and the batch generation time.
+        negative_prompt, reference image paths, seed, the `ip_adapter_scale` actually applied
+        (`null` for `"gemini"`), and the batch generation time.
 
     Raises:
-        ValueError: unknown `backend`, empty `reference_images`, `n < 1`, or a non-`None`
-            `ip_adapter_scale` passed with `backend="gemini"`.
+        ValueError: unknown `backend`, empty `reference_images`, `n < 1`, a non-`None`
+            `ip_adapter_scale` passed with `backend="gemini"`, or a non-`None` `negative_prompt`
+            passed with `backend="gemini"`.
         RuntimeError: missing `GEMINI_API_KEY` (`backend="gemini"`) or no CUDA GPU visible
             (`backend="local_sdxl"`).
     """
@@ -310,9 +322,16 @@ def generate_concept(
             "ip_adapter_scale is not applicable to the gemini backend and must be None -- "
             f"got {ip_adapter_scale!r}."
         )
+    if backend == GEMINI and negative_prompt is not None:
+        raise ValueError(
+            "negative_prompt is not applicable to the gemini backend and must be None -- "
+            f"got {negative_prompt!r}."
+        )
 
     if backend == LOCAL_SDXL:
-        images, elapsed = _generate_local_sdxl(prompt, reference_images, ip_adapter_scale, seed, n)
+        images, elapsed = _generate_local_sdxl(
+            prompt, reference_images, ip_adapter_scale, seed, n, negative_prompt
+        )
         effective_scale = ip_adapter_scale
     else:
         images, elapsed = _generate_gemini(prompt, reference_images, seed, n)
@@ -330,6 +349,7 @@ def generate_concept(
             output_dir / f"{stem}.json",
             backend=backend,
             prompt=prompt,
+            negative_prompt=negative_prompt,
             reference_images=[str(p) for p in reference_images],
             ip_adapter_scale=effective_scale,
             seed=seed,
