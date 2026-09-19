@@ -63,7 +63,10 @@ every `QCVerdict` for comparison, but the actual gate is the two one-sided tests
 ```
 
 `copy_check_pass` (computed by `copy_check_pass`) requires **BOTH** `clip_below_copy_anchor` AND
-`dino_below_copy_anchor` -- the same strict joint-AND convention the old `margin_band_pass` used.
+`dino_below_copy_anchor` by default -- the same strict joint-AND convention the old
+`margin_band_pass` used. `copy_check_pass(result, active_metrics={"clip"})` (task F1) narrows this
+to only the metric(s) named in `active_metrics`, for when calling-code evidence shows a metric is
+non-discriminative -- see "Gate 1: dropping a non-discriminative metric" below.
 
 ## Input: `JudgeCaller` -- a blind attribute-extraction callable
 
@@ -197,8 +200,10 @@ something off-style," rather than inferring it indirectly from a second cosine-s
 A second margin-based lower bound would be REDUNDANT with a directly-validated, calibrated signal
 that already answers the same question more legibly (see Worked Example 2, where the per-attribute
 breakdown names the exact defect a bare similarity number cannot). This is also why `unrelated_anchor_gen`
-is loaded by `nss.generate.concept_qc_pipeline` but not wired into `copy_check` -- Gate 1 only needs
-the copy-side endpoint; the unrelated-side endpoint's job is now done by Gate 2.
+is loaded by `nss.generate.concept_qc_pipeline` but not wired into `copy_check`'s THRESHOLD formula
+-- Gate 1 only needs the copy-side endpoint for the threshold itself; the unrelated-side endpoint's
+job is now done by Gate 2 for the "too dissimilar" question, AND (task F1, see below) as the
+evidence input for whether a given metric even carries a usable copy-vs-unrelated signal at all.
 
 **The sign-safe discount formula.** Gate 1's threshold is `copy_anchor_threshold(copy_anchor_gen,
 discount=0.10) = copy_anchor_gen - discount * abs(copy_anchor_gen)`, NOT the naive
@@ -233,12 +238,84 @@ correct given whatever the anchor is, not to second-guess a noisy but honestly-m
 this ordering flip is worth flagging as a standing calibration-quality caveat specific to the
 Sweater/CLIP combination, not something this task's gate-logic change resolves.
 
-## Gate 2: attribute fidelity (unchanged by task E2)
+## Gate 1: dropping a non-discriminative metric (task F1)
 
-`fidelity_pass` is the same `consensus_mean_attribute_fidelity >= 0.75` check this skill has always
-used (see "Blind attribute-fidelity scoring" below) -- task E2 did not touch Gate 2's threshold or
-scoring logic, only Gate 1's replacement and `overall_pass`'s new definition
-(`copy_check_pass AND fidelity_pass`, replacing `margin_band_pass AND fidelity_pass`).
+**The defect this fixes.** E1's `unrelated_anchor_gen` (the "genuinely different garment"
+calibration endpoint) was generated at the SAME `ip_adapter_scale=1.0` as `copy_anchor_gen` (the
+"genuinely a copy" endpoint) -- full-strength IP-Adapter image conditioning, regardless of what the
+text prompt asked for. At that scale, the reference IMAGE dominates generation so strongly that
+even a deliberately-different-garment text prompt barely moved the embedding: E1's own measured
+pooled copy-vs-unrelated gap was CLIP `0.0029`, DINOv2 `0.0251` -- both near zero, meaning
+"genuinely a copy" and "genuinely unrelated" scored almost identically. A metric with that little
+separation between its two calibration endpoints carries essentially no signal for Gate 1's actual
+job (telling a copy apart from something unrelated).
+
+**The fix (task F1).** `nss.generate.derive_unrelated_anchor_fix` regenerates ONLY
+`unrelated_anchor_gen`, at `ip_adapter_scale=0.0` (pure text-to-image, zero IP-Adapter image
+conditioning) -- the correct construction for "what does this unrelated-garment text prompt
+produce with zero influence from the reference image." `copy_anchor_gen` is UNCHANGED (it is a
+correct construction as-is; only the contaminated anchor is regenerated).
+
+**Measured result (real numbers, `reports/tables/margin_anchors_generated_space.csv` +
+`margin_anchor_realspace_vs_genspace_gap.csv`, `ALL_STYLES_POOLED` rows, pooled across the 3
+final-three styles):**
+
+| Metric | copy_anchor_gen mean | unrelated_anchor_gen mean (E1, contaminated) | unrelated_anchor_gen mean (F1, corrected) | Gap (E1, contaminated) | Gap (F1, corrected) |
+|--------|----------------------|-----------------------------------------------|---------------------------------------------|--------------------------|------------------------|
+| CLIP   | 0.0960               | 0.0931                                         | -0.0438                                      | +0.0029                  | **+0.1398**            |
+| DINOv2 | 0.5150               | 0.4899                                         | 0.0097                                       | +0.0251                  | **+0.5053**            |
+
+Both corrected gaps clear `nss.generate.derive_unrelated_anchor_fix.NON_DISCRIMINATIVE_GAP_THRESHOLD`
+(`0.05`, chosen before this run, order-of-magnitude above both of E1's contaminated gaps) by a wide
+margin -- **neither metric is dropped**; `GATE1_ACTIVE_METRICS` (`nss.generate.concept_qc_pipeline`)
+stays `{"clip", "dinov2"}`, the original both-metrics default. Had a metric's corrected gap
+remained under the bar, `copy_check_pass(result, active_metrics=...)` (task F1's generic mechanism,
+see above) is how a caller drops it from the gate -- reported here as the mechanism that WOULD have
+fired, not as something this run actually needed.
+
+## Gate 2: per-judge calibrated threshold (task F2, supersedes the flat 0.75)
+
+**Why the flat 0.75 was replaced.** Through task E2, `fidelity_pass` was
+`consensus_mean_attribute_fidelity >= 0.75` -- one flat, judge-agnostic threshold applied to the
+MEAN of whichever judges were available. `0.75` was picked as a round number, without reference to
+what either judge actually scores on a genuine positive control (a real image checked, blind,
+against its OWN true attributes) -- i.e. without checking whether `0.75` was even ACHIEVABLE for a
+given judge. `reports/tables/vlm_calibration_results.csv` (this project's real calibration run)
+shows it was not: Gemini's own positive-control mean is `0.8333` (3 real target-style images,
+each checked blind against its own true attributes -- scores `1.0`, `0.5`, `1.0`), but Groq's is
+only `0.5841` (`0.675`, `0.4397`, `0.6375`) -- BELOW the old flat `0.75`. A judge whose own
+calibration ceiling sits below the pass bar can never pass Gate 2, even on a genuinely correct,
+faithful concept -- that is a threshold-calibration bug, not evidence the judge (or the concepts it
+scores) is unfaithful.
+
+**The fix: `threshold = 0.75 x that judge's OWN positive-control mean`**
+(`run_qc.judge_fidelity_threshold`, wired into `qc_verdict` via `per_judge_fidelity_thresholds`;
+calling-code computation in `nss.generate.concept_qc_pipeline.compute_fidelity_thresholds`). Each
+judge is compared only against its OWN achievable ceiling, scaled by the SAME `0.75` fraction the
+old flat threshold used (unchanged methodology, correctly re-scoped per judge) -- not a looser or
+stricter fraction chosen to hit a target pass rate.
+
+**Measured resulting values, and which direction each moved (task F2, exact numbers, not
+estimates -- from `reports/tables/vlm_calibration_results.csv`):**
+
+| Judge  | Positive-control mean | Old flat threshold | New threshold (`0.75 x mean`) | Direction |
+|--------|------------------------|---------------------|-------------------------------|-----------|
+| gemini | 0.8333                 | 0.75                | 0.6250                        | DOWN (looser) |
+| groq   | 0.5841                 | 0.75                | 0.4381                        | DOWN (looser), and now actually ACHIEVABLE |
+
+**Both moved down -- this is the correctness fix, not a loosening for its own sake.** For Gemini,
+the old flat `0.75` was already below its own ceiling (`0.8333`) and thus technically attainable,
+but still an arbitrary absolute number unrelated to what Gemini actually achieves on ground truth;
+the corrected `0.625` is 75% of that judge's real, measured ceiling. For Groq, the old flat `0.75`
+was ABOVE its own ceiling (`0.5841`) -- mathematically impossible to pass regardless of how
+faithful a scored concept actually was, silently making Gate 2 an automatic fail for any run where
+Groq was the only available judge. The corrected `0.4381` is the first threshold Groq's own
+calibration run shows is actually reachable. See `nss.generate.concept_qc_pipeline`'s
+`compute_fidelity_thresholds` for the exact computation and `run_qc.fidelity_pass_from_per_judge`
+for the combination rule: every AVAILABLE judge must independently clear ITS OWN threshold (the
+same strict joint-AND convention Gate 1 uses) -- `run_qc.qc_verdict`'s
+`per_judge_fidelity_thresholds` parameter opts into this; passing `None` (the default) preserves
+the old flat-threshold-on-the-consensus-mean behavior for backward compatibility.
 
 ## Re-score of the 9 already-logged C7 attempts (task E2 part 3)
 
@@ -276,6 +353,36 @@ generation defect) rather than a band failure that conflated multiple possible c
 opaque "out of band" verdict. It does NOT, however, resolve C7's failures "for free" -- the honest
 result is that generation quality (the Sweater's texture-close-up defect, the Underwear bottom's
 garment-type misidentification) is the remaining blocker, not the QC gate's calibration.
+
+## Re-score of E5's 24 already-generated `final_concepts_v2.csv` candidates (tasks F1 + F2)
+
+Re-evaluating all 24 already-computed `final_concepts_v2.csv` rows (3 styles x up to 8 seeds/retry
+rounds each -- NO new generation, embedding, or VLM call) under BOTH corrections at once
+(`nss.generate.concept_qc_pipeline.rescore_final_concepts_v2_under_f1_f2`, written to
+`reports/tables/final_concepts_v2_rescored_f1_f2.csv`):
+
+| Gate | Before (original gate) | After (F1/F2-corrected) |
+|------|--------------------------|----------------------------|
+| Gate 1 (copy-check) | 4/24 pass | **4/24 pass -- unchanged** |
+| Gate 2 (attribute fidelity) | 0/24 pass | **6/24 pass** |
+| Overall (both gates) | 0/24 pass | **2/24 pass** |
+
+**Gate 1 is unchanged, and this is the expected, correct result, not a gap in the fix.**
+`copy_check_pass` reads `clip_below_copy_anchor`/`dino_below_copy_anchor`, which are derived from
+`copy_anchor_gen` (task F1 confirms this anchor was ALREADY correct and does not touch it) and
+`active_metrics` (task F1 confirms BOTH metrics remain discriminative after the fix, so
+`GATE1_ACTIVE_METRICS` stays `{"clip", "dinov2"}`, identical to the pre-F1 default). Neither input
+to Gate 1's actual pass/fail decision changed for these 24 rows -- task F1's contribution is
+CONFIRMING Gate 1 remains trustworthy (its `unrelated_anchor_gen`-derived discriminativeness check
+now rests on an uncontaminated measurement), not changing any individual verdict.
+
+**Gate 2 moved substantially (0 -> 6/24) because task F2's threshold correction changes the actual
+pass/fail arithmetic, not just its calibration provenance.** Several already-logged rows have a
+Groq `mean_score` that clears the corrected per-judge threshold (`0.4381`) despite being below the
+old, unachievable-for-Groq flat `0.75` -- see "Gate 2" above for why that old threshold was never
+attainable for Groq in the first place. Overall pass count rose from 0/24 to 2/24 accordingly (both
+gates must still pass -- Gate 1's unchanged 4/24 remains the binding constraint on how high overall
+pass can go).
 
 ## Design notes
 
