@@ -12,8 +12,9 @@ two real distinct products in that style are to each other is, by construction, 
 actual new product in that assortment. Derived per style from the actual screened reference
 images (never the global B3 0.9401, which pooled 6 styles).
 
-STATISTIC. Primary (the gate): the concept's MEAN cosine to its style's references must be <= the
-MEDIAN of that style's pairwise cosines between distinct real articles, in BOTH CLIP and DINOv2
+STATISTIC. Primary (the gate, corrected in J2 from the median H1 used): the concept's MEAN cosine
+to its style's references must be <= the P90 of that style's pairwise cosines between distinct
+real articles, in BOTH CLIP and DINOv2
 (same both-spaces convention as the old copy check). Two sensitivity variants are reported next to
 it, not gated on: leave-one-out mean (real-article analogue of "mean over refs") and nearest-
 neighbour (the strictest plagiarism reading: closest single reference vs. each real article's
@@ -50,6 +51,9 @@ F5_TABLE_PATH = Path("reports/tables/final_concepts_v3.csv")
 BENCHMARK_PATH = Path("reports/tables/within_style_benchmark.csv")
 RESCORED_PATH = Path("reports/tables/gate1_rescored_within_style.csv")
 SPACES = ("clip", "dinov2")
+# Gate 1 threshold statistic (task J2): p90 of within-style pairwise similarity. H1's median
+# rejected ~62% of REAL reference articles in the leave-one-out control (6/16 pass jointly).
+GATE1_STAT = "pair_p90"
 
 
 def pairwise_similarities(embeddings: Sequence[np.ndarray]) -> list[float]:
@@ -64,7 +68,8 @@ def style_benchmark(embeddings: Sequence[np.ndarray]) -> dict[str, float]:
         embeddings: >= 2 embeddings of DISTINCT real articles of one style.
 
     Returns:
-        `n_articles`, `n_pairs`, `pair_median` (the gate threshold), `pair_mean`, `pair_p90`,
+        `n_articles`, `n_pairs`, `pair_p90` (the gate threshold, task J2), `pair_median` (H1's
+        retired threshold), `pair_mean`, `pair_max`,
         `loo_mean_median` (median over articles of mean cosine to the other articles) and
         `nn_median` (median over articles of cosine to their closest sibling).
 
@@ -82,6 +87,7 @@ def style_benchmark(embeddings: Sequence[np.ndarray]) -> dict[str, float]:
         "pair_median": float(np.median(pairs)),
         "pair_mean": float(np.mean(pairs)),
         "pair_p90": float(np.percentile(pairs, 90)),
+        "pair_max": float(np.max(pairs)),
         "loo_mean_median": float(np.median(np.nanmean(sims, axis=1))),
         "nn_median": float(np.median(np.nanmax(sims, axis=1))),
     }
@@ -95,12 +101,12 @@ def concept_similarity(
     return {"mean": float(np.mean(sims)), "max": float(np.max(sims))}
 
 
-def gate1_within_style(concept_mean_sim: float, benchmark_median: float) -> bool:
-    """True iff the concept is no more similar to its references than real distinct articles are.
+def gate1_within_style(concept_mean_sim: float, benchmark: float) -> bool:
+    """True iff the concept sits inside the range real distinct articles of its style span (<= p90).
 
     Single-space form of `skills/concept-qc/run_qc.py`'s `within_style_novelty_pass`.
     """
-    return bool(SKILL.within_style_novelty_pass({"x": concept_mean_sim}, {"x": benchmark_median}))
+    return bool(SKILL.within_style_novelty_pass({"x": concept_mean_sim}, {"x": benchmark}))
 
 
 def main() -> None:
@@ -123,8 +129,10 @@ def main() -> None:
     print(bench)
 
     f5 = pl.read_csv(F5_TABLE_PATH)
-    thresholds = {(r["style_id"], r["space"]): r["pair_median"] for r in bench.to_dicts()}
+    thresholds = {(r["style_id"], r["space"]): r[GATE1_STAT] for r in bench.to_dicts()}
     nn = {(r["style_id"], r["space"]): r["nn_median"] for r in bench.to_dicts()}
+    medians = {(r["style_id"], r["space"]): r["pair_median"] for r in bench.to_dicts()}
+    maxes = {(r["style_id"], r["space"]): r["pair_max"] for r in bench.to_dicts()}
     out: list[dict[str, Any]] = []
     for row in f5.to_dicts():
         sid = row["style_id"]
@@ -135,10 +143,15 @@ def main() -> None:
             "old_copy_check_pass": row["copy_check_pass"],
         }
         passes = []
+        median_passes = []
         for space, fn in embedders.items():
             sim = concept_similarity(fn(Path(row["image_path"])), ref_embs[sid][space])
             ok = gate1_within_style(sim["mean"], thresholds[(sid, space)])
             passes.append(ok)
+            # H1's retired median rule, kept beside the p90 rule for the J2 before/after count.
+            median_passes.append(gate1_within_style(sim["mean"], medians[(sid, space)]))
+            rec[f"{space}_median_rule_benchmark"] = medians[(sid, space)]
+            rec[f"{space}_max_benchmark"] = maxes[(sid, space)]
             rec[f"{space}_mean_sim"] = sim["mean"]
             rec[f"{space}_benchmark"] = thresholds[(sid, space)]
             rec[f"{space}_pass"] = ok
@@ -146,13 +159,15 @@ def main() -> None:
             rec[f"{space}_nn_benchmark"] = nn[(sid, space)]
             rec[f"{space}_nn_pass"] = sim["max"] <= nn[(sid, space)]
         rec["gate1_new_pass"] = all(passes)
+        rec["gate1_median_rule_pass"] = all(median_passes)
         out.append(rec)
     res = pl.DataFrame(out)
     res.write_csv(RESCORED_PATH)
     print(res.select(pl.exclude("style_id")).with_columns(pl.col(pl.Float64).round(4)))
     print(
-        f"Gate 1 pass: old {int(res['old_copy_check_pass'].sum())}/{res.height}"
-        f" -> new {int(res['gate1_new_pass'].sum())}/{res.height}"
+        f"Gate 1 pass: old copy-anchor {int(res['old_copy_check_pass'].sum())}/{res.height}"
+        f" -> median rule {int(res['gate1_median_rule_pass'].sum())}/{res.height}"
+        f" -> p90 rule {int(res['gate1_new_pass'].sum())}/{res.height}"
     )
 
 

@@ -577,25 +577,28 @@ def _available_judge_scores(judge_results: dict[str, JudgeResult]) -> dict[str, 
 
 
 def within_style_novelty_pass(
-    concept_similarity: dict[str, float], benchmark_median: dict[str, float]
+    concept_similarity: dict[str, float], benchmark: dict[str, float]
 ) -> bool:
-    """Gate 1 (task H1): is the concept no more similar to its references than real siblings are?
+    """Gate 1 (tasks H1 -> J2): is the concept inside the range real sibling products span?
 
     `concept_similarity[space]` is the concept's mean cosine to its style's reference images in an
-    embedding space; `benchmark_median[space]` is the median pairwise cosine between DISTINCT real
-    articles of that same style in the same space. Passes iff EVERY space is at or below its
-    benchmark (joint AND, same convention as `copy_check_pass`).
+    embedding space; `benchmark[space]` is the p90 of the pairwise cosines between DISTINCT real
+    articles of that same style in the same space (task J2; H1 used the median, which fails ~half
+    of genuinely new real products by construction -- see `SKILL.md`'s Gate 1 section and the
+    leave-one-out control). Passes iff EVERY space is at or below its benchmark (joint AND, same
+    convention as `copy_check_pass`). The function is statistic-agnostic: it compares against
+    whatever per-space threshold the caller derived.
 
     Raises:
         ValueError: if the two dicts are empty or do not name exactly the same spaces -- a gate that
             silently skips a space it has no benchmark for is an unconditional pass (rule 98a).
     """
-    if not concept_similarity or set(concept_similarity) != set(benchmark_median):
+    if not concept_similarity or set(concept_similarity) != set(benchmark):
         raise ValueError(
-            "concept_similarity and benchmark_median must be non-empty and name the same spaces; "
-            f"got {sorted(concept_similarity)} vs {sorted(benchmark_median)}"
+            "concept_similarity and benchmark must be non-empty and name the same spaces; "
+            f"got {sorted(concept_similarity)} vs {sorted(benchmark)}"
         )
-    return all(concept_similarity[s] <= benchmark_median[s] for s in concept_similarity)
+    return all(concept_similarity[s] <= benchmark[s] for s in concept_similarity)
 
 
 def qc_verdict(

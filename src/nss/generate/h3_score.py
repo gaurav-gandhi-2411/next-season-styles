@@ -1,9 +1,9 @@
 """Score H3's regenerated underwear candidates under H1's Gate 1 and H2's judge checklist.
 
-Gate 1 benchmark = median within-style pairwise similarity of the H3 verified solid references
-(4 articles -> only 6 pairs per space: a noisy benchmark, stated in the report). Visual QC verdicts
-below come from reading all four images (`reports/figures/`-independent, recorded here so the
-selection is auditable).
+Gate 1 benchmark = p90 (task J2; H1 used the median) of within-style pairwise similarity of the
+H3 verified solid references (4 articles -> only 6 pairs per space: a noisy benchmark, stated in
+the report). Visual QC verdicts below come from reading all four images
+(`reports/figures/`-independent, recorded here so the selection is auditable).
 
 Usage:
     uv run python -m nss.generate.h3_score
@@ -20,6 +20,7 @@ from nss.generate import clip_scoring, dino_scoring, h2_rejudge
 from nss.generate.h3_generate import OUTPUT_DIR, SEEDS, reference_paths
 from nss.generate.h3_underwear_refs import STYLE_ID
 from nss.generate.within_style_benchmark import (
+    GATE1_STAT,
     concept_similarity,
     gate1_within_style,
     style_benchmark,
@@ -40,17 +41,24 @@ def image_path(seed: int) -> Path:
     return OUTPUT_DIR / f"ladieswear_underwear-bottom_under--nightwear_red_solid_seed{seed}.png"
 
 
-def main() -> None:
-    """Score the 4 candidates: Gate 1 (new benchmark), judge panel (H2 checklist), visual QC."""
+def main(rejudge: bool = True) -> None:
+    """Score the 4 candidates: Gate 1 (new benchmark), judge panel (H2 checklist), visual QC.
+
+    `rejudge=False` re-derives Gate 1 only and reads the persisted judge scores
+    (`h2_judge_rescore.csv`) instead of calling any judge -- used when only the threshold changed.
+    """
     refs = reference_paths()
     embedders = {"clip": clip_scoring.embed_image, "dinov2": dino_scoring.embed_image}
     ref_embs = {s: [fn(p) for p in refs] for s, fn in embedders.items()}
     bench = {s: style_benchmark(e) for s, e in ref_embs.items()}
 
     _, old_t, new_t = h2_rejudge.recompute_calibration()
-    cache = h2_rejudge.judge_images([(STYLE_ID, sd, image_path(sd)) for sd in SEEDS])
-    rescore = h2_rejudge.build_rescore_table(cache, old_t, new_t)
-    rescore.write_csv(h2_rejudge.RESCORE_PATH)
+    if rejudge:
+        cache = h2_rejudge.judge_images([(STYLE_ID, sd, image_path(sd)) for sd in SEEDS])
+        rescore = h2_rejudge.build_rescore_table(cache, old_t, new_t)
+        rescore.write_csv(h2_rejudge.RESCORE_PATH)
+    else:
+        rescore = pl.read_csv(h2_rejudge.RESCORE_PATH)
 
     rows: list[dict[str, Any]] = []
     for seed in SEEDS:
@@ -58,16 +66,20 @@ def main() -> None:
         passes = []
         for space, fn in embedders.items():
             sim = concept_similarity(fn(image_path(seed)), ref_embs[space])
-            ok = gate1_within_style(sim["mean"], bench[space]["pair_median"])
+            ok = gate1_within_style(sim["mean"], bench[space][GATE1_STAT])
             passes.append(ok)
+            rec[f"{space}_median_rule_benchmark"] = bench[space]["pair_median"]
             rec |= {
                 f"{space}_mean_sim": sim["mean"],
-                f"{space}_benchmark": bench[space]["pair_median"],
+                f"{space}_benchmark": bench[space][GATE1_STAT],
                 f"{space}_pass": ok,
                 f"{space}_max_sim": sim["max"],
                 f"{space}_nn_benchmark": bench[space]["nn_median"],
             }
         rec["gate1_pass"] = all(passes)
+        rec["gate1_median_rule_pass"] = all(
+            rec[f"{sp}_mean_sim"] <= rec[f"{sp}_median_rule_benchmark"] for sp in embedders
+        )
         judged = rescore.filter(
             (pl.col("image_path") == str(image_path(seed))) & pl.col("available")
         )
@@ -83,4 +95,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    main(rejudge="--no-judge" not in sys.argv)

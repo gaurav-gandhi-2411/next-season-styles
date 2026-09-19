@@ -384,7 +384,7 @@ attainable for Groq in the first place. Overall pass count rose from 0/24 to 2/2
 gates must still pass -- Gate 1's unchanged 4/24 remains the binding constraint on how high overall
 pass can go).
 
-## CURRENT Gate 1: the real within-style article-similarity benchmark (task H1, supersedes the copy anchor)
+## Gate 1 as of H1: the within-style MEDIAN benchmark (superseded by the J2 p90 rule below)
 
 **What was wrong with the copy anchor.** `copy_anchor_gen` is an image generated at
 `ip_adapter_scale=1.0` -- SDXL's most reference-faithful *rendering*, itself already a new image.
@@ -413,8 +413,53 @@ real article is to its siblings -- the gate is conservative on that axis. (3) Re
 share catalogue photography, generated-vs-real pairs do not, biasing concept CLIP similarity low; a
 CLIP pass alone is weak evidence. (4) **Both gates are necessary, not sufficient**: a malformed
 or off-brief image is *dissimilar* to its references and so passes Gate 1 trivially, and the VLM
-judge reads attribute words, not garment integrity (H3: a folded, unrecognisable object scored
-0.68 fidelity). Visual inspection of every candidate remains part of the procedure.
+judge reads attribute words, not garment integrity (H3: the malformed cut-out and sheer-mesh
+underwear candidates, seeds 42 and 44, scored 0.617 and 0.600 against a 0.513 threshold; the
+0.68 once cited for the "folded object" was the F5 lace original's score, and the H3 folded
+object, seed 45, was never scored by any judge before task J3). Visual inspection of every
+candidate remains part of the procedure.
+
+## CURRENT Gate 1: range-based within-style rule, p90 (task J2, supersedes the H1 median)
+
+**What was wrong with the median.** H1's threshold was the *median* pairwise similarity between
+distinct real articles of a style. A median sits at the middle of the observed distribution, so
+about half of genuinely new real products fail it by construction -- a coin flip, not a copy
+detector. This was measured, not argued: the **leave-one-out control** scores each real reference
+article against the OTHER references of its own style through the identical code path candidates
+use (`concept_similarity` + `within_style_novelty_pass`;
+`nss.generate.leave_one_out_control`, `reports/tables/leave_one_out_control.csv`). Under the median
+rule only **6 of 16** real articles pass jointly (T-shirt 2/6, underwear 1/4, sweater 3/6; CLIP
+10/16, DINOv2 7/16) -- the gate rejected 62.5% of real products.
+
+**The replacement.** The threshold is the **p90 of within-style pairwise similarity**, per style,
+per embedding space (`pair_p90` in `within_style_benchmark.csv`; the max is reported alongside).
+The defensible claim is that a concept is as novel as a genuinely new product in that assortment
+when it lands *inside the observed distribution* of real product pairs, not below its midpoint.
+Same statistic (mean cosine to the references), same joint-AND over CLIP and DINOv2, same function.
+
+**Sanity check of the implementation.** Real-article pass rate under p90: **16/16** against the
+threshold candidates face (computed over all references), **14/16 (87.5%)** against a threshold
+recomputed from the other references only (T-shirt 5/6, underwear 4/4, sweater 5/6) -- the
+held-out figure is the honest "genuinely new product" reading, and it sits near the intended 90%.
+The full-set figure is 100% rather than ~90% because a real article's *mean* over several siblings
+is a smoother statistic than a single *pair* and lands well inside the pairwise p90; the rule is
+not "90% by construction", and the write-up says so.
+
+**What the corrected gate does NOT do -- positive control.** `clone_positive_control.csv` scores
+an exact copy of reference 0 exactly as a candidate would be scored. It **passes** Gate 1 for the
+T-shirt and the underwear (fails only for the sweater): a mean over n references dilutes a copy of
+one of them (mean 0.88 vs p90 0.896 in DINOv2 for the T-shirt), so an intended premise of the
+p90 rule -- "a near-identical clone still fails" -- is **false** for this statistic. The
+nearest-neighbour statistic (max cosine to any reference, benchmarked against real articles'
+nearest sibling) does flag every clone (max 1.0 vs 0.86-0.97) and is reported beside the gate
+(`*_nn_pass` in `gate1_rescored_within_style.csv`) but is deliberately NOT gated: adding it after
+seeing results would be a third threshold change, and is left as a documented follow-up decision.
+Gate 1 is therefore a *range* check ("looks like it could be one of this assortment"), not a
+plagiarism detector.
+
+**Effect.** Gate 1 on F5's 12 candidates: median 4/12 -> p90 12/12; H3's 4 underwear: 4/4 under
+both; final selections: median 1/3 -> p90 3/3
+(`gate1_rescored_within_style.csv`, `h3_underwear_scored.csv`).
 
 ## CURRENT Gate 2 checklist: visually observable attributes only (task H2)
 
