@@ -119,11 +119,14 @@ def _generate_local_sdxl(
     seed: int,
     n: int,
     negative_prompt: str | None = None,
+    prompt_2: str | None = None,
+    negative_prompt_2: str | None = None,
 ) -> tuple[list[Image.Image], float]:
     """Generate `n` images with the local SDXL + IP-Adapter Plus backend.
 
     Args:
-        prompt: Text prompt.
+        prompt: Text prompt (encoder 1, CLIP ViT-L/14 -- can carry richer/longer scene
+            description; still truncated at 77 tokens, see `nss.generate.prompt_budget`).
         reference_images: IP-Adapter reference image paths. Only the first is used -- see module
             docstring note 1 for why (a single loaded IP-Adapter accepts exactly one image).
         ip_adapter_scale: IP-Adapter conditioning strength. `None` leaves diffusers' own default
@@ -134,6 +137,16 @@ def _generate_local_sdxl(
             own `negative_prompt` argument (standard classifier-free-guidance negative
             conditioning). `None` (the default) leaves diffusers' own default of no negative
             conditioning -- behavior-identical to callers written before this parameter existed.
+        prompt_2: Optional text prompt for SDXL's SECOND text encoder (OpenCLIP ViT-bigG,
+            `StableDiffusionXLPipeline`'s native `prompt_2` argument -- task F4). `None` (the
+            default) leaves diffusers' own default, which reuses `prompt` for both encoders --
+            behavior-identical to callers written before this parameter existed. Task F4's
+            intended use: a short, concise attribute-only clause (see
+            `nss.generate.final_concepts.build_prompt_2`) so the style's defining attributes
+            survive on encoder 2 even if encoder 1's longer `prompt` were ever truncated for any
+            reason.
+        negative_prompt_2: Optional negative prompt for encoder 2 (`negative_prompt_2`). `None`
+            leaves diffusers' default (reuses `negative_prompt` for both encoders).
 
     Returns:
         The `n` generated PIL images and the wall-clock seconds the batched generation call took.
@@ -151,7 +164,9 @@ def _generate_local_sdxl(
     start = time.perf_counter()
     result = pipe(
         prompt=prompt,
+        prompt_2=prompt_2,
         negative_prompt=negative_prompt,
+        negative_prompt_2=negative_prompt_2,
         ip_adapter_image=reference_image,
         height=IMAGE_SIZE,
         width=IMAGE_SIZE,
@@ -279,6 +294,8 @@ def generate_concept(
     seed: int,
     n: int,
     negative_prompt: str | None = None,
+    prompt_2: str | None = None,
+    negative_prompt_2: str | None = None,
 ) -> list[Path]:
     """Generate `n` fashion concept images from `prompt` (+ `reference_images`) via `backend`.
 
@@ -297,17 +314,23 @@ def generate_concept(
             the SDXL pipeline's own `negative_prompt` argument). Must be `None` for `"gemini"`
             (raises `ValueError` otherwise) -- Gemini's image API has no negative-prompt
             equivalent, same fail-loud convention as `ip_adapter_scale` above.
+        prompt_2: Optional text prompt for SDXL's SECOND text encoder, `"local_sdxl"` only (task
+            F4 -- see `_generate_local_sdxl`'s docstring). Must be `None` for `"gemini"` (raises
+            `ValueError` otherwise) -- Gemini's image API has no second-encoder equivalent, same
+            fail-loud convention as `ip_adapter_scale`/`negative_prompt` above.
+        negative_prompt_2: Optional negative prompt for encoder 2, `"local_sdxl"` only. Must be
+            `None` for `"gemini"` (raises `ValueError` otherwise), same convention.
 
     Returns:
         Paths to the `n` saved PNG files under `data/generated/<backend>/`. A JSON metadata
         sidecar (same stem, `.json`) is written next to each image recording backend, prompt,
-        negative_prompt, reference image paths, seed, the `ip_adapter_scale` actually applied
-        (`null` for `"gemini"`), and the batch generation time.
+        negative_prompt, prompt_2, negative_prompt_2, reference image paths, seed, the
+        `ip_adapter_scale` actually applied (`null` for `"gemini"`), and the batch generation time.
 
     Raises:
-        ValueError: unknown `backend`, empty `reference_images`, `n < 1`, a non-`None`
-            `ip_adapter_scale` passed with `backend="gemini"`, or a non-`None` `negative_prompt`
-            passed with `backend="gemini"`.
+        ValueError: unknown `backend`, empty `reference_images`, `n < 1`, or a non-`None`
+            `ip_adapter_scale`/`negative_prompt`/`prompt_2`/`negative_prompt_2` passed with
+            `backend="gemini"`.
         RuntimeError: missing `GEMINI_API_KEY` (`backend="gemini"`) or no CUDA GPU visible
             (`backend="local_sdxl"`).
     """
@@ -327,10 +350,27 @@ def generate_concept(
             "negative_prompt is not applicable to the gemini backend and must be None -- "
             f"got {negative_prompt!r}."
         )
+    if backend == GEMINI and prompt_2 is not None:
+        raise ValueError(
+            "prompt_2 is not applicable to the gemini backend and must be None -- "
+            f"got {prompt_2!r}."
+        )
+    if backend == GEMINI and negative_prompt_2 is not None:
+        raise ValueError(
+            "negative_prompt_2 is not applicable to the gemini backend and must be None -- "
+            f"got {negative_prompt_2!r}."
+        )
 
     if backend == LOCAL_SDXL:
         images, elapsed = _generate_local_sdxl(
-            prompt, reference_images, ip_adapter_scale, seed, n, negative_prompt
+            prompt,
+            reference_images,
+            ip_adapter_scale,
+            seed,
+            n,
+            negative_prompt,
+            prompt_2,
+            negative_prompt_2,
         )
         effective_scale = ip_adapter_scale
     else:
@@ -350,6 +390,8 @@ def generate_concept(
             backend=backend,
             prompt=prompt,
             negative_prompt=negative_prompt,
+            prompt_2=prompt_2,
+            negative_prompt_2=negative_prompt_2,
             reference_images=[str(p) for p in reference_images],
             ip_adapter_scale=effective_scale,
             seed=seed,

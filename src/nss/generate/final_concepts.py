@@ -39,6 +39,20 @@ generate ALL local_sdxl candidates first, explicitly free the cached SDXL pipeli
 (`nss.generate.scale_sweep.free_sdxl_pipeline`), THEN import/run the CPU-only CLIP/DINOv2 scoring
 modules -- never in the same process turn as an SDXL generation call, on this 8 GB VRAM machine.
 
+TOKEN-BUDGET + GENERIC NEGATIVE-PROMPT RULE TABLE (task F4): `build_generation_spec` (below) now
+re-derives a short, mandatory attribute clause directly from `style_id`, fits the FULL assembled
+prompt to SDXL's real 77-CLIP-token budget (`nss.generate.prompt_budget`, dropping novelty content
+first, then descriptive detail -- never silently truncating), and applies
+`nss.generate.negative_prompt_rules`'s attribute-value-keyed rule table (Solid/underwear-
+intimates/Knitwear-sweater exclusions). The underwear framing requirement below is now triggered
+GENERICALLY off `negative_prompt_rules.is_underwear_or_intimate`, not `style_id ==
+UNDERWEAR_STYLE_KEY` equality, so it (and the rule table) keep applying correctly regardless of
+which styles a future retraining run (Track G) selects. `build_generation_spec`'s return type
+(`(prompt, negative_prompt)`) is UNCHANGED so every existing caller keeps working without
+modification; `build_prompt_2` is a new, separate function for callers that also want SDXL's
+second text encoder populated (`prompt_2`/`negative_prompt_2`, wired into
+`nss.generate.backends.generate_concept` by this same task) -- see that function's docstring.
+
 Usage:
     uv run python -m nss.generate.final_concepts
 """
@@ -53,7 +67,7 @@ from typing import Any
 
 import polars as pl
 
-from nss.generate import backends
+from nss.generate import backends, negative_prompt_rules, prompt_budget
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
 from nss.generate.derive_similarity_band import group_by_style
 from nss.generate.scale_sweep import (
@@ -178,24 +192,186 @@ def strengthen_underwear_prompts(rendered_prompt: str, negative_prompt: str) -> 
     return prompt, negative_prompt
 
 
+def _parse_generic_attributes(style_id: str) -> dict[str, str]:
+    """Map an H&M `" || "`-separated `style_id` onto the `style-brief` skill's 4 generic
+    `StyleAttributes` keys (`garment_category`, `construction_group`, `colour_name`,
+    `pattern_or_finish`).
+
+    Mirrors `nss.generate.concept_qc_pipeline.parse_style_attributes`'s identical 5-part split
+    (that function returns the SAME 4 values under the VLM-judge-facing dimension names
+    `product_type`/`garment_group`/`colour_family`/`graphical_treatment` instead -- this function
+    returns them under the `style-brief` skill's own `StyleAttributes` vocabulary, since this
+    module's callers (`nss.generate.negative_prompt_rules`) need the skill's names, not the
+    judge's). Duplicated rather than imported to avoid a circular import
+    (`nss.generate.concept_qc_pipeline` already imports THIS module) -- the same "re-derive the
+    5-part split locally" convention `nss.generate.scale_sweep.style_description` already uses.
+
+    Args:
+        style_id: `"Department || ProductType || ProductGroup || Colour || Pattern"`.
+
+    Returns:
+        `{"garment_category": ProductType, "construction_group": ProductGroup, "colour_name":
+        Colour, "pattern_or_finish": Pattern}`.
+
+    Raises:
+        ValueError: if `style_id` does not split into exactly 5 `" || "`-separated parts.
+    """
+    parts = [p.strip() for p in style_id.split(" || ")]
+    if len(parts) != 5:
+        raise ValueError(
+            f"Expected 5 ' || '-separated parts in style_id, got {len(parts)}: {style_id!r}"
+        )
+    _department, product_type, garment_group, colour, pattern = parts
+    return {
+        "garment_category": product_type,
+        "construction_group": garment_group,
+        "colour_name": colour,
+        "pattern_or_finish": pattern,
+    }
+
+
+def _build_attribute_clause(attrs: dict[str, str]) -> str:
+    """Short (~15-20 token), mandatory defining-attribute clause -- mirrors
+    `skills/style-brief/generate_brief.py`'s `attribute_clause` phrasing (kept consistent for
+    readability, not required to be byte-identical) but computed independently from `style_id`
+    here so `build_generation_spec` works regardless of which `design_briefs.json` schema version
+    a loaded brief happens to be (see that function's docstring)."""
+    return (
+        f"{attrs['garment_category']}, {attrs['construction_group'].lower()} construction, "
+        f"{attrs['colour_name'].lower()} {attrs['pattern_or_finish'].lower()}."
+    )
+
+
 def build_generation_spec(style_id: str, brief: dict[str, Any]) -> tuple[str, str]:
     """Build the (prompt, negative_prompt) pair actually used for generation for one style.
 
-    The underwear style gets `strengthen_underwear_prompts` applied (see module docstring HARD
-    REQUIREMENT); every other style uses its design brief's `rendered_prompt`/`negative_prompt`
-    verbatim.
+    TASK F4 REWRITE (fixing a real defect task E5 found by hand -- see module docstring "TOKEN-
+    BUDGET + GENERIC NEGATIVE-PROMPT RULE TABLE"): earlier versions of this function passed
+    `brief["rendered_prompt"]` straight through, unchecked against SDXL's real 77-CLIP-token
+    truncation limit. This function now:
+
+    1. Re-derives a short, mandatory `attribute_clause` directly from `style_id`
+       (`_parse_generic_attributes` + `_build_attribute_clause`) -- independent of whether `brief`
+       has task F4's new skill-level `attribute_clause`/`novelty_clauses`/`descriptive_clause`
+       fields, since this project's CURRENT `reports/tables/design_briefs.json` predates them
+       (hand-edited by task E5 -- regenerating it is explicitly out of scope for task F4, per the
+       guard `scripts/run_pipeline.py` already has against overwriting a curated
+       `design_briefs.json`).
+    2. GENERICALLY (attribute-value-keyed -- task F4) applies `strengthen_underwear_prompts`'s
+       hard no-human-model framing requirement, keyed off
+       `negative_prompt_rules.is_underwear_or_intimate` instead of `style_id ==
+       UNDERWEAR_STYLE_KEY` equality, folded directly into the MANDATORY `attribute_clause` (never
+       dropped by budget fitting below -- this hard requirement must never be silently lost to a
+       token-budget trim).
+    3. Fits the assembled prompt to SDXL's real 77-token budget
+       (`nss.generate.prompt_budget.fit_prompt_to_token_budget`), preferring `brief[
+       "applied_changes"]` (concrete, per-style novelty -- see `nss.generate.final_concepts_v2`
+       module docstring point 3) over the generic `brief["change"]` axis list when present, and
+       dropping novelty clauses first, then descriptive detail, never the mandatory clause.
+    4. Applies `nss.generate.negative_prompt_rules.apply_negative_prompt_rules` (the Solid/
+       underwear-intimates/Knitwear-sweater rule table, task F4) to `negative_prompt`, THEN layers
+       `strengthen_underwear_prompts`'s richer 16-term underwear list on top for underwear/
+       intimates styles (a strict superset of the rule table's 4-term underwear rule -- both calls
+       are idempotent/additive, so this never double-applies a term).
+    5. Logs the REAL measured token count for both `prompt` and `negative_prompt` and asserts
+       both are within budget (never silently over -- see Raises).
+
+    Return type is UNCHANGED (`(prompt, negative_prompt)`) so every existing caller of this
+    function (this module's own `main`, `nss.generate.final_concepts_v2`,
+    `nss.generate.concept_qc_pipeline`, `scripts/run_pipeline.py`) keeps working without
+    modification and automatically benefits from the token-budget fix and the generic negative-
+    prompt rule table. Callers that also want SDXL's second text encoder populated call
+    `build_prompt_2` separately (see that function).
 
     Args:
-        style_id: The style's `design_briefs.json` `style_id`.
-        brief: That style's brief dict (must have `rendered_prompt`, `negative_prompt`).
+        style_id: The style's `design_briefs.json` `style_id` (H&M `" || "`-separated format).
+        brief: That style's brief dict. Must have `negative_prompt`, `silhouette`,
+            `fabric_and_hand`, `colour_direction`, `detail_and_graphic_treatment`, `change`
+            (`REQUIRED_BRIEF_KEYS` -- every brief `load_design_briefs` returns has these);
+            `applied_changes`, if present, is preferred over `change` for novelty content.
 
     Returns:
         `(prompt, negative_prompt)` to pass to `generate_concept`.
+
+    Raises:
+        ValueError: if `style_id` is not H&M's 5-part `" || "` format, if the mandatory clause
+            alone exceeds the 77-token budget (`prompt_budget.fit_prompt_to_token_budget`), or if
+            the final `negative_prompt` exceeds the 77-token budget (no auto-shortening is
+            attempted for the negative prompt -- dropping an exclusion term is a correctness risk
+            this function does not take silently; a real over-budget negative_prompt means
+            `negative_prompt_rules`/`UNDERWEAR_NEGATIVE_TERMS` need trimming, a human decision).
     """
-    prompt, negative_prompt = brief["rendered_prompt"], brief["negative_prompt"]
-    if style_id == UNDERWEAR_STYLE_KEY:
-        prompt, negative_prompt = strengthen_underwear_prompts(prompt, negative_prompt)
+    attrs = _parse_generic_attributes(style_id)
+    is_underwear = negative_prompt_rules.is_underwear_or_intimate(attrs)
+
+    mandatory_clause = _build_attribute_clause(attrs)
+    negative_prompt = negative_prompt_rules.apply_negative_prompt_rules(
+        brief["negative_prompt"], attrs
+    )
+    if is_underwear:
+        mandatory_clause, negative_prompt = strengthen_underwear_prompts(
+            mandatory_clause, negative_prompt
+        )
+
+    novelty_source = brief.get("applied_changes") or brief["change"]
+    novelty_clauses = [f"Novel accent: {item}." for item in novelty_source]
+    descriptive_clauses = [
+        f"Silhouette: {brief['silhouette']} Fabric: {brief['fabric_and_hand']} Colour: "
+        f"{brief['colour_direction']} Surface treatment: {brief['detail_and_graphic_treatment']} "
+        "Product photography of the garment itself, clean studio background, even lighting, no "
+        "styling props."
+    ]
+
+    prompt, token_count, dropped = prompt_budget.fit_prompt_to_token_budget(
+        mandatory_clause, novelty_clauses, descriptive_clauses
+    )
+    print(
+        f"[prompt-budget] {style_id!r}: prompt={token_count}/{prompt_budget.SDXL_TOKEN_BUDGET} "
+        f"tokens" + (f", dropped {len(dropped)} clause(s) to fit" if dropped else "")
+    )
+    # Guaranteed by fit_prompt_to_token_budget's own contract -- asserted here too per task F4's
+    # explicit "assert it's under 77" requirement.
+    assert token_count <= prompt_budget.SDXL_TOKEN_BUDGET
+
+    negative_token_count = prompt_budget.count_clip_tokens(negative_prompt)
+    print(
+        f"[prompt-budget] {style_id!r}: negative_prompt="
+        f"{negative_token_count}/{prompt_budget.SDXL_TOKEN_BUDGET} tokens"
+    )
+    if negative_token_count > prompt_budget.SDXL_TOKEN_BUDGET:
+        raise ValueError(
+            f"negative_prompt for {style_id!r} is {negative_token_count} tokens, over the "
+            f"{prompt_budget.SDXL_TOKEN_BUDGET}-token budget -- trim "
+            "negative_prompt_rules.NEGATIVE_PROMPT_RULES / UNDERWEAR_NEGATIVE_TERMS: "
+            f"{negative_prompt!r}"
+        )
+
     return prompt, negative_prompt
+
+
+def build_prompt_2(style_id: str) -> str:
+    """Build the SHORT, attribute-only text prompt for SDXL's SECOND text encoder (task F4).
+
+    Populates the same `attribute_clause` `build_generation_spec` treats as mandatory (never
+    dropped by budget fitting) -- including the underwear framing requirement, when applicable --
+    so the style's defining attributes (and, for underwear/intimates, the hard no-human-model
+    requirement) survive on encoder 2 even in the hypothetical case encoder 1's longer `prompt`
+    were ever truncated for some other reason. See `nss.generate.backends._generate_local_sdxl`'s
+    `prompt_2` parameter -- this is the intended source for it.
+
+    Args:
+        style_id: The style's `design_briefs.json` `style_id` (H&M `" || "`-separated format).
+
+    Returns:
+        The short attribute-only clause (well within SDXL's 77-token budget on its own -- see
+        `nss.generate.prompt_budget.fit_prompt_to_token_budget`'s `mandatory_clause` guarantee,
+        which `build_generation_spec` already relies on for the same clause).
+    """
+    attrs = _parse_generic_attributes(style_id)
+    clause = _build_attribute_clause(attrs)
+    if negative_prompt_rules.is_underwear_or_intimate(attrs):
+        clause = clause.rstrip() + UNDERWEAR_PROMPT_SUFFIX
+    return clause
 
 
 def gemini_prompt_text(style_id: str, prompt: str, negative_prompt: str) -> str:
@@ -249,6 +425,8 @@ def generate_candidates_for_style(
     seeds: tuple[int, ...] = SEEDS,
     ip_adapter_scale: float = IP_ADAPTER_SCALE,
     output_dir: Path = OUTPUT_DIR,
+    prompt_2: str | None = None,
+    negative_prompt_2: str | None = None,
 ) -> list[Candidate]:
     """Generate one `local_sdxl` candidate per seed for one style.
 
@@ -265,6 +443,10 @@ def generate_candidates_for_style(
             call -- see `nss.generate.backends` module docstring note 1).
         seeds: Seeds to generate one candidate per.
         ip_adapter_scale: IP-Adapter conditioning strength.
+        prompt_2: Optional text prompt for SDXL's second text encoder (task F4 -- see
+            `build_prompt_2`). `None` (the default) leaves diffusers' own default (reuses
+            `prompt`) -- behavior-identical to callers written before this parameter existed.
+        negative_prompt_2: Optional negative prompt for encoder 2, same default convention.
         output_dir: Directory to copy each labeled candidate image into.
 
     Returns:
@@ -283,6 +465,8 @@ def generate_candidates_for_style(
             seed=seed,
             n=1,
             negative_prompt=negative_prompt,
+            prompt_2=prompt_2,
+            negative_prompt_2=negative_prompt_2,
         )
         source_path = paths[0]
         dest_path = output_dir / f"{slug}_seed{seed}.png"
@@ -508,14 +692,21 @@ def main() -> None:
     gen_specs: dict[str, tuple[str, str]] = {}
     for style_id, brief in briefs.items():
         prompt, negative_prompt = build_generation_spec(style_id, brief)
+        prompt_2 = build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
         gen_specs[style_id] = (prompt, negative_prompt)
         print(f"\nStyle: {style_id}")
         print(f"Prompt: {prompt!r}")
         print(f"Negative prompt: {negative_prompt!r}")
+        print(f"Prompt (encoder 2): {prompt_2!r}")
         references = style_references[style_id]
         print(f"References ({len(references)}): {[str(p) for p in references]}")
         all_candidates[style_id] = generate_candidates_for_style(
-            style_id, prompt, negative_prompt, references
+            style_id,
+            prompt,
+            negative_prompt,
+            references,
+            prompt_2=prompt_2,
+            negative_prompt_2=negative_prompt,
         )
 
     vram_before, vram_after = free_sdxl_pipeline()
