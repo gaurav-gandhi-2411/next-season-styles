@@ -833,7 +833,7 @@ def main() -> None:
     hero_path, evidence_path = _run_stage(
         "hero",
         lambda: final_deliverables.main(
-            final_concepts_v2_path=final_concepts_v2_path,
+            final_concepts_v3_path=final_concepts_v2_path,
             hero_out_path=args.pipeline_out_dir / "figures" / "FINAL_concepts.png",
             evidence_out_path=args.pipeline_out_dir / "figures" / "evidence_chain.png",
         ),

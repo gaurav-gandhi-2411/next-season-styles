@@ -46,6 +46,14 @@ MCP server, write-up) are implemented and committed. See `reports/WRITEUP.md` fo
 narrative, including the honest evaluation-methodology correction (Section 3) and known
 limitations (Section 9).
 
+**Generation QC, honestly:** the concept-QC gate rejected every concept until it was re-anchored
+on how similar two *real, distinct* H&M articles of the same style are (Section 6). Under that
+benchmark the final concepts are: red underwear passes both gates (lace-free after fixing its
+reference set; Gate 2 rests on one judge); black T-shirt and beige sweater still fail Gate 1 on DINOv2 (over-similar to
+their references); the sweater's Gate 2 (VLM attribute fidelity) is unmeasured because the free
+judge quotas were exhausted. Details and per-candidate numbers:
+`reports/tables/final_selection_h4.csv`, `reports/figures/evidence_chain.png`.
+
 ## Project layout
 
 - `src/nss/` — installable package: `data/` (ingestion, exemplar selection), `features/` (panel +

@@ -92,12 +92,21 @@ distinct, `isinstance`-incompatible class objects for what looks like "the same"
 
 JudgeUnavailableError = SKILL.JudgeUnavailableError
 
+# Task H2: only VISUALLY OBSERVABLE attributes are scored. `garment_group` (e.g. "Jersey Basic",
+# "Under-, Nightwear") is an internal H&M merchandising taxonomy term with no visual referent -- a
+# judge shown a plain black T-shirt correctly answers "top" and scores 0.0 against "Jersey Basic"
+# (measured, `reports/tables/h2_judge_rescore.csv`), so no image can ever score on it and it
+# capped every candidate's fidelity by up to 25%. Dropped rather than mapped to a visual
+# descriptor: a mapping needs one curated descriptor per taxonomy value (unbounded across
+# catalogues) and would itself be an unvalidated construct; see skills/concept-qc/SKILL.md.
 ATTRIBUTE_DIMENSIONS: tuple[str, ...] = (
     "product_type",
     "colour_family",
     "graphical_treatment",
-    "garment_group",
 )
+# The pre-H2 checklist, kept ONLY so H2's paired before/after comparison can be recomputed from one
+# set of stored per-attribute scores. Never used for gating.
+LEGACY_ATTRIBUTE_DIMENSIONS: tuple[str, ...] = (*ATTRIBUTE_DIMENSIONS, "garment_group")
 
 GEMINI_JUDGE_MODEL_ID = "models/gemini-3.6-flash"  # see module docstring MODEL-ID DEVIATION note
 GROQ_JUDGE_MODEL_ID = "qwen/qwen3.8-27b"  # see module docstring GROQ VISION JUDGE MODEL-ID note

@@ -201,6 +201,7 @@ def run_judge_panel(
     generation_backend: str,
     groq_available: bool,
     groq_unavailable_detail: str = "",
+    dimensions: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Run both project judges (Gemini always attempted; Groq only if `groq_available`).
 
@@ -215,15 +216,20 @@ def run_judge_panel(
             call (never re-checked per image -- see that function's docstring).
         groq_unavailable_detail: The detail string from that same one-time check, folded into
             Groq's `excluded_reason` when `groq_available` is `False`.
+        dimensions: Attribute checklist to ask about and score; defaults to
+            `vlm_judges.ATTRIBUTE_DIMENSIONS` (visually observable only, task H2). `ground_truth`
+            is restricted to these keys, since `score_attributes` scores every ground-truth key.
 
     Returns:
         `{"gemini": JudgeResult, "groq": JudgeResult}`.
     """
+    dimensions = tuple(dimensions or vlm_judges.ATTRIBUTE_DIMENSIONS)
+    ground_truth = {d: ground_truth[d] for d in dimensions}
     gemini_result = SKILL.run_judge(
         "gemini",
         vlm_judges.extract_attributes_gemini,
         image_path,
-        vlm_judges.ATTRIBUTE_DIMENSIONS,
+        dimensions,
         ground_truth,
         generation_backend,
     )
@@ -242,7 +248,7 @@ def run_judge_panel(
         "groq",
         groq_caller,
         image_path,
-        vlm_judges.ATTRIBUTE_DIMENSIONS,
+        dimensions,
         ground_truth,
         generation_backend,
         unavailable_reason=groq_unavailable_reason,

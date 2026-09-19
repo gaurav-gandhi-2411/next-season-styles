@@ -1,0 +1,8 @@
+article_id,prod_name,detail_desc,units_all_time,fetch_success,image_path,visual_verdict,reference_order
+638521006,Posy SB thong 4pk,"Thong briefs with a low waist, lined gusset and string back.",1017,true,data\images\0638521006.jpg,reject: 4-pack contains lace briefs,
+634669009,Carola Thong micro (maple) 3p,"Thong briefs in microfibre with a low waist, lined gusset and string back. The polyamide content of the briefs is recycled.",694,true,data\images\0634669009.jpg,"keep: three plain ribbed thongs, no lace/print (stack; off-colours)",1
+666651009,50 cent hipster,"Hipster briefs in microfibre with a mid waist, lined gusset, wide sides and cutaway coverage at the back.",525,true,data\images\0666651009.jpg,reject: lace hipster despite plain description,
+666651012,50 cent hipster,"Hipster briefs in microfibre with a mid waist, lined gusset, wide sides and cutaway coverage at the back.",522,true,data\images\0666651012.jpg,reject: lace hipster despite plain description,
+803969001,Inga bikini shopbasket 7pk,"Bikini briefs in cotton jersey with a mid waist, lined gusset and medium coverage at the back.",424,true,data\images\0803969001.jpg,keep: 7-pack of plain basics (stack; off-colours),3
+562613009,Jax Hipster (Poppy) 3p,"Briefs in jersey made from a cotton blend with a wide elastic waistband. Mid waist, lined gusset and cutaway coverage at the back.",371,true,data\images\0562613009.jpg,"keep: three plain hipsters, one satin waistband (stack; off-colours)",2
+592614002,Jailbreak Brazilian Aza.Low,"Brazilian briefs in microfibre with a low waist, lined gusset, decorative rings at the sides and a high cut at the back.",2,true,data\images\0592614002.jpg,"keep: single red garment, solid satin-look, no pattern (metal rings at sides)",0
