@@ -79,26 +79,53 @@ their own confidence intervals to be trustworthy standalone.
 
 ## 6. Generation
 
-Generated concepts are scored for novelty/fidelity via a margin, not absolute embedding cosine. B3's
-original absolute CLIP band (`[0.8906, 0.9401]`) was derived from catalogue-vs-catalogue pairs, but
-across-style mean cosine in that space is ≈0.799 — H&M's shared flat-lay/white-background
-photography inflates similarity between unrelated styles, so an absolute threshold doesn't transfer
-to generated-vs-catalogue pairs. C2's margin (similarity to own style minus similarity to a control
-pool) cancels that confound by construction, giving bands of `[0.0325, 0.0975]` (CLIP) and
-`[0.1436, 0.4307]` (DINOv2), derived from 23 styles/183 images for the upper anchor and a single
-held-out style pair (8 samples) for the lower anchor.
+This project caught and corrected its own measurement error in generation QC **twice**.
 
-C3's `ip_adapter_scale` sweep (0.2–0.9) is an honest, controlled finding: no scale lands in-band for
-both spaces at once — CLIP only in-band at 0.2, DINOv2 never in-band anywhere in range. Judging uses
-a two-family VLM panel: Gemini 2.5 (calibration gap ≈0.68, positive-control mean 0.833 vs.
-negative-control 0.154) and Groq/Llama-4-Scout, genuinely unavailable (404 across 4 attempted model
-names, not a missing key). All VLM output is labelled `LLM-consensus (NOT human ground truth)`. The
-real final outcome: 0 of 3 concepts passed QC within the 2-retry cap
-(`reports/tables/concept_qc_results.csv`) — evidence the QC system works, not an assignment failure.
-It caught a genuinely degenerate generation (the sweater concept's own Gemini judge called it "knit
-fabric," not "sweater" — a texture crop) and a real DINOv2 structural over-similarity failure (the
-T-shirt's DINOv2 margin, 0.68–0.72, sits far above the 0.431 upper bound at every attempted scale
-despite passing CLIP and the VLM attribute check).
+**First correction (B3→C2).** B3's absolute CLIP band (`[0.8906, 0.9401]`), from
+catalogue-vs-catalogue pairs, doesn't transfer to generated-vs-catalogue pairs: across-style mean
+cosine is already ≈0.799 there, since H&M's shared flat-lay photography inflates similarity between
+unrelated styles. C2's margin (own-style minus control-pool similarity) cancels that: `[0.0325,
+0.0975]` (CLIP), `[0.1436, 0.4307]` (DINOv2), from 23 styles/183 real images.
+
+**Second correction (E1).** C2's anchors came from REAL images but were applied, unchanged, to score
+GENERATED images — B3's defect class, one level up: never validated against SDXL+IP-Adapter's own
+output distribution. E1 re-derived both anchors directly in generated-image space
+(`copy_anchor_gen`: a literal reference-description prompt; `unrelated_anchor_gen`: same references,
+a different garment), both at `ip_adapter_scale=1.0`. The gap is large on the unrelated anchor:
+pooled DINOv2 mean is ≈0.097 real-space vs. ≈0.490 generated-space, a ~5x inflation
+(`reports/tables/margin_anchor_realspace_vs_genspace_gap.csv`); the copy anchor gap is smaller and
+opposite (0.574 real vs. 0.515 generated, DINOv2). Side finding: at scale=1.0, forcing a different
+garment barely moved the margin (0.515 vs. 0.490) — IP-Adapter's image conditioning dominates the
+text prompt at full strength. Gate 1 is now a sign-safe one-sided copy-check, `margin <
+copy_anchor_gen - 0.10*|copy_anchor_gen|`, on BOTH CLIP and DINOv2, anchored in generated-image space
+(the old band is diagnostic only); Gate 2 (VLM fidelity ≥0.75) is unchanged; `overall_pass` requires
+both.
+
+**The second catch changed the result.** Re-scoring the 9 already-logged C7 attempts under the
+corrected gate (`reports/tables/concept_qc_rescored_under_new_gate.csv`, no new generation/scoring)
+gives **0/9 passing** — identical to the old gate. That is instrument validation's value: a sudden
+pass on old attempts would mean the original gate was simply too strict; instead it confirms the
+defects were real, not a measurement artifact — the fix changes WHY each attempt fails, not THAT it
+fails.
+
+**E5: honest 0/3 on the corrected gate.** Regenerating the 3 final concepts (fixed sweater framing
+prompt; novelty moved into the prompt, 2+ `applied_changes` per style — Section 8;
+`ip_adapter_scale=0.45`, above 0.2, already shown by C3/E4 to lose defining attributes) gave 24
+candidates (8 seeds × 3 styles, 2 retry rounds), all visually inspected — still **0/3 pass**, each
+for a distinct mechanism: the T-shirt fails Gate 1 on DINOv2 over-similarity across every qualified
+candidate (seeds 46–49 disqualified for showing a human model); the underwear's C6/C7 human-model
+defect is FIXED (0/8 show a model), but colour/pattern drifted to floral lace instead of solid red
+(confirmed by the judge and visual inspection); the sweater's failure root-causes to its single
+reference image itself being a texture close-up — out of scope to fix by swapping references. Also
+fixed: SDXL's 77-token CLIP truncation was silently dropping the novelty instructions from the first
+drafted prompts.
+
+**VLM panel (E6).** A second working judge now exists: `qwen/qwen3.8-27b` on Groq, found via a live
+model-list query for `input_modalities` rather than a 5th guessed name; it passed calibration (gap
+≈0.44 vs. Gemini's ≈0.68). Gemini's free daily quota (20 req/day) was exhausted during E5's
+regeneration, so the final-concept scoring round is Groq-only — no Cohen's kappa on the final
+numbers, though the 2-judge infrastructure is built and validated. All VLM output remains labelled
+`LLM-consensus (NOT human ground truth)`.
 
 ## 7. Agent architecture
 
@@ -125,8 +152,11 @@ T2 rank 2: Beige Melange sweater, growth ratio ≈1.59
 T1 tells a buyer what to keep betting on, T2 what's accelerating and worth a larger allocation —
 reporting both avoids collapsing two different business questions into one list. A seasonal bonus
 table (`reports/tables/top_styles_by_season_v2.csv`) adds a diversity-constrained top-3 per season,
-and the hero figure (`reports/figures/FINAL_concepts.png`) composes the generated concepts with
-their evidence chain. C4's SHAP analysis is reported honestly: the underwear style's prediction is
+and the hero figure (`reports/figures/FINAL_concepts.png`, rebuilt in E8, clean of QC stamps)
+composes the generated concepts, with `evidence_chain.png` carrying the honest 0/3 Gate 1/Gate 2
+status per style. Each concept's `applied_changes` (`design_briefs.json`) are baked into its
+prompt: charcoal topstitching/cropped hem (T-shirt), burgundy trim/raised waistband (underwear),
+funnel neckline/camel ribbing (sweater). C4's SHAP analysis is reported honestly: the underwear style's prediction is
 driven by `lag_1` (persistence, SHAP≈0.486), not any seasonal/Christmas feature, despite that being
 a plausible narrative — no fourier or `lag_52` term appears in its top-5 at all. The sweater's
 dominant driver differs: `n_active_articles_level` (SHAP≈0.254) outweighs `lag_1` (SHAP≈0.164)
@@ -144,16 +174,16 @@ histogram gradient accumulation is a non-associative floating-point sum over row
 shuffled order alone produced materially different predictions. Fixed and verified bit-identical
 (max abs diff 0.0) across separate processes with a new subprocess regression test.
 
-Other limitations: the C2 margin-band derivation rests on a small sample (23 styles/183 images for
-the upper anchor, a single style pair/8 samples for the lower anchor), so band edges should be
-treated as a first calibration, not a precise estimate. The 2-year, 104-week data span caps the
-backtest at 20 origins (12 with paired LightGBM coverage) — a real ceiling on how tight any interval
-here can be. The Gemini self-judging exclusion rule (`is_self_scoring_contamination`) is implemented
-and tested but never actually exercised, since every scored concept used the `local_sdxl` backend —
-Gemini's own image-generation backend was quota-blocked, not deliberately excluded. Finally, 0 of 3
-concepts passing full QC is a genuine generation-quality limitation as well as a QC success story;
-with more time, a wider per-style `ip_adapter_scale` sweep (rather than one style's sweep
-extrapolated to the others) and more negative-prompt engineering for the underwear category's
-recurring human-model failure would be next. Groq's genuine unavailability limited the VLM panel to
-a single judge throughout, so no Cohen's kappa is computable anywhere in this project — a second
-working judge is the highest-value addition to the generation-QC pipeline.
+Other limitations: the C2/E1 margin-anchor calibrations both rest on small samples — C2's real-space
+anchors on 23 styles/183 images (upper), 8 samples (lower); E1's on 3 seeds per style per anchor
+type — Gate 1's thresholds are a first calibration in either space. The 2-year,
+104-week span caps the backtest at 20 origins (12 paired) — a real ceiling on interval tightness.
+`is_self_scoring_contamination` is tested but never exercised — every scored concept used
+`local_sdxl`; Gemini's image-generation backend remains quota-blocked, not deliberately excluded.
+The sweater's failure is concrete but out of scope here: its sole IP-Adapter reference image
+(`data/images/0673677023.jpg`) is itself a close-up fabric-texture shot, and that framing dominates
+generation regardless of prompt — a reference-image swap, not authorized in E5. Gemini's quota
+exhaustion (Section 6) again limited final-round scoring to Groq alone, with no kappa on the
+numbers that selected the final concepts. Finally, 0/3 concepts passing full QC is a genuine
+generation-quality limitation: next would be the sweater's reference-image swap, a stronger
+negative-prompt for the underwear's floral-lace drift, and a wider `ip_adapter_scale` sweep.
