@@ -23,25 +23,55 @@ Commands in this repo were developed and verified using **Git Bash (POSIX sh)** 
 Bash tool, run from PowerShell on Windows 11. All `make` targets and `uv` commands are shell-
 agnostic and work identically from PowerShell.
 
+## Quickstart
+
+```
+uv sync                                   # or: make setup
+uv run python scripts/download_data.py    # or: make data (Kaggle CLI creds required)
+uv run python scripts/run_pipeline.py     # or: make pipeline -- full end-to-end reproduction
+                                           # (panel -> features -> forecast -> top-3 -> briefs ->
+                                           # generate -> score -> hero image; GPU required, ~1
+                                           # seed/style by default, see script docstring)
+```
+
+The hero deliverable image is `reports/figures/FINAL_concepts.png`; the full write-up is
+`reports/WRITEUP.md`. Individual pipeline stages (`panel`, `eda`, `backtest`, `train`, `forecast`,
+`sweep`, `agent-diagram`, `deliverables`, `test`, `lint`) are each their own `make` target — see the
+`Makefile` for the exact command and artifact each one produces.
+
 ## Status
 
-**Phase 1: data acquisition + verification — in progress.** Kaggle CLI credentials have been
-verified present and well-formed; no dataset has been downloaded yet (that is the next step, not
-part of this scaffolding commit).
+**Complete.** All phases (data pipeline, panel construction, modelling, generation, agent layer,
+MCP server, write-up) are implemented and committed. See `reports/WRITEUP.md` for the full
+narrative, including the honest evaluation-methodology correction (Section 3) and known
+limitations (Section 9).
 
 ## Project layout
 
-- `src/nss/` — installable package (`data`, `features`, `models`, `viz` subpackages)
-- `data/{raw,interim,processed}/` — gitignored data tiers (empty dirs tracked via `.gitkeep`)
+- `src/nss/` — installable package: `data/` (ingestion, exemplar selection), `features/` (panel +
+  style_key construction, causal feature set, style-key validation), `models/` (backtest harness,
+  baselines, LightGBM, final forecast + selection), `generate/` (SDXL/IP-Adapter + Gemini
+  generation, CLIP/DINOv2 margin scoring, VLM judges, QC pipeline), `viz/` (EDA + diagram figures),
+  and `mcp_server.py` (the 7-tool MCP server)
+- `skills/` — 2 reusable, dataset-agnostic Claude Agent Skills: `style-brief/` (style profile ->
+  design brief) and `concept-qc/` (margin-band + blind VLM panel -> pass/fail + retry strategy)
+- `agents/` — sub-agent role definitions (`orchestrator.md`, `data-analyst.md`, `forecaster.md`,
+  `style-profiler.md`, `concept-designer.md`, `critic.md`) consumed by the agent-layer demo
+- `scripts/` — `agent_demo.py` (drives the agent delegation graph end-to-end) and
+  `run_pipeline.py` (non-interactive full reproduction, task D3)
+- `reports/{figures,tables}/` — every generated artifact this project produces, plus
+  `WRITEUP.md` (the full technical write-up) and `agent_run_transcript.md` (the real D4 agent run)
+- `data/{raw,interim,processed,generated,images}/` — gitignored data tiers (empty dirs tracked via
+  `.gitkeep`)
 - `notebooks/` — exploratory notebooks
-- `reports/{figures,tables}/` — generated artifacts
-- `tests/` — pytest suite
+- `tests/` — pytest suite (unit tests, cross-process determinism regression test)
 
 ## Note
 
-Built under a tight assignment deadline; scaffolding favors a disciplined, minimal footprint over
-completeness — later phases (data pipeline, panel construction, modeling, MCP server) will extend
-this structure incrementally.
+Built under a tight assignment deadline; favors a disciplined, minimal footprint over speculative
+completeness — every phase (data pipeline, panel construction, modeling, generation, agent layer,
+MCP server) reports honest, sometimes negative, results rather than a polished narrative. See
+`reports/WRITEUP.md` Section 9 for the full list of known limitations.
 
 ## MCP server
 
