@@ -1,24 +1,32 @@
-"""Build the C8 final deliverable figures from C6/C7's real, already-generated evidence.
+"""Build the final deliverable figures from E5's real, current, already-generated evidence.
 
-Pure image composition -- no GPU, no generation, no scoring. Consumes 3 artifacts already on
-disk: `reports/tables/design_briefs.json` (C5), `reports/tables/exemplar_images_final_three.csv`
-(A8, real catalogue reference images), and `reports/tables/concept_qc_results.csv` (C7's FULL
-retry history: every attempt, every style, real CLIP/DINOv2 margins and VLM attribute-fidelity
-scores).
+Pure image composition -- no GPU, no generation, no scoring. Consumes artifacts already on disk:
+`reports/tables/design_briefs.json` (C5, updated by E5 with `applied_changes`),
+`reports/tables/exemplar_images_final_three.csv` (A8, real catalogue reference images),
+`reports/tables/final_concepts_v2.csv` (E5's full retry history under the corrected prompts: every
+attempt, every style, real CLIP/DINOv2 margins against the E2 sign-safe copy-anchor gate and the
+Groq VLM attribute-fidelity judge, plus the visual-QC-overridden final selection per style), and
+`reports/tables/margin_anchors_clip.csv`/`..._dinov2.csv` (C2's original two-sided real-space band,
+shown in `evidence_chain.png` as a diagnostic only -- see that figure's docstring).
 
-HONEST RESULT, NOT SUPPRESSED: C7 found 0 of the 3 winning styles pass the full QC gate within
-the 2-retry cap (`concept_qc_results.csv`'s `style_final_pass` column is `False` for all 3). This
-module does not fabricate a passing result -- both figures it produces show the real generated
-images and the real scores, including the failures. A QC gate that correctly rejects real defects
-(a degenerate fabric close-up, a human model where none was allowed, weak attribute fidelity) is a
+SUPERSEDES task C8's `final_concepts.csv`/`concept_qc_results.csv`-based version of this module (see
+git history) -- E1/E2/E5 replaced the margin-anchor derivation, the QC gate, and the concept
+generation itself, so the deliverable figures must be rebuilt from the new artifacts, not patched
+around the old ones.
+
+HONEST RESULT, NOT SUPPRESSED: E5 found 0 of the 3 winning styles pass BOTH new E2 gates (Gate 1:
+sign-safe copy-anchor check on CLIP+DINOv2; Gate 2: VLM attribute fidelity >= 0.75) within the
+2-retry cap (`final_concepts_v2.csv`'s `selection_passed` column is `False` for all 3 `is_selected`
+rows). This module does not fabricate a passing result -- both figures it produces show the real
+generated images and the real scores, including the failures. A QC gate that correctly rejects real
+defects (colour/pattern drift, a texture-close-up reference image dominating conditioning) is a
 working gate, not a broken deliverable; that is the story these figures are built to tell.
 
-SELECTION RULE (documented, not left implicit -- see `select_best_attempt`): for each style, EVERY
-attempt logged in `concept_qc_results.csv` (not just attempt 0) is scored as
-`composite = float(clip_in_band) + float(dino_in_band) + mean_attribute_fidelity`, ties broken by
-the LOWER `attempt_number`. This happens to select attempt 0 (C6's original candidate) for all 3
-styles in this run -- not hardcoded, see that function's docstring for why the retry history itself
-produces that outcome.
+FIGURE SPLIT: `FINAL_concepts.png` (the hero) is a clean fashion deliverable -- one panel per
+winning style, the selected concept image, and a one-line rationale naming the concrete changes
+actually applied (drawn from each brief's `applied_changes` field). It carries NO QC status, no
+pass/fail stamps, no scores -- that belongs entirely in `evidence_chain.png`, which traces
+reference -> brief -> concept -> real margins/scores per style, including the honest 0/3 status.
 
 Usage:
     uv run python -m nss.generate.final_deliverables
@@ -38,14 +46,16 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate.concept_qc_pipeline import MAX_RETRIES
 from nss.generate.final_concepts import load_design_briefs, load_final_three_references
+from nss.generate.scale_sweep import CLIP_BAND_PATH, DINO_BAND_PATH, load_margin_band
 
-QC_RESULTS_PATH = Path("reports/tables/concept_qc_results.csv")
+FINAL_CONCEPTS_V2_PATH = Path("reports/tables/final_concepts_v2.csv")
 HERO_OUT_PATH = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT_PATH = Path("reports/figures/evidence_chain.png")
 
-# Display order for both figures, matching `final_concepts.csv`/`concept_qc_results.csv` row order.
+ATTRIBUTE_FIDELITY_THRESHOLD = 0.75  # must match concept_qc_pipeline.ATTRIBUTE_FIDELITY_THRESHOLD.
+
+# Display order for both figures, matching `final_concepts_v2.csv`'s style_id values.
 STYLE_ORDER: tuple[str, ...] = (
     "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
     "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
@@ -73,14 +83,14 @@ _PRESERVE_PREFIXES: dict[str, str] = {
 }
 
 
-def load_qc_results(path: Path = QC_RESULTS_PATH) -> pl.DataFrame:
-    """Load `concept_qc_results.csv` (C7's full retry-history QC gate results).
+def load_final_concepts_v2(path: Path = FINAL_CONCEPTS_V2_PATH) -> pl.DataFrame:
+    """Load `final_concepts_v2.csv` (E5's full retry-history + visual-QC-applied selection).
 
     Args:
-        path: Path to `concept_qc_results.csv`.
+        path: Path to `final_concepts_v2.csv`.
 
     Returns:
-        The raw QC results frame, one row per `(style_id, attempt_number)`.
+        The raw results frame, one row per `(style_id, seed)`.
     """
     return pl.read_csv(path)
 
@@ -89,7 +99,7 @@ def display_name(style_id: str) -> str:
     """Human-readable panel title for one `style_id` (see `STYLE_DISPLAY_NAMES`).
 
     Args:
-        style_id: A `design_briefs.json`/`concept_qc_results.csv` `style_id`.
+        style_id: A `design_briefs.json`/`final_concepts_v2.csv` `style_id`.
 
     Returns:
         The registered display name.
@@ -103,47 +113,30 @@ def display_name(style_id: str) -> str:
         raise ValueError(f"No display name registered for style_id={style_id!r}") from exc
 
 
-def select_best_attempt(qc_df: pl.DataFrame, style_id: str) -> dict[str, Any]:
-    """Pick the best-available attempt for one style across its full QC retry history.
+def select_final_row(df: pl.DataFrame, style_id: str) -> dict[str, Any]:
+    """Return the E5-selected (`is_selected == True`) row for one style.
 
-    SELECTION RULE (documented, not left implicit): every logged attempt (attempt 0 = C6's
-    original candidate, plus up to `MAX_RETRIES` retries) is scored as
-    `composite = float(clip_in_band) + float(dino_in_band) + mean_attribute_fidelity` -- each
-    margin-band pass is worth 1.0, the same 0-1 scale as `mean_attribute_fidelity`, so band
-    proximity and attribute fidelity are weighted equally rather than one dominating the other.
-    Ties are broken by the LOWER `attempt_number`: when two attempts score identically, prefer the
-    earlier/least-perturbed one, since later retries push `ip_adapter_scale` further from C3's only
-    evidence-based operating point (0.2) without a demonstrated benefit -- the more conservative
-    pick, not an arbitrary one.
-
-    NOTE (see the C8 task report for the worked numbers): for all 3 of this project's winning
-    styles, this rule selects attempt 0. That is not hardcoded -- it falls out of the rule because
-    every retry in `concept_qc_results.csv` either ties or WORSENS `mean_attribute_fidelity` and
-    never improves the in-band count for any of the 3 styles actually tried.
+    Selection itself (including the manual visual-QC veto) already happened upstream in
+    `nss.generate.final_concepts_v2.apply_visual_qc_and_rewrite` -- this module only reads the
+    result, it never re-ranks candidates.
 
     Args:
-        qc_df: Output of `load_qc_results` (all attempts, all styles).
-        style_id: The style to select the best-available attempt for.
+        df: Output of `load_final_concepts_v2`.
+        style_id: The style to look up.
 
     Returns:
-        The selected attempt's row as a dict (every `concept_qc_results.csv` column, plus the
-        computed `composite_score`).
+        The selected row as a dict.
 
     Raises:
-        ValueError: if `style_id` has no rows in `qc_df`.
+        ValueError: if `style_id` has zero or more than one `is_selected` row.
     """
-    style_df = qc_df.filter(pl.col("style_id") == style_id)
-    if style_df.is_empty():
-        raise ValueError(f"No QC attempts found for style_id={style_id!r}")
-
-    scored = style_df.with_columns(
-        (
-            pl.col("clip_in_band").cast(pl.Float64)
-            + pl.col("dino_in_band").cast(pl.Float64)
-            + pl.col("mean_attribute_fidelity")
-        ).alias("composite_score")
-    ).sort(["composite_score", "attempt_number"], descending=[True, False])
-    return scored.row(0, named=True)
+    selected = df.filter((pl.col("style_id") == style_id) & pl.col("is_selected"))
+    if selected.height != 1:
+        raise ValueError(
+            f"Expected exactly 1 is_selected row for style_id={style_id!r}, found "
+            f"{selected.height}"
+        )
+    return selected.row(0, named=True)
 
 
 def _preserve_value(preserve: list[str], prefix: str) -> str:
@@ -165,19 +158,32 @@ def _preserve_value(preserve: list[str], prefix: str) -> str:
     raise ValueError(f"No preserve item starting with {prefix!r} in {preserve!r}")
 
 
-def build_rationale(brief: dict[str, Any]) -> str:
-    """One-line 'why this reads as next season, not just a copy' rationale for one style.
+def _strip_change_annotation(item: str) -> str:
+    """Drop an `applied_changes` item's trailing `" -- <category label>"` annotation, if present.
 
-    Drawn directly from the design brief's own `preserve`/`change` fields (never invented): the
-    `preserve` side names the exact winning combination (garment category, construction family,
-    anchor colour, surface treatment) that must NOT change, because it is what is driving demand;
-    the `change` side names the specific axes (a graphic/trim accent, a small proportion tweak)
-    that DO change -- what makes the concept a forward-looking variation rather than a literal
-    reproduction of an existing style.
+    Args:
+        item: One `design_briefs.json` `applied_changes` entry (e.g.
+            `"ribbed funnel neckline in place of the plain crew neckline -- neckline variant"`).
+
+    Returns:
+        The change description alone, with the trailing category label removed.
+    """
+    return item.split(" -- ", 1)[0].strip()
+
+
+def build_rationale(brief: dict[str, Any]) -> str:
+    """One-line 'what was intentionally kept vs. changed' rationale for one style.
+
+    Drawn directly from the design brief's own `preserve`/`applied_changes` fields (never
+    invented): the preserved side names the exact winning combination (garment category,
+    construction family, anchor colour, surface treatment) that must NOT change, because it is
+    what is driving demand; the changed side names the CONCRETE changes actually baked into this
+    round's prompt (`applied_changes`) -- not the earlier brainstormed axis list, the real ones
+    this concept was generated with.
 
     Args:
         brief: One `design_briefs.json` entry (must have `preserve` with the 4 dimensions in
-            `_PRESERVE_PREFIXES`).
+            `_PRESERVE_PREFIXES`, and `applied_changes`).
 
     Returns:
         A single-sentence rationale string.
@@ -186,12 +192,10 @@ def build_rationale(brief: dict[str, Any]) -> str:
     category = _preserve_value(preserve, _PRESERVE_PREFIXES["category"])
     construction = _preserve_value(preserve, _PRESERVE_PREFIXES["construction"])
     colour = _preserve_value(preserve, _PRESERVE_PREFIXES["colour"])
-    surface = _preserve_value(preserve, _PRESERVE_PREFIXES["surface"])
+    changes = "; ".join(_strip_change_annotation(item) for item in brief["applied_changes"])
     return (
-        f"Preserves the winning {colour} {construction} {category} combination exactly "
-        f"({surface} surface treatment included) -- demand tracks this exact combination, not a "
-        f"seasonal cue; introduces a subtle new graphic/trim accent and a small proportion tweak "
-        f"so the concept reads as next season, not a literal copy."
+        f"Preserves the winning {colour} {construction} {category} combination exactly -- "
+        f"demand tracks this exact combination, not a seasonal cue. Applied changes: {changes}."
     )
 
 
@@ -203,44 +207,43 @@ class PanelData:
     display_name: str
     rationale: str
     image_path: Path
-    attempt: dict[str, Any]
-    style_final_pass: bool
+    row: dict[str, Any]
+    selection_passed: bool
 
 
 def build_panel_data(
-    qc_df: pl.DataFrame, briefs: dict[str, dict[str, Any]], style_id: str
+    df: pl.DataFrame, briefs: dict[str, dict[str, Any]], style_id: str
 ) -> PanelData:
-    """Assemble one style's `PanelData`: best-available attempt + brief-derived rationale.
+    """Assemble one style's `PanelData`: E5-selected row + brief-derived rationale.
 
     Args:
-        qc_df: Output of `load_qc_results`.
+        df: Output of `load_final_concepts_v2`.
         briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
         style_id: The style to build panel data for.
 
     Returns:
         The assembled `PanelData`.
     """
-    attempt = select_best_attempt(qc_df, style_id)
+    row = select_final_row(df, style_id)
     brief = briefs[style_id]
     return PanelData(
         style_id=style_id,
         display_name=display_name(style_id),
         rationale=build_rationale(brief),
-        image_path=Path(attempt["image_path"]),
-        attempt=attempt,
-        style_final_pass=bool(attempt["style_final_pass"]),
+        image_path=Path(row["image_path"]),
+        row=row,
+        selection_passed=bool(row["selection_passed"]),
     )
 
 
 def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
     """Build the `FINAL_concepts.png` hero figure: one clean panel per winning style.
 
-    Each panel shows the best-available generated concept image (`select_best_attempt`), captioned
-    with the style's human-readable name and a one-line design rationale. Per the honesty
-    requirement (C7 found 0/3 concepts pass the full QC gate within the 2-retry cap), each caption
-    also states the concept's QC status in one short line -- never hidden, but kept small/textual
-    rather than a large visual badge, to keep this a clean headline image (the full per-metric
-    evidence lives in `evidence_chain.png`, not repeated here).
+    Each panel shows the E5-selected generated concept image (`select_final_row`), captioned with
+    the style's human-readable name and a one-line design rationale naming the concrete changes
+    actually applied. This is deliberately a clean fashion deliverable, NOT a QC dashboard -- no
+    pass/fail stamps, no QC badges, no scores anywhere on this image. The full, honest QC trace
+    (including the real 0/3 gate status) lives entirely in `evidence_chain.png`.
 
     Args:
         panels: One `PanelData` per winning style, in display order.
@@ -254,7 +257,7 @@ def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
     if not panels:
         raise ValueError("panels must be non-empty")
 
-    fig, axes_raw = plt.subplots(1, len(panels), figsize=(6.2 * len(panels), 7.6))
+    fig, axes_raw = plt.subplots(1, len(panels), figsize=(6.2 * len(panels), 7.4))
     axes = [axes_raw] if len(panels) == 1 else list(axes_raw)
 
     for ax, panel in zip(axes, panels, strict=True):
@@ -264,14 +267,6 @@ def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
         ax.set_title(panel.display_name, fontsize=13, fontweight="bold", pad=10)
 
         caption = "\n".join(textwrap.wrap(panel.rationale, width=42))
-        qc_note = (
-            "QC: PASSED full gate"
-            if panel.style_final_pass
-            else "QC: did not pass full gate within the 2-retry cap -- see evidence_chain.png"
-        )
-        qc_color = "#1B7A3D" if panel.style_final_pass else "#B36B00"
-        n_caption_lines = caption.count("\n") + 1
-
         ax.text(
             0.5,
             -0.05,
@@ -281,24 +276,13 @@ def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
             va="top",
             fontsize=8.5,
         )
-        ax.text(
-            0.5,
-            -0.05 - 0.024 * n_caption_lines - 0.025,
-            "\n".join(textwrap.wrap(qc_note, width=46)),
-            transform=ax.transAxes,
-            ha="center",
-            va="top",
-            fontsize=8,
-            fontweight="bold",
-            color=qc_color,
-        )
 
     fig.suptitle(
-        "next-season-styles -- 3 Winning Styles, Generated Concepts (task C8)",
+        "next-season-styles -- 3 Winning Styles, Generated Concepts",
         fontsize=15,
         fontweight="bold",
     )
-    fig.tight_layout(rect=(0.0, 0.08, 1.0, 0.94))
+    fig.tight_layout(rect=(0.0, 0.05, 1.0, 0.94))
     return fig
 
 
@@ -340,14 +324,13 @@ def build_exemplar_composite(paths: list[Path], n: int = N_EXEMPLAR_THUMBNAILS) 
 
 
 def _wrap_bullet(item: str, width: int = 44) -> str:
-    """Wrap one `preserve`/`change` bullet to a fixed width, continuation lines indented.
+    """Wrap one bullet item to a fixed width, continuation lines indented.
 
-    Some `design_briefs.json` `preserve`/`change` items run past 100 characters unwrapped (e.g.
-    the "winning combination as a whole" item) -- rendered as a single unwrapped line inside a
-    narrow evidence-chain column, a line that long forces `tight_layout()` to collapse ALL
-    columns to near-zero width trying to accommodate it (see the C8 task report for the
-    before/after). Every bullet is wrapped here, unconditionally, so no rendered line can ever be
-    wide enough to cause that.
+    Some `design_briefs.json` bullet items run past 100 characters unwrapped (e.g. the "winning
+    combination as a whole" `preserve` item) -- rendered as a single unwrapped line inside a narrow
+    evidence-chain column, a line that long forces `tight_layout()` to collapse ALL columns to
+    near-zero width trying to accommodate it. Every bullet is wrapped here, unconditionally, so no
+    rendered line can ever be wide enough to cause that.
 
     Args:
         item: One bullet's raw text.
@@ -360,7 +343,11 @@ def _wrap_bullet(item: str, width: int = 44) -> str:
 
 
 def build_brief_excerpt(brief: dict[str, Any]) -> str:
-    """Readable multi-line excerpt of one design brief's silhouette/colour/preserve/change fields.
+    """Readable multi-line excerpt of one design brief's silhouette/colour/preserve/applied fields.
+
+    Shows what was intentionally KEPT (`preserve`) alongside what was intentionally CHANGED
+    (`applied_changes` -- the concrete, brief-grounded changes actually baked into this round's
+    prompt, not the earlier brainstormed axis list).
 
     Args:
         brief: One `design_briefs.json` entry.
@@ -369,66 +356,131 @@ def build_brief_excerpt(brief: dict[str, Any]) -> str:
         A newline-joined text block, ready for direct rendering via `ax.text`.
     """
     preserve_lines = "\n".join(_wrap_bullet(item) for item in brief["preserve"][:4])
-    change_lines = "\n".join(_wrap_bullet(item) for item in brief["change"])
+    applied_lines = "\n".join(_wrap_bullet(item) for item in brief["applied_changes"])
     return (
         f"Silhouette:\n  {textwrap.fill(brief['silhouette'], width=46)}\n\n"
         f"Colour direction:\n  {textwrap.fill(brief['colour_direction'], width=46)}\n\n"
-        f"PRESERVE:\n{preserve_lines}\n\n"
-        f"CHANGE:\n{change_lines}"
+        f"PRESERVED (kept intentionally):\n{preserve_lines}\n\n"
+        f"CHANGED (applied this round):\n{applied_lines}"
     )
 
 
-def build_scores_text(attempt: dict[str, Any]) -> str:
-    """Readable multi-line block of the selected attempt's real, printed QC scores.
+def build_margin_text(
+    row: dict[str, Any],
+    real_space_clip_band: tuple[float, float],
+    real_space_dino_band: tuple[float, float],
+) -> str:
+    """Readable multi-line block of one concept's real margins vs. BOTH anchor systems.
+
+    Shows the concept's real CLIP/DINOv2 margins against (1) the E2 Gate-1 sign-safe copy-anchor
+    threshold -- the LIVE gate this concept was actually selected/rejected against -- and (2), as a
+    diagnostic only, the OLD two-sided real-space band from C2, which no longer gates selection.
+    Both are clearly labeled so a reviewer never confuses the two.
 
     Args:
-        attempt: Output of `select_best_attempt` (one `concept_qc_results.csv` row + the computed
-            `composite_score`).
+        row: One `final_concepts_v2.csv` row (the E5-selected candidate for a style).
+        real_space_clip_band: `(lower, upper)` C2 real-space CLIP band (diagnostic only).
+        real_space_dino_band: `(lower, upper)` C2 real-space DINOv2 band (diagnostic only).
 
     Returns:
-        A newline-joined text block: CLIP margin, DINOv2 margin, attribute fidelity, and the final
-        QC pass/fail verdict, with the actual numbers -- never just a checkmark/x.
+        A newline-joined text block with real numbers, never just a checkmark/x.
     """
-    clip_status = "in-band" if attempt["clip_in_band"] else "OUT of band"
-    dino_status = "in-band" if attempt["dino_in_band"] else "OUT of band"
-    fidelity_status = "PASS" if attempt["fidelity_pass"] else "FAIL"
-    overall_status = "PASS" if attempt["overall_pass"] else "FAIL"
-    style_status = "PASSED" if attempt["style_final_pass"] else "DID NOT PASS"
+    clip_lo, clip_hi = real_space_clip_band
+    dino_lo, dino_hi = real_space_dino_band
+    clip_diag_in_band = clip_lo <= row["clip_margin"] <= clip_hi
+    dino_diag_in_band = dino_lo <= row["dino_margin"] <= dino_hi
+
     return (
-        f"Attempt {attempt['attempt_number']} "
-        f"(seed={attempt['seed']}, ip_adapter_scale={attempt['ip_adapter_scale']:.2f})\n\n"
-        f"CLIP margin: {attempt['clip_margin']:.4f} ({clip_status})\n"
-        f"DINOv2 margin: {attempt['dino_margin']:.4f} ({dino_status})\n"
-        f"Mean attribute fidelity: {attempt['mean_attribute_fidelity']:.3f} "
-        f"(n_judges={attempt['n_contributing_judges']}, {fidelity_status})\n\n"
-        f"This attempt's overall_pass: {overall_status}\n"
-        f"Style QC status ({attempt['n_attempts_for_style']} attempt(s), "
-        f"{MAX_RETRIES}-retry cap): {style_status}\n\n"
-        f"Selection composite score: {attempt['composite_score']:.3f}\n"
-        f"(clip_in_band + dino_in_band + mean_attribute_fidelity)"
+        f"Seed {row['seed']} (retry round {row['retry_round']})\n\n"
+        f"GATE 1 -- LIVE sign-safe copy-anchor check (E2):\n"
+        f"  CLIP margin: {row['clip_margin']:.4f}\n"
+        f"    copy-anchor threshold: {row['clip_copy_anchor_threshold']:.4f}\n"
+        f"    below copy-anchor (too close to source): {row['clip_below_copy_anchor']}\n"
+        f"  DINOv2 margin: {row['dino_margin']:.4f}\n"
+        f"    copy-anchor threshold: {row['dino_copy_anchor_threshold']:.4f}\n"
+        f"    below copy-anchor (too close to source): {row['dino_below_copy_anchor']}\n"
+        f"  Gate 1 copy_check_pass: {row['copy_check_pass']}\n\n"
+        f"DIAGNOSTIC ONLY -- old two-sided real-space band (C2, NOT a live gate):\n"
+        f"  CLIP band: [{clip_lo:.4f}, {clip_hi:.4f}] -- "
+        f"{'IN' if clip_diag_in_band else 'OUT of'} band\n"
+        f"  DINOv2 band: [{dino_lo:.4f}, {dino_hi:.4f}] -- "
+        f"{'IN' if dino_diag_in_band else 'OUT of'} band"
     )
+
+
+def build_judge_scores_text(row: dict[str, Any]) -> str:
+    """Readable multi-line block of the selected candidate's per-judge Gate-2 attribute scores.
+
+    States plainly when Gemini was unavailable this round (free-tier quota exhaustion) rather than
+    hiding the resulting single-judge (Groq-only) limitation.
+
+    Args:
+        row: One `final_concepts_v2.csv` row (the E5-selected candidate for a style).
+
+    Returns:
+        A newline-joined text block: each judge's availability/score, consensus fidelity, and the
+        final Gate 2 + overall verdicts, with the actual numbers -- never just a checkmark/x.
+    """
+    lines = [f"GATE 2 -- VLM attribute fidelity (threshold >= {ATTRIBUTE_FIDELITY_THRESHOLD}):", ""]
+
+    if row["groq_available"]:
+        lines.append(f"  Groq: {row['groq_mean_score']:.3f}")
+    else:
+        lines.append(f"  Groq: unavailable ({row['groq_excluded_reason']})")
+
+    if row["gemini_available"]:
+        lines.append(f"  Gemini: {row['gemini_mean_score']:.3f}")
+    else:
+        lines.append("  Gemini: UNAVAILABLE this round -- free-tier quota exhausted")
+        lines.append("    (429 RESOURCE_EXHAUSTED). Single-judge (Groq-only) result below --")
+        lines.append("    NOT a 2-judge consensus.")
+
+    lines.append("")
+    lines.append(
+        f"  Mean attribute fidelity (n_judges={row['n_contributing_judges']}): "
+        f"{row['mean_attribute_fidelity']:.3f}"
+    )
+    fidelity_status = "PASS" if row["fidelity_pass"] else "FAIL"
+    lines.append(f"  Gate 2 fidelity_pass: {fidelity_status}")
+    lines.append("")
+    overall_status = "PASS" if row["overall_pass"] else "FAIL"
+    lines.append(f"OVERALL (Gate 1 AND Gate 2), this candidate: {overall_status}")
+    lines.append("")
+    style_status = "PASSED" if row["selection_passed"] else "DID NOT PASS"
+    lines.append(
+        f"Style QC status ({row['n_retry_rounds_used']} retry round(s) used, "
+        f"selection_mode={row['selection_mode']}):"
+    )
+    lines.append(f"  {style_status}")
+    return "\n".join(lines)
 
 
 def build_evidence_chain_figure(
     panels: list[PanelData],
     references: dict[str, list[Path]],
     briefs: dict[str, dict[str, Any]],
+    real_space_clip_band: tuple[float, float],
+    real_space_dino_band: tuple[float, float],
 ) -> plt.Figure:
-    """Build `evidence_chain.png`: exemplar refs -> design brief -> generated concept -> scores.
+    """Build `evidence_chain.png`: refs -> brief -> concept -> margins-vs-anchors -> judge scores.
 
-    One row per winning style (3 rows), 4 columns: (1) a composite of real catalogue reference
-    images for that style, (2) the design brief's silhouette/colour/preserve/change excerpt as
-    readable text, (3) the SAME generated concept image selected for the hero figure
-    (`select_best_attempt`), (4) the real, printed QC scores for that selected attempt (CLIP
-    margin, DINOv2 margin, attribute fidelity, and the final pass/fail verdict -- numbers, not
-    just a checkmark). Lets a reviewer trace, end to end, exactly how each winning style's real
-    reference photos and design brief led to its generated concept, and see the real evidence
-    (including failure) for that concept's quality.
+    One row per winning style (3 rows), 5 columns: (1) a composite of real catalogue reference
+    images for that style, (2) the design brief's silhouette/colour/preserve/applied-changes
+    excerpt as readable text (what was kept vs. changed), (3) the SAME generated concept image
+    selected for the hero figure (`select_final_row`), (4) the concept's real CLIP/DINOv2 margins
+    against BOTH the live E2 Gate-1 copy-anchor threshold and, as a labeled diagnostic only, the
+    old C2 two-sided real-space band, (5) the real, printed Gate-2 per-judge attribute-fidelity
+    scores, explicitly noting when Gemini was unavailable (quota exhaustion) this round, plus the
+    final overall/style QC verdict. Lets a reviewer trace, end to end, exactly how each winning
+    style's real reference photos and design brief led to its generated concept, and see the real
+    evidence (including the honest 0/3 gate status) for that concept's quality.
 
     Args:
         panels: One `PanelData` per winning style, in display order.
         references: Output of `nss.generate.final_concepts.load_final_three_references`.
         briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
+        real_space_clip_band: `(lower, upper)` C2 real-space CLIP band (diagnostic only).
+        real_space_dino_band: `(lower, upper)` C2 real-space DINOv2 band (diagnostic only).
 
     Returns:
         The constructed `Figure`, ready to save.
@@ -441,16 +493,17 @@ def build_evidence_chain_figure(
 
     col_titles = (
         "Real catalogue references",
-        "Design brief excerpt",
+        "Design brief -- kept vs. changed",
         "Generated concept",
-        "QC scores (real numbers)",
+        "Margins vs. Gate 1 + C2 diagnostic band",
+        "Gate 2 judge scores + QC verdict",
     )
-    fig, axes = plt.subplots(len(panels), 4, figsize=(20.0, 5.4 * len(panels)))
+    fig, axes = plt.subplots(len(panels), 5, figsize=(24.0, 5.6 * len(panels)))
     if len(panels) == 1:
-        axes = axes.reshape(1, 4)
+        axes = axes.reshape(1, 5)
 
     for row_idx, panel in enumerate(panels):
-        ax_ref, ax_brief, ax_img, ax_scores = axes[row_idx]
+        ax_ref, ax_brief, ax_img, ax_margin, ax_scores = axes[row_idx]
 
         composite = build_exemplar_composite(references[panel.style_id])
         ax_ref.imshow(composite)
@@ -473,7 +526,7 @@ def build_evidence_chain_figure(
             transform=ax_brief.transAxes,
             ha="left",
             va="top",
-            fontsize=7.6,
+            fontsize=7.4,
             family="monospace",
         )
 
@@ -481,24 +534,36 @@ def build_evidence_chain_figure(
         ax_img.imshow(img)
         ax_img.axis("off")
 
+        ax_margin.axis("off")
+        ax_margin.text(
+            0.02,
+            0.98,
+            build_margin_text(panel.row, real_space_clip_band, real_space_dino_band),
+            transform=ax_margin.transAxes,
+            ha="left",
+            va="top",
+            fontsize=7.6,
+            family="monospace",
+        )
+
         ax_scores.axis("off")
         ax_scores.text(
             0.02,
             0.98,
-            build_scores_text(panel.attempt),
+            build_judge_scores_text(panel.row),
             transform=ax_scores.transAxes,
             ha="left",
             va="top",
-            fontsize=8.2,
+            fontsize=7.6,
             family="monospace",
         )
 
     for ax, title in zip(axes[0], col_titles, strict=True):
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=10)
+        ax.set_title(title, fontsize=10.5, fontweight="bold", pad=10)
 
     fig.suptitle(
-        "next-season-styles -- Evidence Chain: References -> Brief -> Concept -> QC Scores "
-        "(task C8)",
+        "next-season-styles -- Evidence Chain: References -> Brief -> Concept -> Gate 1/Gate 2 "
+        "Scores",
         fontsize=14,
         fontweight="bold",
     )
@@ -507,14 +572,14 @@ def build_evidence_chain_figure(
 
 
 def main(
-    qc_results_path: Path = QC_RESULTS_PATH,
+    final_concepts_v2_path: Path = FINAL_CONCEPTS_V2_PATH,
     hero_out_path: Path = HERO_OUT_PATH,
     evidence_out_path: Path = EVIDENCE_OUT_PATH,
 ) -> tuple[Path, Path]:
-    """Run the full C8 pipeline: select best-available attempts, build + save both figures.
+    """Run the full pipeline: load E5's selected candidates, build + save both figures.
 
     Args:
-        qc_results_path: Path to `concept_qc_results.csv`.
+        final_concepts_v2_path: Path to `final_concepts_v2.csv`.
         hero_out_path: Destination for the hero figure; parent directories are created if missing.
         evidence_out_path: Destination for the evidence-chain figure; parent directories are
             created if missing.
@@ -522,19 +587,21 @@ def main(
     Returns:
         `(hero_out_path, evidence_out_path)`.
     """
-    qc_df = load_qc_results(qc_results_path)
+    df = load_final_concepts_v2(final_concepts_v2_path)
     briefs = load_design_briefs()
     references = load_final_three_references()
+    real_space_clip_band = load_margin_band(CLIP_BAND_PATH)
+    real_space_dino_band = load_margin_band(DINO_BAND_PATH)
 
-    panels = [build_panel_data(qc_df, briefs, style_id) for style_id in STYLE_ORDER]
+    panels = [build_panel_data(df, briefs, style_id) for style_id in STYLE_ORDER]
 
     for panel in panels:
-        status = "PASSED" if panel.style_final_pass else "DID NOT PASS"
+        status = "PASSED" if panel.selection_passed else "DID NOT PASS"
         print(
-            f"[select] {panel.display_name}: attempt={panel.attempt['attempt_number']} "
-            f"seed={panel.attempt['seed']} scale={panel.attempt['ip_adapter_scale']:.2f} "
-            f"composite_score={panel.attempt['composite_score']:.3f} "
-            f"style_qc={status}"
+            f"[select] {panel.display_name}: seed={panel.row['seed']} "
+            f"retry_round={panel.row['retry_round']} "
+            f"fidelity={panel.row['mean_attribute_fidelity']:.3f} "
+            f"selection_mode={panel.row['selection_mode']} style_qc={status}"
         )
 
     hero_fig = build_hero_figure(panels)
@@ -543,7 +610,9 @@ def main(
     plt.close(hero_fig)
     print(f"Wrote {hero_out_path}")
 
-    evidence_fig = build_evidence_chain_figure(panels, references, briefs)
+    evidence_fig = build_evidence_chain_figure(
+        panels, references, briefs, real_space_clip_band, real_space_dino_band
+    )
     evidence_out_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_fig.savefig(evidence_out_path, dpi=150, bbox_inches="tight")
     plt.close(evidence_fig)

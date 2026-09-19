@@ -73,8 +73,8 @@ sweep:
 agent-diagram:
 	uv run python -m nss.viz.agent_architecture
 
-# Compose the C8 final deliverable figures (reports/figures/FINAL_concepts.png +
-# reports/figures/evidence_chain.png) from C6's selected concepts + C7's full QC retry-history
+# Compose the final deliverable figures (reports/figures/FINAL_concepts.png +
+# reports/figures/evidence_chain.png) from E5's corrected concepts + full E2-gate retry-history
 # evidence. Pure image composition, no GPU/generation/scoring required.
 deliverables:
 	uv run python -m nss.generate.final_deliverables
