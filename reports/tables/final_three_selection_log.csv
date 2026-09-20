@@ -1,0 +1,21 @@
+source_table,rank_in_table,style_key,predicted_intensity,growth_ratio,disposition,reason
+T2_emerging,1,"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",16.25523950275885,3.6733299037148455,skipped,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+T1_incumbent,1,Ladieswear || T-shirt || Jersey Basic || Black || Solid,33.773553456977744,,CHOSEN,incumbent slot: highest-ranked T1 style after exclusion
+T1_incumbent,2,Ladieswear || Blazer || Dressed || Black || Solid,26.884951094655623,,not needed,incumbent slot already filled
+T1_incumbent,3,Ladieswear || Top || Jersey Basic || Black || Solid,26.806200859583825,,not needed,incumbent slot already filled
+T1_incumbent,4,Ladieswear || Cardigan || Knitwear || Black || Solid,26.39068562260886,,not needed,incumbent slot already filled
+T1_incumbent,5,Ladieswear || Sweater || Knitwear || White || Solid,25.917108723701226,,not needed,incumbent slot already filled
+T1_incumbent,6,Ladieswear || T-shirt || Jersey Basic || White || Solid,25.197520026067032,,not needed,incumbent slot already filled
+T1_incumbent,7,Ladieswear || Sweater || Knitwear || Black || Solid,24.678683942305575,,not needed,incumbent slot already filled
+T1_incumbent,8,Ladieswear || Leggings/Tights || Jersey Basic || Black || Solid,24.519238018438838,,not needed,incumbent slot already filled
+T1_incumbent,9,Ladieswear || Trousers || Trousers || Black || Check,21.87076963603352,,not needed,incumbent slot already filled
+T1_incumbent,10,Divided || Trousers || Trousers || Grey || Solid,21.69013754898573,,not needed,incumbent slot already filled
+T2_emerging,2,Ladieswear || Sweater || Knitwear || Beige || Melange,17.783148281064506,1.5858516618457832,CHOSEN,emerging slot: next colour-distinct T2 style
+T2_emerging,3,Ladieswear || Dress || Dresses Ladies || Red || Solid,10.996816441902132,1.4122021450859839,CHOSEN,emerging slot: next colour-distinct T2 style
+T2_emerging,4,Ladieswear || Sweater || Knitwear || Grey || Melange,10.51041900701676,1.170933656620168,not needed,emerging slots already filled
+T2_emerging,5,Ladieswear || Top || Jersey Basic || White || Solid,13.853842573439003,1.168139356707085,not needed,emerging slots already filled
+T2_emerging,6,Divided || Jacket || Outdoor || Black || Solid,10.83696526190775,1.0922741668356215,not needed,emerging slots already filled
+T2_emerging,7,Ladieswear || Top || Jersey Basic || Black || Solid,26.806200859583825,1.0727944363461772,not needed,emerging slots already filled
+T2_emerging,8,Ladieswear || Sweater || Knitwear || Mole || Melange,15.793351132507922,1.0727105170135174,not needed,emerging slots already filled
+T2_emerging,9,Ladieswear || Sweater || Knitwear || Pink || Solid,13.053416182892029,1.0019795543026173,not needed,emerging slots already filled
+T2_emerging,10,Divided || Dress || Jersey Basic || Black || Solid,18.931747132235127,0.9847878713523339,not needed,emerging slots already filled
