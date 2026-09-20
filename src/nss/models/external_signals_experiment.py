@@ -55,13 +55,14 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+import lightgbm as lgb  # noqa: F401 -- must load BEFORE shap: the reverse order crashes on Windows
 import numpy as np
 import polars as pl
 import shap
 
 from nss.external.term_mapping import map_styles
-from nss.external.trends_fetch import ordered_terms
-from nss.external.trends_load import load_weekly
+from nss.external.trends_fetch import CACHE_DIR, ordered_terms
+from nss.external.trends_load import load_committed, load_weekly
 from nss.features.signal_features import LEAD_FEATURE_COLS, SIGNAL_FEATURE_COLS, add_signal_features
 from nss.models.backtest import Origin, generate_origin_schedule, run_backtest
 from nss.models.backtest_embargo_check import (
@@ -227,7 +228,10 @@ def main() -> None:
 
     styles = panel.select("style_key", "product_type_name", "perceived_colour_master_name")
     style_terms = map_styles(styles)
-    weekly = load_weekly([t for t, _ in ordered_terms()])
+    # Raw API cache if present (gitignored); otherwise the committed table built from it.
+    weekly = (
+        load_weekly([t for t, _ in ordered_terms()]) if CACHE_DIR.exists() else load_committed()
+    )
     treatment_frame = add_signal_features(control_frame, panel, style_terms, weekly)
     assert treatment_frame.height == control_frame.height
     assert treatment_frame.select(control_frame.columns).equals(control_frame)
