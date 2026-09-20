@@ -1,55 +1,55 @@
-"""Fix + regenerate the 3 final winning-style concept images (task E5).
+"""Fix + regenerate the 3 final winning-style concept images with the full QC gate.
 
-WHY A NEW MODULE, NOT A HEAVILY-BRANCHED EDIT OF `final_concepts.py`: C6's `final_concepts.py`
+WHY A NEW MODULE, NOT A HEAVILY-BRANCHED EDIT OF `final_concepts.py`: `final_concepts.py`
 selects on the OLD two-sided real-space CLIP/DINOv2 band (`select_best_candidate`), never runs the
-VLM attribute-fidelity judges, and never gates on the E2 copy-check. Reusing it here would mean
-bolting the entire E2 gate + a different selection rule + an adaptive per-style retry loop onto a
-module whose docstring and tests are explicitly about the C6 band-based rule -- more surface area
-changed than added. This module instead REUSES `final_concepts.py`'s still-valid, unchanged
+VLM attribute-fidelity judges, and never gates on the copy-check. Reusing it here would mean
+bolting the entire copy-check gate + a different selection rule + an adaptive per-style retry loop
+onto a module whose docstring and tests are explicitly about the band-based rule -- more surface
+area changed than added. This module instead REUSES `final_concepts.py`'s still-valid, unchanged
 primitives (`load_design_briefs`, `build_generation_spec`, `generate_candidates_for_style`,
 `strengthen_underwear_prompts`, `Candidate`, `_slugify` -- `load_final_three_references` itself was
-later swapped for `screen_references.load_screened_references`, task F3, see below) and
-`concept_qc_pipeline.py`'s still-valid E2 gate primitives (`run_judge_panel`,
-`load_copy_anchors_gen`, `parse_style_attributes`, `SKILL`), and adds only what task E5 actually
-needs: the corrected prompts (`reports/tables/design_briefs.json`, edited directly -- not
+later swapped for `screen_references.load_screened_references`, see below) and
+`concept_qc_pipeline.py`'s still-valid gate primitives (`run_judge_panel`,
+`load_copy_anchors_gen`, `parse_style_attributes`, `SKILL`), and adds only what this module
+actually needs: the corrected prompts (`reports/tables/design_briefs.json`, edited directly -- not
 duplicated here), `ip_adapter_scale=0.45`, the full-gate scoring + "best passing, most novel among
 passers" selection rule, and the same-scale seed-only retry loop.
 
-WHAT CHANGED FROM C6/C7 (mechanism, not just outcome):
+WHAT CHANGED FROM THE BAND-BASED GENERATION (mechanism, not just outcome):
 1. Sweater framing: `design_briefs.json`'s Sweater entry now explicitly demands full-garment
    product-catalogue framing (flat-lay/mannequin, complete silhouette in frame) and its
    `negative_prompt` now excludes `close-up, macro, fabric swatch, texture detail, cropped, zoomed`
-   -- C6/C7's candidates were all degenerate fabric-texture close-ups because neither the prompt
-   nor the negative prompt ever said anything about framing/crop.
-2. `ip_adapter_scale`: 0.2 (C6) -> 0.45. C3/E4's sweep evidence showed 0.2 already loses defining
-   attributes (black rendering as grey) -- weakening reference conditioning further to chase
-   novelty was the wrong lever. Novelty now comes from the prompt (`applied_changes`, below), not
-   from starving the IP-Adapter reference.
+   -- the earlier candidates were all degenerate fabric-texture close-ups because neither the
+   prompt nor the negative prompt ever said anything about framing/crop.
+2. `ip_adapter_scale`: 0.2 (earlier) -> 0.45. The scale-sweep evidence showed 0.2 already loses
+   defining attributes (black rendering as grey) -- weakening reference conditioning further to
+   chase novelty was the wrong lever. Novelty now comes from the prompt (`applied_changes`,
+   below), not from starving the IP-Adapter reference.
 3. Novelty source: each style's `design_briefs.json` entry now carries an explicit
    `applied_changes` field (>=2 concrete, brief-grounded changes -- see that file) baked directly
    into `rendered_prompt`'s "Novel accents to introduce" clause, so the evidence chain shows
    intentional prompt-driven novelty, not accidental drift from a starved reference.
 4. Underwear: `build_generation_spec` (imported unchanged from `final_concepts.py`) still applies
-   `strengthen_underwear_prompts` at generation time -- the C6/C7 no-human-model negative-prompt
+   `strengthen_underwear_prompts` at generation time -- the earlier no-human-model negative-prompt
    strengthening is NOT weakened here.
-5. Selection: C6 selected on CLIP-band proximity alone, never ran the VLM judges pre-selection.
-   This module scores EVERY candidate against the FULL E2 gate (Gate 1 copy-check + Gate 2 VLM
-   attribute fidelity, both judges) before selecting -- see `select_final_candidate`.
+5. Selection: the earlier run selected on CLIP-band proximity alone and never ran the VLM judges
+   pre-selection. This module scores EVERY candidate against the FULL gate (Gate 1 copy-check +
+   Gate 2 VLM attribute fidelity, both judges) before selecting -- see `select_final_candidate`.
 
-DEFECT FOUND AND FIXED DURING THIS TASK, NOT IN THE ORIGINAL BRIEF (documented, not silently
-patched): both SDXL text encoders truncate at 77 CLIP tokens (confirmed directly --
+DEFECT FOUND AND FIXED WHILE BUILDING THIS MODULE (documented, not silently patched): both SDXL
+text encoders truncate at 77 CLIP tokens (confirmed directly --
 `CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")` against the first drafted prompts
 logged `Token indices sequence length ... (175 > 77)` and the pipeline's own truncation warning
-named the ENTIRE "Novel accents to introduce" clause as the truncated remainder -- i.e. the E5
-task's core requirement, 2 concrete named changes per style actually reaching the model, would have
-silently failed even though `design_briefs.json` correctly recorded them). `design_briefs.json`'s
+named the ENTIRE "Novel accents to introduce" clause as the truncated remainder -- i.e. the core
+requirement, 2 concrete named changes per style actually reaching the model, would have silently
+failed even though `design_briefs.json` correctly recorded them). `design_briefs.json`'s
 3 `rendered_prompt` fields were rewritten to fit within 77 tokens (measured, not guessed -- every
 prompt/negative_prompt pair, including the underwear style's `strengthen_underwear_prompts`-
 strengthened form, is <= 76 tokens), with the framing/novelty content moved EARLY in each prompt
 (truncation always drops the tail) so it survives regardless of any future prompt edit nudging the
 count back up.
 
-SWEATER MECHANISM (found during this run's mandatory visual verification, task E5 step 6 -- NOT
+SWEATER MECHANISM (found during this run's mandatory visual verification -- NOT
 a hypothesis, confirmed by directly reading both the reference image and all 8 generated
 candidates): despite the prompt/negative_prompt fix, EVERY sweater candidate generated this run
 (seeds 42-49, both original and both retry rounds) is still a degenerate fabric-texture close-up,
@@ -61,12 +61,12 @@ catalogue photography for this article includes texture-detail shots, not just f
 shots). At `ip_adapter_scale=0.45`, that reference image's own close-up framing dominates the
 generation regardless of how explicitly the text prompt demands "full-garment... NOT a close-up".
 This is a reference-image-selection issue, not a prompt-engineering or scale issue, and fixing it
-(e.g. choosing a different index into the reference list, or reordering `references`) is OUT OF
-SCOPE for task E5's authorized changes (framing prompt fix, scale=0.45, novelty-in-prompt) --
-reported here as a genuine, mechanism-backed failure per the task's explicit instruction not to
-loosen the gate or silently paper over it.
+(e.g. choosing a different index into the reference list, or reordering `references`) was OUT OF
+SCOPE for the authorized changes of this first run (framing prompt fix, scale=0.45,
+novelty-in-prompt) -- reported here as a genuine, mechanism-backed failure rather than loosening
+the gate or silently papering over it.
 
-FIXED IN TASK F3 (not deferred again -- see `nss.generate.screen_references`'s module docstring for
+FIXED LATER (not deferred again -- see `nss.generate.screen_references`'s module docstring for
 the full mechanism/fix): `main()` below now loads references via
 `screen_references.load_screened_references` instead of `final_concepts.
 load_final_three_references` -- a VLM-screened, full-garment-only, best-selling-first ordering, so
@@ -74,7 +74,7 @@ load_final_three_references` -- a VLM-screened, full-garment-only, best-selling-
 longer the Sweater's arbitrary alphabetically-first candidate (which happened to be a texture
 close-up) but the best-selling image every reachable judge classified as a full-garment shot.
 
-TWO-PHASE VRAM-SAFE PROCESS, PER SEED-ROUND (not once for the whole run, unlike C6's
+TWO-PHASE VRAM-SAFE PROCESS, PER SEED-ROUND (not once for the whole run, unlike
 `final_concepts.main`): this module's retry loop is ADAPTIVE -- whether a retry round is even
 needed depends on whether the previous round's CPU-scored, API-judged results passed. That
 scoring can only happen after `free_sdxl_pipeline()`, but the next (possible) retry round needs the
@@ -83,11 +83,11 @@ SDXL pipeline again. So each seed round is: generate (loads/reuses the cached pi
 per-retry convention (`generate_retry_candidate` + `free_sdxl_pipeline()` inside `generate_fn`),
 extended here to a whole batch of seeds per round instead of one retry at a time.
 
-WIRED TO TASK F4's SECOND-TEXT-ENCODER SUPPORT (post-F4): `main()`'s `generate_fn` closure now
-passes `final_concepts.build_prompt_2(style_id)` as `generate_candidates_for_style`'s `prompt_2`
-(and reuses the already-built `negative_prompt` as `negative_prompt_2`), so the active E5/F5
-generation path benefits from F4's short, budget-safe attribute-clause reinforcement on SDXL's
-second text encoder, not just the superseded `final_concepts.main` C6 path.
+SECOND-TEXT-ENCODER SUPPORT: `main()`'s `generate_fn` closure passes
+`final_concepts.build_prompt_2(style_id)` as `generate_candidates_for_style`'s `prompt_2`
+(and reuses the already-built `negative_prompt` as `negative_prompt_2`), so the active
+generation path benefits from the short, budget-safe attribute-clause reinforcement on SDXL's
+second text encoder, not just the superseded `final_concepts.main` path.
 
 Usage:
     uv run python -m nss.generate.final_concepts_v2
@@ -126,22 +126,22 @@ from nss.generate.scale_sweep import free_sdxl_pipeline
 OUTPUT_DIR = Path("data/generated/final_concepts_v2")
 OUTPUT_TABLE_PATH = Path("reports/tables/final_concepts_v2.csv")
 
-IP_ADAPTER_SCALE = 0.45  # see module docstring point 2 -- E4's fix, novelty moved into the prompt.
+IP_ADAPTER_SCALE = 0.45  # see module docstring point 2 -- novelty moved into the prompt.
 
 INITIAL_SEEDS: tuple[int, ...] = (42, 43, 44, 45)
 # Each retry round adds 2 fresh, never-before-tried seeds at the SAME scale (no scale drift -- the
-# retry-cap discipline task E5/C7 both require: loosening the lever that was already fixed on
+# retry-cap discipline: loosening the lever that was already fixed on
 # principled grounds would be result-chasing). 2 seeds/round balances GPU time against giving each
-# round a real chance to surface a pass; 2 rounds is the task's explicit retry cap.
+# round a real chance to surface a pass; 2 rounds is the retry cap.
 RETRY_SEED_ROUNDS: tuple[tuple[int, ...], ...] = ((46, 47), (48, 49))
 MAX_RETRY_ROUNDS = len(RETRY_SEED_ROUNDS)
 
-# Task F5 -- final generation. The task brief specifies exactly 4 seeds/style (12 candidates
-# total) and instructs reporting a genuine gate failure rather than retrying with fresh seeds if a
-# style still fails both gates after all 4 seeds -- so F5's run is capped at INITIAL_SEEDS with NO
-# adaptive retry rounds (unlike E5's up-to-8-seed sweep, `RETRY_SEED_ROUNDS` above). Writes to its
-# OWN output paths so E5's `final_concepts_v2.csv`/`data/generated/final_concepts_v2/` deliverable
-# is never touched -- same "new file, don't overwrite a predecessor's deliverable" convention
+# Final generation run. It uses exactly 4 seeds/style (12 candidates total) and reports a genuine
+# gate failure rather than retrying with fresh seeds if a style still fails both gates after all 4
+# seeds -- so the run is capped at INITIAL_SEEDS with NO adaptive retry rounds (unlike the
+# up-to-8-seed sweep of `main()`, `RETRY_SEED_ROUNDS` above). Writes to its OWN output paths so
+# the `final_concepts_v2.csv`/`data/generated/final_concepts_v2/` deliverable of `main()` is never
+# touched -- same "new file, don't overwrite a predecessor's deliverable" convention
 # `screen_references.py`'s CANONICAL SOURCE note documents.
 F5_OUTPUT_DIR = Path("data/generated/final_concepts_v3")
 F5_OUTPUT_TABLE_PATH = Path("reports/tables/final_concepts_v3.csv")
@@ -164,7 +164,7 @@ def score_candidate(
     attribute_fidelity_threshold: float = ATTRIBUTE_FIDELITY_THRESHOLD,
     fidelity_thresholds: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """Score one candidate against the FULL E2 gate: Gate 1 (copy-check) AND Gate 2 (VLM fidelity).
+    """Score one candidate against the FULL gate: Gate 1 (copy-check) AND Gate 2 (VLM fidelity).
 
     Computes CLIP/DINOv2 margins directly (mirrors `final_concepts.score_candidates`), runs
     `SKILL.copy_check` (Gate 1) against this style's per-style, per-embedding-space
@@ -179,8 +179,8 @@ def score_candidate(
         clip_control: Pre-computed CLIP embeddings of the shared control pool.
         dino_refs: Pre-computed DINOv2 embeddings of the target style's real reference images.
         dino_control: Pre-computed DINOv2 embeddings of the shared control pool.
-        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1).
-        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean (task E1).
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean.
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean.
         ground_truth: Output of `parse_style_attributes` for this style.
         groq_available: One-time `vlm_judges.check_groq_availability()` result.
         groq_detail: Detail string from that same one-time check.
@@ -188,14 +188,14 @@ def score_candidate(
         copy_anchor_discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold`.
         attribute_fidelity_threshold: Minimum consensus mean attribute fidelity to pass Gate 2
             UNDER THE OLD, flat-threshold convention -- only used when `fidelity_thresholds` is
-            `None` (the default, backward-compatible path E5/`main()` still uses unchanged).
-        fidelity_thresholds: Task F2's per-judge Gate-2 thresholds
+            `None` (the default, backward-compatible path `main()` still uses unchanged).
+        fidelity_thresholds: The per-judge Gate-2 thresholds
             (`concept_qc_pipeline.compute_fidelity_thresholds`'s output, e.g. `{"gemini": 0.625,
-            "groq": 0.4381}`). When supplied (task F5), Gate 2 uses `SKILL.fidelity_pass_from_per_
+            "groq": 0.4381}`). When supplied (final run), Gate 2 uses `SKILL.fidelity_pass_from_per_
             judge` (every AVAILABLE judge independently above ITS OWN calibrated threshold) INSTEAD
             OF the old flat-threshold-on-the-consensus-mean check -- mirrors `run_qc.qc_verdict`'s
             own `per_judge_fidelity_thresholds` opt-in exactly (see `SKILL.md`'s "Gate 2" section).
-            `None` (the default) preserves `main()`/E5's original behavior unchanged.
+            `None` (the default) preserves `main()`'s original behavior unchanged.
 
     Returns:
         A flat dict: style/seed/retry_round identifiers, both margins, both Gate-1 thresholds and
@@ -265,33 +265,33 @@ def select_final_candidate(
 ) -> dict[str, Any]:
     """Select the final candidate for one style from every scored attempt across every round.
 
-    SELECTION RULE (task E5): among candidates that PASS BOTH GATES (`overall_pass`), rank by
+    SELECTION RULE: among candidates that PASS BOTH GATES (`overall_pass`), rank by
     HIGHEST `mean_attribute_fidelity`; ties broken by LOWEST `clip_margin` (CLIP is this project's
-    primary metric throughout C6/C7/E2 -- a lower CLIP margin sits further below this style's
+    primary metric throughout -- a lower CLIP margin sits further below this style's
     Gate-1 copy-anchor threshold, i.e. is the more novel of two otherwise-equally-faithful
     candidates); remaining ties broken by seed, for determinism.
 
-    If NO candidate passes both gates, falls back to a C8-style composite score
+    If NO candidate passes both gates, falls back to a composite score
     (`float(clip_below_copy_anchor) + float(dino_below_copy_anchor) + mean_attribute_fidelity` --
-    the E2-gate analogue of `final_deliverables.select_best_attempt`'s
-    `clip_in_band + dino_in_band + mean_attribute_fidelity`, substituting the E2 Gate-1 booleans
+    the copy-check analogue of `final_deliverables.select_best_attempt`'s
+    `clip_in_band + dino_in_band + mean_attribute_fidelity`, substituting the Gate-1 booleans
     for the OLD two-sided band booleans that composite was originally built on) and returns the
     best-available candidate, explicitly marked `passed=False` -- never silently presented as a
     pass.
 
-    VISUAL-QC VETO (task E5 step 6, same convention as C6's `final_concepts.select_best_candidate`
+    VISUAL-QC VETO (same convention as `final_concepts.select_best_candidate`'s
     `disqualified_seeds`): automated CLIP/DINOv2/VLM scoring cannot detect "does this image show a
-    person" or "is this actually a full-garment shot, not a texture close-up" -- a human (here, the
-    operating agent) must inspect every candidate and pass disqualifying seeds in explicitly. A
+    person" or "is this actually a full-garment shot, not a texture close-up" -- a human
+    must inspect every candidate and pass disqualifying seeds in explicitly. A
     disqualified candidate is EXCLUDED from both the `passing` and the composite-fallback pools --
     it can never be `selected`, no matter how good its automated scores are -- UNLESS every
     candidate for this style is disqualified, in which case selection falls back to the FULL
-    (still-disqualified) pool rather than raising (unlike C6's veto, which hard-stops when every
-    candidate is disqualified): task E5 requires reporting a genuine failure with mechanism, not
-    crashing the pipeline, when an entire style's candidates all fail visual inspection (e.g. this
-    run's Sweater style -- see module docstring SWEATER MECHANISM note). `all_disqualified` in the
-    return value flags exactly this case so callers never mistake a fully-veto'd fallback for a
-    clean one.
+    (still-disqualified) pool rather than raising (unlike the `final_concepts` veto, which
+    hard-stops when every candidate is disqualified): this module requires reporting a genuine
+    failure with mechanism, not crashing the pipeline, when an entire style's candidates all fail
+    visual inspection (e.g. this run's Sweater style -- see module docstring SWEATER MECHANISM
+    note). `all_disqualified` in the return value flags exactly this case so callers never mistake a
+    fully-veto'd fallback for a clean one.
 
     Args:
         scored_candidates: Output of `score_candidate`, all for the SAME style_id, across every
@@ -357,8 +357,8 @@ def run_style_with_retries(
     """Generate+score one style's initial seed batch; retry with fresh seeds (same scale) if
     nothing passes both gates, up to `len(retry_seed_rounds)` rounds.
 
-    Never drifts `ip_adapter_scale` across retries -- the retry-cap discipline task E5/C7 both
-    require: the scale was already fixed on principled evidence (E4), so a retry only ever adds
+    Never drifts `ip_adapter_scale` across retries -- the retry-cap discipline: the
+    scale was already fixed on principled evidence (the scale sweep), so a retry only ever adds
     more seeds at that SAME scale, never a different one. `generate_fn`/`score_fn` are injected so
     this function is fully unit-testable with fakes (no real GPU/API calls) -- see
     `tests/test_final_concepts_v2.py`.
@@ -440,11 +440,10 @@ def write_results_table(
     return df
 
 
-# Per-style seeds manually vetoed after visually inspecting (Read tool, every candidate this run
-# actually generated -- task E5 step 6) the full 8-seed history of each style. A style absent from
+# Per-style seeds manually vetoed after visually inspecting (every candidate this run
+# actually generated) the full 8-seed history of each style. A style absent from
 # this dict, or mapped to an empty frozenset, means every one of its candidates passed manual
-# visual inspection -- NOT that visual inspection was skipped (see the task report for the
-# per-image finding this dict is built from).
+# visual inspection -- NOT that visual inspection was skipped.
 #
 # T-shirt seeds 46-49 (every round-1/round-2 retry candidate, ALL 4 of them) each show a human
 # model in frame -- a direct violation of the design brief's own `negative_prompt` ("worn by a
@@ -452,7 +451,7 @@ def write_results_table(
 # not -- confirmed individually, not inferred from the round number.
 #
 # Underwear bottom: every one of the 8 candidates (both rounds) is confirmed free of any human
-# model, worn-on-body shot, or person in frame -- the C6/C7 defect (3 of 4 original candidates
+# model, worn-on-body shot, or person in frame -- the earlier defect (3 of 4 original candidates
 # showed a human model) did NOT recur here. Left absent from this dict (fully qualified).
 #
 # Sweater: every one of the 8 candidates is a degenerate fabric-texture close-up, not a
@@ -461,8 +460,8 @@ def write_results_table(
 # a disqualify-all-8 entry: `select_final_candidate`'s `all_disqualified` fallback would select the
 # exact same composite-ranked candidate either way (there is no non-close-up candidate to prefer),
 # so an explicit disqualify-all entry would be a no-op that only obscures the real finding -- the
-# genuine failure is reported via `passed=False` + this constant's absence + the task report's
-# mechanism note, not via a redundant veto list.
+# genuine failure is reported via `passed=False` + this constant's absence + the mechanism note
+# above, not via a redundant veto list.
 VISUAL_QC_DISQUALIFIED_SEEDS: dict[str, frozenset[int]] = {
     "Ladieswear || T-shirt || Jersey Basic || Black || Solid": frozenset({46, 47, 48, 49}),
 }
@@ -530,7 +529,7 @@ def apply_visual_qc_and_rewrite(
 
 
 def main() -> None:
-    """Run the full E5 pipeline: per-style adaptive generate -> free VRAM -> full-gate score ->
+    """Run the full pipeline: per-style adaptive generate -> free VRAM -> full-gate score ->
     select -> write, across every winning style."""
     briefs = load_design_briefs()
     style_references = screen_references.load_screened_references()
@@ -547,7 +546,7 @@ def main() -> None:
     results: dict[str, dict[str, Any]] = {}
     for style_id, brief in briefs.items():
         prompt, negative_prompt = build_generation_spec(style_id, brief)
-        prompt_2 = build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
+        prompt_2 = build_prompt_2(style_id)  # SDXL's second text encoder
         references = style_references[style_id]
         ground_truth = parse_style_attributes(style_id)
         clip_refs = [clip_scoring.embed_image(p) for p in references]
@@ -630,7 +629,7 @@ def main() -> None:
     print(f"\nWrote {OUTPUT_TABLE_PATH}")
 
     print(
-        "\n=== Applying manual visual-QC vetoes (task E5 step 6 -- see "
+        "\n=== Applying manual visual-QC vetoes (see "
         "VISUAL_QC_DISQUALIFIED_SEEDS docstring for the per-image finding each entry is built "
         "from) ==="
     )
@@ -654,29 +653,29 @@ def run_f5(
     output_table_path: Path = F5_OUTPUT_TABLE_PATH,
     retry_seed_rounds: tuple[tuple[int, ...], ...] = F5_RETRY_SEED_ROUNDS,
 ) -> dict[str, dict[str, Any]]:
-    """Task F5 final generation: same F1-F4-corrected gate/prompt/reference pipeline as `main()`
-    (E5) -- `ip_adapter_scale=0.45`, `screen_references.load_screened_references`, the token-
-    budget-safe prompts, the per-style negative-prompt rules, the full E2 gate (Gate 1 copy-check +
+    """Final generation: same corrected gate/prompt/reference pipeline as `main()`
+    -- `ip_adapter_scale=0.45`, `screen_references.load_screened_references`, the token-
+    budget-safe prompts, the per-style negative-prompt rules, the full gate (Gate 1 copy-check +
     Gate 2 per-judge-calibrated VLM fidelity) -- but capped at exactly `INITIAL_SEEDS` (4) seeds
     per style / 12 candidates total via `retry_seed_rounds=()`, never `main()`'s adaptive up-to-
     8-seed retry sweep. Reuses every one of `main()`'s primitives verbatim
     (`run_style_with_retries`, `score_candidate`, `select_final_candidate`, `write_results_table`);
     differs from `main()` ONLY in the seed-round count and the output paths
     (`F5_OUTPUT_DIR`/`F5_OUTPUT_TABLE_PATH`, never
-    `OUTPUT_DIR`/`OUTPUT_TABLE_PATH` -- E5's deliverable stays untouched and independently
+    `OUTPUT_DIR`/`OUTPUT_TABLE_PATH` -- the `main()` deliverable stays untouched and independently
     auditable).
 
     Does NOT apply any visual-QC veto -- per this project's established two-phase convention (see
     `main()`'s own flow below), call `apply_visual_qc_and_rewrite(output_table_path,
-    disqualified_seeds_by_style=...)` separately once the mandatory Read-tool visual inspection of
-    every generated candidate (task F5 step 4) is complete.
+    disqualified_seeds_by_style=...)` separately once the mandatory visual inspection of
+    every generated candidate is complete.
 
-    Also differs from `main()` in Gate 2's threshold: this function computes task F2's per-judge
+    Also differs from `main()` in Gate 2's threshold: this function computes the per-judge
     calibrated thresholds (`compute_fidelity_thresholds`, from the already-committed
     `vlm_calibration_results.csv` -- no re-derivation) and passes them to `score_candidate`'s
-    `fidelity_thresholds` parameter, so F5 actually applies the corrected Gate 2 `SKILL.md`
-    documents as current -- `main()`/E5 (a task run before F2 existed) is unaffected, since that
-    parameter defaults to `None` there.
+    `fidelity_thresholds` parameter, so this run actually applies the corrected Gate 2 `SKILL.md`
+    documents as current -- `main()` (which predates the per-judge thresholds) is unaffected, since
+    that parameter defaults to `None` there.
 
     Args:
         output_dir: Directory to save generated candidate images into.
@@ -694,14 +693,14 @@ def run_f5(
     groq_available, groq_detail = vlm_judges.check_groq_availability()
     print(f"Groq judge availability: {groq_available} ({groq_detail})")
 
-    # Task F2's per-judge Gate-2 thresholds, from the already-committed real calibration run
-    # (`reports/tables/vlm_calibration_results.csv`) -- NOT re-derived here, per the task brief's
-    # explicit "no re-derivation needed". `score_candidate`'s OLD flat-threshold default
-    # (`ATTRIBUTE_FIDELITY_THRESHOLD`, 0.75) was never actually achievable for Groq (its own
-    # calibration ceiling is 0.5841, BELOW the old flat 0.75 -- see `SKILL.md`'s "Gate 2" section).
+    # The per-judge Gate-2 thresholds, from the already-committed real calibration run
+    # (`reports/tables/vlm_calibration_results.csv`) -- NOT re-derived here. `score_candidate`'s OLD
+    # flat-threshold default (`ATTRIBUTE_FIDELITY_THRESHOLD`, 0.75) was never actually achievable
+    # for Groq (its own calibration ceiling is 0.5841, BELOW the old flat 0.75 -- see `SKILL.md`'s
+    # "Gate 2" section).
     calibration_df = pl.read_csv(CALIBRATION_RESULTS_PATH)
     fidelity_thresholds = compute_fidelity_thresholds(summarize_calibration(calibration_df))
-    print(f"Gate 2 per-judge fidelity thresholds (task F2): {fidelity_thresholds}")
+    print(f"Gate 2 per-judge fidelity thresholds: {fidelity_thresholds}")
 
     from nss.generate import clip_scoring, dino_scoring
 
@@ -711,7 +710,7 @@ def run_f5(
     results: dict[str, dict[str, Any]] = {}
     for style_id, brief in briefs.items():
         prompt, negative_prompt = build_generation_spec(style_id, brief)
-        prompt_2 = build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
+        prompt_2 = build_prompt_2(style_id)  # SDXL's second text encoder
         references = style_references[style_id]
         ground_truth = parse_style_attributes(style_id)
         clip_refs = [clip_scoring.embed_image(p) for p in references]
@@ -820,10 +819,10 @@ def rescore_f5_judges(
     CPU-only and untouched here), and (critically) no re-querying a row that already got a REAL
     judge score, which would just as likely overwrite it with a fresh failed attempt as improve it.
 
-    WHY THIS EXISTS (task F5's actual run, 2026-09-19): both judge providers are SHARED, scarce,
+    WHY THIS EXISTS (the final generation run, 2026-09-19): both judge providers are SHARED, scarce,
     externally-rate-limited resources -- Gemini's free-tier daily cap (20 requests/day) and Groq's
     shared TPD token budget. `run_f5`'s own single pass hit both mid-run: Gemini was already
-    exhausted from earlier in this session (confirmed still exhausted by a direct live re-check
+    exhausted from earlier that day (confirmed still exhausted by a direct live re-check
     immediately after `run_f5` finished, not assumed) and Groq's TPD budget ran out partway through
     scoring the 12 candidates (visible in each row's `groq_excluded_reason`'s `Used`/`Limit` token
     counts climbing toward the 200000 cap) -- so only 1 of 12 candidates (`n_contributing_judges ==
@@ -836,8 +835,8 @@ def rescore_f5_judges(
 
     ONLY-MISSING RETRY (mirrors `screen_references.retry_inconclusive_candidates`'s established
     convention exactly): a row already carrying `n_contributing_judges > 0` is left byte-identical
-    -- a REAL DEFECT this function's first version had, caught before being committed (see the task
-    F5 report): unconditionally re-querying every row, including the one that already had a genuine
+    -- a REAL DEFECT this function's first version had, caught before being committed:
+    unconditionally re-querying every row, including the one that already had a genuine
     Groq score, silently overwrote that real score with a fresh (failed, quota-exhausted-again)
     attempt the very next time it ran. Safe to call repeatedly as quota recovers over time, same
     idempotency guarantee `retry_inconclusive_candidates` documents.
@@ -852,7 +851,7 @@ def rescore_f5_judges(
         groq_check_fn: `vlm_judges.check_groq_availability`'s signature -- injected for testing.
         combine_judges_fn: `SKILL.combine_judges`'s signature -- injected for testing.
         fidelity_pass_fn: `SKILL.fidelity_pass_from_per_judge`'s signature -- injected for testing.
-        fidelity_thresholds: Task F2's per-judge Gate-2 thresholds (see `run_f5`'s docstring for
+        fidelity_thresholds: The per-judge Gate-2 thresholds (see `run_f5`'s docstring for
             why this project uses per-judge thresholds, not a flat one). `None` (the default)
             loads them from the already-committed `vlm_calibration_results.csv`, same as `run_f5`.
 

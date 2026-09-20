@@ -1,4 +1,4 @@
-"""Gate 1b: nearest-reference novelty, calibrated on real articles (task K2).
+"""Gate 1b: nearest-reference novelty, calibrated on real articles.
 
 WHY: Gate 1 compares a concept's MEAN similarity to its references with the p90 of real pairwise
 similarity. The clone positive control (`clone_positive_control.csv`) showed that an exact copy of
@@ -7,10 +7,11 @@ must look at the NEAREST reference, not the average.
 
 CALIBRATION (no raw cut, no tuning on candidates): for each real reference article, its nearest
 sibling similarity is the max cosine over the OTHER references of its style -- the same
-leave-one-out set as J1. The Gate 1b threshold is the p90 of that real-article distribution, per
-style and per embedding space (never a raw similarity cut, which would repeat the median error).
-A concept passes iff its max cosine over its references is at or below that threshold in EVERY
-space (joint AND, via the same `SKILL.within_style_novelty_pass` used for Gate 1).
+leave-one-out set as the leave-one-out control. The Gate 1b threshold is the p90 of that
+real-article distribution, per style and per embedding space (never a raw similarity cut, which
+would repeat the median error). A concept passes iff its max cosine over its references is at or
+below that threshold in EVERY space (joint AND, via the same `SKILL.within_style_novelty_pass` used
+for Gate 1).
 
 DECLARED BEFORE SEEING CANDIDATE RESULTS: (1) the exact clone of reference 0 must FAIL, else the
 check does not work and stays un-gated; (2) the threshold is not adjusted after scoring the finals.

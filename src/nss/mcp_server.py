@@ -1,4 +1,4 @@
-"""MCP server exposing next-season-styles' read-only forecasting + generation tools (task D1).
+"""MCP server exposing next-season-styles' read-only forecasting + generation tools.
 
 Every tool here reads artifacts already on disk (raw/interim/processed data, `reports/tables/*`,
 `data/images/*`, `data/generated/*`) -- **modelling is frozen**: nothing in this module retrains a
@@ -7,14 +7,14 @@ already on disk. `forecast_styles` in particular returns the closest available p
 forecast and says so explicitly, rather than recomputing.
 
 `generate_concept` is the one exception that touches the GPU -- it is a thin wrapper around
-`nss.generate.backends.generate_concept` (Track C, untouched here). That is expected: a client
+`nss.generate.backends.generate_concept` (untouched here). That is expected: a client
 invoking image generation through this tool is a live generation request, not retraining.
 
 `score_concept` runs the shipped quality gates (`nss.generate.qc_gates`): Gate 1 (within-style
 p90), Gate 1b (nearest-reference p90, clone-validated), the GLOBAL integrity floor (per-style
 floor advisory) and, on request, Gate 2 (local SmolVLM gating, Florence-2 advisory) and Gate 3
 (briefed changes visible), and always reports the human visual check as required. It supersedes
-the earlier margin-band scoring (task L1) and the pre-N9 Gate-1/1b/Groq-Gate-2 verdict.
+the earlier margin-band scoring and the previous Gate-1/1b/Groq-Gate-2 verdict.
 
 SDK note: this module targets the installed `mcp` package (`mcp==2.2.0` at the time this was
 written). In `mcp>=2`, the high-level "define tools with a decorator, run over stdio" API that
@@ -48,11 +48,10 @@ TRANSACTIONS_DIR = Path("data/interim/transactions_train_parquet")
 ARTICLES_PATH = Path("data/raw/articles.csv")
 STYLE_WEEK_PANEL_PATH = Path("data/processed/style_week_panel.parquet")
 
-# Per-style SHAP drivers: checked in this order. `final_three_shap_verdict.csv` landed on disk
-# (via a concurrent Track C task, `nss.models.final_three_shap_verdict`) partway through this
-# module's own development; the two forecast tables below are kept as the next fallback since
-# they also carry per-style shap_driver_{1..5}_{feature,value} columns for the styles they rank
-# (the "broader SHAP outputs" fallback the task brief anticipates for styles absent from the
+# Per-style SHAP drivers: checked in this order. `final_three_shap_verdict.csv` (written by
+# `nss.models.final_three_shap_verdict`) comes first; the two forecast tables below are kept as
+# the next fallback since they also carry per-style shap_driver_{1..5}_{feature,value} columns
+# for the styles they rank (the "broader SHAP outputs" fallback for styles absent from the
 # verdict table). `shap_global_importance.csv` (dataset-wide, not per-style) is the last resort.
 FINAL_THREE_SHAP_VERDICT_PATH = Path("reports/tables/final_three_shap_verdict.csv")
 SHAP_GLOBAL_IMPORTANCE_PATH = Path("reports/tables/shap_global_importance.csv")
@@ -228,8 +227,7 @@ def _extract_shap_drivers_row(row: dict[str, Any], n: int = 5) -> list[dict[str,
 def _get_shap_drivers(style_key: str) -> dict[str, Any]:
     """Look up per-style SHAP drivers for `style_key`, falling back to global importance.
 
-    Check order: `FINAL_THREE_SHAP_VERDICT_PATH` (the name given in the task brief; not present
-    on disk as of writing) -> each of `FORECAST_TABLES` (both carry per-style
+    Check order: `FINAL_THREE_SHAP_VERDICT_PATH` -> each of `FORECAST_TABLES` (both carry per-style
     `shap_driver_{1..5}_*` columns for the styles they rank) -> `SHAP_GLOBAL_IMPORTANCE_PATH`
     (dataset-wide feature importance, not style-specific) as a last resort.
 
@@ -490,8 +488,8 @@ def score_concept(
       against its own calibrated threshold. SmolVLM gates; Florence-2 is advisory (never gates).
       Only run when `include_fidelity=True` (loads the local VLMs; no network, no API quota).
     * **Gate 3** -- are the briefed changes visible (one yes/no per change, strict majority, the
-      gating local judge). Runs with Gate 2; needs `changes`, else the N9 sidecar JSON / the final
-      concept registry, else it is reported `not_run` (never a pass).
+      gating local judge). Runs with Gate 2; needs `changes`, else the generated concept's sidecar
+      JSON / the final concept registry, else it is reported `not_run` (never a pass).
     * **Human visual check** -- always `required`, never automated: the automatic gates have
       passed visibly malformed garments.
 

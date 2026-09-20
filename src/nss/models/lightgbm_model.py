@@ -7,12 +7,12 @@ are reserved as an initial training pool (origins index 0..7, `2018-12-17 .. 201
 NEVER scored as walk-forward test origins. Walk-forward test origins are index 8..19 (12 origins,
 `2019-07-29 .. 2020-06-01`), which splits 5 non-COVID + 7 COVID -- comparable in shape to the full
 20-origin schedule's own 13/7 split, so the walk-forward test set isn't accidentally COVID-only or
-COVID-free. 8 is chosen (over the task's own suggested 8-10 range) because it is the smallest pool
+COVID-free. 8 is chosen (over the suggested 8-10 range) because it is the smallest pool
 that still leaves a genuinely separate origin for hyperparameter validation (pool origins 0..6 for
 training, pool origin 7 held out -- see HYPERPARAMETER SELECTION below) while giving the FIRST
 walk-forward test origin (index 8) an expanding training window built from 7 full origins' worth of
 pooled `(style_key, origin_week)` rows -- comfortably more than one 13-week horizon
-(`nss.features.targets.HORIZON_WEEKS`) of style-level history, per the task's own framing.
+(`nss.features.targets.HORIZON_WEEKS`) of style-level history.
 
 HYPERPARAMETER SELECTION: a SMALL (6-config) grid over `num_leaves`, `learning_rate`,
 `n_estimators`, `min_child_samples` (LightGBM's sklearn-API name for `min_data_in_leaf`), validated
@@ -48,7 +48,7 @@ C API) and are called with the same numpy matrix + `feature_names=...`, so this 
 pandas dependency at all.
 
 CATEGORICAL ENCODING: the 5 `STYLE_KEY_COLS` attribute columns come out of `build_features` already
-cast to a fixed, sorted `pl.Enum` (NOT `pl.Categorical` -- see DETERMINISM (A5 FOLLOW-UP) below for
+cast to a fixed, sorted `pl.Enum` (NOT `pl.Categorical` -- see DETERMINISM (CROSS-PROCESS) below for
 why: `pl.Categorical`'s dictionary is built via an internal, non-deterministic-across-processes
 unique-value collection, CONFIRMED via a minimal repro to assign different integer codes to the
 same category string across separate `uv run` invocations on the identical input, which flips
@@ -72,22 +72,23 @@ FULL pooled walk-forward train+test set (every one of the 20 origins' rows, i.e.
 `build_model_frame`'s output) using the winning hyperparameter config -- not the walk-forward loop's
 own last expanding-window fit (which stops one origin short, at origins 0..18). The full-data model
 strictly dominates it on training data volume and is the closer proxy for what the later
-final-forecast step (trained on all data through 2020-09-22) will actually look like, per the task's
-own framing -- this is a SHAP-analysis-only model, never scored against a test origin, so it carries
+final-forecast step (trained on all data through 2020-09-22) will actually look like -- this is a
+SHAP-analysis-only model, never scored against a test origin, so it carries
 no leakage risk for the walk-forward evaluation numbers reported alongside it.
 
-DETERMINISM (A5): `random_state=RANDOM_SEED` alone was observed NOT to make repeated training runs
-bit-identical (a few percent variation in predicted values for the same style across runs) --
-LightGBM's sklearn `random_state` only seeds one of several internal RNG streams, and multi-threaded
-histogram building is order-dependent regardless of seeding. `train_lightgbm` therefore also passes
-`LGBM_DETERMINISM_PARAMS` (`deterministic=True`, `force_row_wise=True`, `num_threads=1`, and
-explicit `bagging_seed`/`feature_fraction_seed`/`data_random_seed`, all pinned to `RANDOM_SEED`) to
-every `lgb.LGBMRegressor` this module constructs. Verified bit-identical (`np.array_equal`) via
+DETERMINISM (WITHIN-PROCESS): `random_state=RANDOM_SEED` alone was observed NOT to make repeated
+training runs bit-identical (a few percent variation in predicted values for the same style across
+runs) -- LightGBM's sklearn `random_state` only seeds one of several internal RNG streams, and
+multi-threaded histogram building is order-dependent regardless of seeding. `train_lightgbm`
+therefore also passes `LGBM_DETERMINISM_PARAMS` (`deterministic=True`, `force_row_wise=True`,
+`num_threads=1`, and explicit `bagging_seed`/`feature_fraction_seed`/`data_random_seed`, all pinned
+to `RANDOM_SEED`) to every `lgb.LGBMRegressor` this module constructs. Verified bit-identical
+(`np.array_equal`) via
 `tests/test_lightgbm_model.py::test_train_lightgbm_is_bit_identical_across_repeated_runs`, at the
 cost of `num_threads=1` giving up multi-threaded training speed -- acceptable here given this
-project's dataset size (see PLAN.md / session report for the measured wall-clock impact).
+project's dataset size (see PLAN.md for the measured wall-clock impact).
 
-DETERMINISM (A5) FOLLOW-UP (D3a) -- this WITHIN-PROCESS fix alone did not close the loop: a
+DETERMINISM (CROSS-PROCESS) -- this WITHIN-PROCESS fix alone did not close the loop: a
 separate, CROSS-PROCESS source of jitter (reported as "~1%"; MEASURED via a controlled ablation on
 the real production panel + `nss.models.final_forecast.FINAL_MODEL_CONFIG` to be as large as ~52%
 relative / ~6.2 absolute on some styles -- the original "~1%" description undersold the real
@@ -120,7 +121,7 @@ variants, each run twice as separate `uv run` processes on the identical real pa
      `maintain_order="left"` fix applied (`pl.Categorical` left buggy) already leaves at most
      5.3e-15 absolute difference -- i.e. this cause's OWN measured contribution here is
      floating-point noise, not a visible percentage. It is fixed anyway (`pl.Enum`, an explicit
-     sorted vocabulary -- see `nss.features.model_features` DETERMINISM (A5 FOLLOW-UP) section)
+     sorted vocabulary -- see `nss.features.model_features` DETERMINISM (CROSS-PROCESS) section)
      because it is a real, independently-reproducible nondeterminism in a value LightGBM consumes
      directly via `categorical_feature=...`, and its magnitude on a DIFFERENT model/dataset (one
      where the categorical features drive more decisive splits) is not something this repo can
@@ -129,7 +130,7 @@ variants, each run twice as separate `uv run` processes on the identical real pa
 Combining both fixes (the one already-shipped in `build_model_frame`, plus `pl.Enum`) was verified
 BIT-IDENTICAL (`np.array_equal`, max abs diff = 0.0) across two genuinely separate `uv run`
 process invocations of the real `nss.models.final_forecast` pipeline on the real production panel
-(1,980 forecast-eligible styles, all identical) -- see the D3a session report / PLAN.md for the
+(1,980 forecast-eligible styles, all identical) -- see PLAN.md for the
 full ablation table and `tests/test_determinism_cross_process.py` for the regression test.
 """
 
@@ -166,7 +167,7 @@ INITIAL_POOL_SIZE = 8
 RANDOM_SEED = 42
 LGBM_OBJECTIVE = "regression"
 
-# DETERMINISM (A5): a prior session observed non-bit-identical predictions across repeated
+# DETERMINISM (WITHIN-PROCESS): non-bit-identical predictions were observed across repeated
 # training runs despite `random_state=RANDOM_SEED` -- LightGBM's `random_state`/`seed` sklearn
 # param does NOT by itself fix every internal RNG stream (bagging, feature sampling, and the
 # Dataset-construction "data" RNG each have their own seed knobs), and multi-threaded histogram
@@ -174,7 +175,7 @@ LGBM_OBJECTIVE = "regression"
 # nondeterminism even with every seed fixed. `deterministic=True` + `force_row_wise=True` remove
 # that within-run, multi-threaded nondeterminism from histogram building (LightGBM's own docs
 # recommend both together for bit-exact repeatability); `num_threads=1` closes the remaining gap
-# by removing thread-scheduling nondeterminism entirely, at a training-speed cost (see A5 report).
+# by removing thread-scheduling nondeterminism entirely, at a training-speed cost.
 # All four extra seeds are pinned to `RANDOM_SEED` for a single source of truth, not because they
 # need to differ from it.
 LGBM_DETERMINISM_PARAMS: dict[str, bool | int] = {
@@ -190,8 +191,8 @@ LGBMConfig = dict[str, int | float]
 
 # See module docstring HYPERPARAMETER SELECTION. 6 configs, varying model complexity (num_leaves),
 # the learning_rate / n_estimators pairing (fewer, larger steps vs more, smaller ones), and
-# min_child_samples (leaf-size regularization) -- the "usual LightGBM regression knobs" the task
-# calls out, nothing more exotic.
+# min_child_samples (leaf-size regularization) -- the "usual LightGBM regression knobs",
+# nothing more exotic.
 HYPERPARAM_GRID: list[LGBMConfig] = [
     {"num_leaves": 15, "learning_rate": 0.05, "n_estimators": 200, "min_child_samples": 20},
     {"num_leaves": 31, "learning_rate": 0.05, "n_estimators": 200, "min_child_samples": 20},
@@ -244,8 +245,8 @@ def build_model_frame(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataF
     targets = pl.concat(
         [compute_forward_target(panel, ow, horizon_weeks=HORIZON_WEEKS) for ow in origin_weeks]
     )
-    # maintain_order="left" -- THIS IS THE PRIMARY FIX for the D3a cross-process determinism bug
-    # (see module docstring DETERMINISM (A5) FOLLOW-UP (D3a) for the full ablation). Without it,
+    # maintain_order="left" -- THIS IS THE PRIMARY FIX for the cross-process determinism bug
+    # (see module docstring DETERMINISM (CROSS-PROCESS) for the full ablation). Without it,
     # this join's output row order is not guaranteed stable across separate process runs (a polars
     # hash-join implementation detail); since LightGBM's histogram-building gradient/hessian
     # accumulation is floating-point summation over the TRAINING rows in the order given (not

@@ -1,4 +1,4 @@
-"""Cross-process determinism regression test (D3a).
+"""Cross-process determinism regression test.
 
 Reproduces, in miniature, the exact scenario the original bug report described: the SAME
 already-trained-model-shaped inference (`build_model_frame` -> `train_lightgbm` ->
@@ -7,7 +7,7 @@ genuinely separate OS processes, on the identical data and hyperparameters, must
 bit-identical predictions. This is a REPRODUCIBILITY test, not a model-quality test -- it makes no
 claim about accuracy, only that repeated invocations agree with each other exactly.
 
-Root cause (see `nss.features.model_features`'s DETERMINISM (A5 FOLLOW-UP) docstring section for
+Root cause (see `nss.features.model_features`'s DETERMINISM docstring section for
 the full mechanism and the minimal repro that confirmed it): `pl.Categorical`'s category->code
 dictionary was built via an internal, non-deterministic-across-processes unique-value collection,
 so the SAME category string could get a DIFFERENT integer code in two separate process runs on the

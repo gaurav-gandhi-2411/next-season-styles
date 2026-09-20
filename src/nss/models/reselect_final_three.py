@@ -1,27 +1,30 @@
-"""Final-three re-selection: all emerging, editorial exclusions, colour/type diversity (task N6).
+"""Final-three re-selection: all emerging, editorial exclusions, colour/type diversity.
 
-WHY (history): M2 removed an intimates style (red underwear) and forced colour diversity, but still
-kept a T1 "incumbent" slot. That slot mechanically returns whatever sells most per product, which
-in fast fashion is a black basic: the buying plan a retailer already has, not a design brief. N6
-drops it. Both this and the earlier rules are SELECTION-RULE decisions, not model decisions: the
-frozen model ranks what the market rewards; a human judges what belongs in a design deliverable.
-The model surfaces, a human judges -- made explicit, deterministic and auditable here.
+WHY (history): an earlier selection removed an intimates style (red underwear) and forced colour
+diversity, but still kept an "incumbent" slot. That slot mechanically returns whatever sells most
+per product, which in fast fashion is a black basic: the buying plan a retailer already has, not a
+design brief. This selection drops it. Both this and the earlier rules are SELECTION-RULE decisions,
+not model decisions: the frozen model ranks what the market rewards; a human judges what belongs in
+a design deliverable. The model surfaces, a human judges -- made explicit, deterministic and
+auditable here.
 
-RULE (fixed and documented BEFORE the N6 output was inspected; applied in this order, no tuning):
+RULE (fixed and documented BEFORE the output was inspected; applied in this order, no tuning):
 
 Input: the committed frozen-model emerging leaderboard `top_styles_emerging.csv` (guard-passing,
 ranked by growth ratio). No model is retrained or re-run. NOTE ON PROVENANCE: the top-10 of that
-table had already been seen in the earlier M2 session; the rules below are stated in terms of
+table had already been seen in the earlier selection; the rules below are stated in terms of
 garment categories, not of the styles that happen to fall out.
 
 1. ALL THREE from the emerging (growth) table. No incumbent slot.
 2. ABSOLUTE-SCALE FLOOR: predicted intensity >= the median predicted intensity among guard-passing
-   styles. Satisfied BY CONSTRUCTION for every row of the T2 table (`diversity_forecast.
-   t2_absolute_intensity_floor` is exactly that median and gates T2 eligibility); the exact floor
-   value is not persisted, so it is recorded as "by construction", never re-derived by retraining.
+   styles. Satisfied BY CONSTRUCTION for every row of the emerging table (`diversity_forecast.
+   t2_absolute_intensity_floor` is exactly that median and gates emerging eligibility); the exact
+   floor value is not persisted, so it is recorded as "by construction", never re-derived by
+   retraining.
 3. GUARDS unchanged (mean active articles >= 10, price index >= 0.85, active >= 26 of 52 weeks);
-   already applied in the T2 table.
-4. CATEGORY EXCLUSION (unchanged from M2): intimates/underwear/nightwear/lingerie product types
+   already applied in the emerging table.
+4. CATEGORY EXCLUSION (unchanged from the earlier selection): intimates/underwear/nightwear/
+   lingerie product types
    (>= 50% of articles in product group {Underwear, Nightwear, Underwear/nightwear}) or H&M garment
    group "Under-, Nightwear". Swimwear TOPS and sets stay eligible.
 5. VISUAL-AMBIGUITY EXCLUSION (new; the same editorial judgment as 4): drop garments that cannot be
@@ -29,9 +32,9 @@ garment categories, not of the styles that happen to fall out.
    bottoms (a flat-lay swim bottom is indistinguishable from briefs) and hosiery / leg base layers
    (leggings, tights, socks, leg warmers). Applies to the seasonal (summer) view too.
 6. DIVERSITY: no two chosen styles share `perceived_colour_master_name`; no two share
-   `product_type_name`. Walk the T2 list in growth-rank order and accept the first eligible style
-   that collides with nothing already chosen, until three are chosen. A shortfall is reported, never
-   backfilled.
+   `product_type_name`. Walk the emerging list in growth-rank order and accept the first eligible
+   style that collides with nothing already chosen, until three are chosen. A shortfall is reported,
+   never backfilled.
 
 Every candidate considered is written to `final_three_selection_log.csv` with its disposition and
 reason, so what was skipped and why is auditable.
@@ -54,7 +57,7 @@ INTIMATE_PRODUCT_GROUPS: tuple[str, ...] = ("Underwear", "Nightwear", "Underwear
 INTIMATE_GARMENT_GROUPS: tuple[str, ...] = ("Under-, Nightwear",)
 INTIMATE_SHARE_THRESHOLD = 0.5
 N_FINAL = 3
-# Product types not identifiable from a flat-lay without a label (task N6 rule 5). Chosen from the
+# Product types not identifiable from a flat-lay without a label (rule 5 above). Chosen from the
 # H&M data dictionary's swimwear and hosiery groups; swimwear TOPS/sets are deliberately absent.
 VISUAL_AMBIGUOUS_TYPES: frozenset[str] = frozenset(
     {"Swimwear bottom", "Leggings/Tights", "Underwear Tights", "Socks", "Leg warmers"}
@@ -86,7 +89,7 @@ def exclusion_reason(row: dict, intimate_types: frozenset[str]) -> str | None:
 
 
 def reselect(t2: pl.DataFrame, intimate_types: frozenset[str]) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Apply the N6 rule to the T2 table; returns `(final_three, selection_log)`."""
+    """Apply the selection rule to the emerging table; returns `(final_three, selection_log)`."""
     log: list[dict] = []
     chosen: list[dict] = []
 

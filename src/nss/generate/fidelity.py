@@ -1,13 +1,14 @@
-"""Gate-2 fidelity with the non-visual attribute exclusions applied (task L2).
+"""Gate-2 fidelity with the non-visual attribute exclusions applied.
 
-H2 dropped `garment_group` from the judge checklist because a merchandising term ("Jersey Basic")
-has no visual referent. The same defect remains in `graphical_appearance_name`: a handful of its
-values are internal catch-alls the judge cannot name from a picture (the Summer concept scored 0 on
-"Other structure" while the judge correctly described the image as "solid, ribbed"). Those values
-are excluded from the checklist -- an EXPLICIT list, never a judgement per image -- and fidelity is
-always reported BOTH ways (all three attributes, and visual-only) so nothing is hidden.
+An earlier fix dropped `garment_group` from the judge checklist because a merchandising term
+("Jersey Basic") has no visual referent. The same defect remains in `graphical_appearance_name`: a
+handful of its values are internal catch-alls the judge cannot name from a picture (the Summer
+concept scored 0 on "Other structure" while the judge correctly described the image as "solid,
+ribbed"). Those values are excluded from the checklist -- an EXPLICIT list, never a judgement per
+image -- and fidelity is always reported BOTH ways (all three attributes, and visual-only) so
+nothing is hidden.
 
-This completes H2's existing fix; it introduces no new threshold (the per-judge threshold is the
+This completes that earlier fix; it introduces no new threshold (the per-judge threshold is the
 calibrated `0.75 x positive mean`, unchanged). A genuine judge error is NOT excluded: the sweater's
 "Melange" scored 0 although melange is visible, and stays in the score and in the limitations.
 

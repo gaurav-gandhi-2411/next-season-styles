@@ -45,7 +45,7 @@ polars convention) -- a style with fewer than N observed weeks total simply uses
 has, which is the same "leave partial windows as partial, never impute" convention already used
 throughout this project (e.g. `nss.features.style_panel.add_price_index`'s trailing-median window).
 
-GUARD 1 AGGREGATION (JUDGMENT CALL, per the task brief): mean (not sum) of `n_active_articles`
+GUARD 1 AGGREGATION (JUDGMENT CALL): mean (not sum) of `n_active_articles`
 over the trailing 13-week window -- "n_active_articles >= 10" reads as a LEVEL check ("does this
 style currently comprise a meaningfully sized assortment"), not a cumulative count, so summing
 13 weeks of article-counts would answer a different question (roughly "13x the level check").
@@ -102,7 +102,7 @@ from nss.models.lightgbm_model import (
 # panel by `verify_forecast_origin` (never assumed silently). AW2020 = the 13 weeks after this.
 FORECAST_ORIGIN = date(2020, 9, 21)
 
-# The winning hyperparameters from the bounded search (see task/PLAN.md), equal to
+# The winning hyperparameters from the bounded search (see PLAN.md), equal to
 # `HYPERPARAM_GRID`'s 5th entry in `nss.models.lightgbm_model` -- kept as an explicit literal here
 # (not just an index into that list) so this module's intent is readable on its own, with a
 # runtime assertion in `main()` tying it back to the grid to catch any future drift.
@@ -163,9 +163,8 @@ def train_final_model(
 def verify_forecast_origin(panel: pl.DataFrame, forecast_origin: date = FORECAST_ORIGIN) -> None:
     """Raise if `forecast_origin` is not actually the panel's last observed week.
 
-    Never assume the forecast origin is correct -- confirm against the real panel every time (per
-    task instructions), the same defensive-gate pattern as
-    `nss.features.style_panel.main`'s retention gate.
+    Never assume the forecast origin is correct -- confirm against the real panel every time, the
+    same defensive-gate pattern as `nss.features.style_panel.main`'s retention gate.
     """
     max_week: date = panel["week_start"].max()
     if max_week != forecast_origin:
@@ -270,7 +269,7 @@ def select_top_styles(ranking: pl.DataFrame, top_n: int = TOP_N) -> pl.DataFrame
 
 def select_markdown_excluded(ranking: pl.DataFrame, top_n: int = TOP_N) -> pl.DataFrame:
     """Styles in the RAW (unguarded) top `top_n` by predicted intensity that fail guard 2
-    SPECIFICALLY (pass guards 1 and 3, fail guard 2 -- see module docstring / task step 3.6)."""
+    SPECIFICALLY (pass guards 1 and 3, fail guard 2 -- see module docstring)."""
     raw_top = ranking.filter(pl.col("rank_unguarded") <= top_n)
     excluded = raw_top.filter(
         pl.col("guard1_pass") & pl.col("guard3_pass") & ~pl.col("guard2_pass")

@@ -1,9 +1,9 @@
-"""Re-derive the C2 margin anchors in GENERATED-image space, and quantify the real-vs-gen gap
-(task E1).
+"""Re-derive the real-space margin anchors in GENERATED-image space, and quantify the real-vs-gen
+gap.
 
-ROOT CAUSE BEING FIXED (documented here, not just in the task brief, per project convention):
-`reports/tables/margin_anchors_clip.csv` / `margin_anchors_dinov2.csv` (task C2,
-`nss.generate.derive_margin_band`) were derived entirely from REAL H&M catalogue images -- the
+ROOT CAUSE BEING FIXED (documented here, per project convention):
+`reports/tables/margin_anchors_clip.csv` / `margin_anchors_dinov2.csv`
+(`nss.generate.derive_margin_band`) were derived entirely from REAL H&M catalogue images -- the
 "copy" anchor (`upper_anchor` row) is a real image's leave-one-out margin against its OWN style's
 other real references; the "unrelated" anchor (`lower_anchor` row) is a real image's margin against
 a DIFFERENT real style's references. Both anchors were then APPLIED, unchanged, to score GENERATED
@@ -11,14 +11,14 @@ images (`nss.generate.scale_sweep`, `nss.generate.final_concepts`) -- a cross-di
 comparison: SDXL+IP-Adapter output has a different photographic character than H&M's studio catalog
 photography (lighting, background texture, rendering artifacts, framing), so a generated image's
 margin against real references is not on the same footing as a real image's margin against real
-references, even when both are "genuinely the same style." This is the same defect class as B3's
-original bug (an absolute-cosine band derived from catalogue-vs-catalogue pairs, applied to
-generated-vs-catalogue pairs), one level up: C2 fixed the WITHIN-real-space confound (product
-photography inflating raw cosine) but never validated that the resulting real-space anchors
-transfer to generated images at all.
+references, even when both are "genuinely the same style." This is the same defect class as the
+earlier absolute-cosine bug (an absolute-cosine band derived from catalogue-vs-catalogue pairs,
+applied to generated-vs-catalogue pairs), one level up: the margin band fixed the WITHIN-real-space
+confound (product photography inflating raw cosine) but never validated that the resulting
+real-space anchors transfer to generated images at all.
 
-CONSEQUENCE: all 3 final concepts (`reports/tables/final_concepts.csv`, tasks C6/C7) scored between
-75% and 100% of the real-image copy anchor (C2's `upper_anchor` mean) and were judged "not a
+CONSEQUENCE: all 3 final concepts (`reports/tables/final_concepts.csv`) scored between
+75% and 100% of the real-image copy anchor (the `upper_anchor` mean) and were judged "not a
 copy" only by an arbitrary, unvalidated 75% cutoff -- see `nss.generate.final_concepts`'s
 `UPPER_MARGIN_FRACTION` band. If generated images are systematically lower-margin than real images
 even for a genuine, intentional near-copy (i.e. if there is a real real-space-vs-gen-space gap),
@@ -31,16 +31,16 @@ THIS MODULE re-derives both anchors DIRECTLY in generated-image space, per final
    IP-Adapter at `ip_adapter_scale=1.0` (full-strength conditioning), prompted with a LITERAL
    restatement of the reference garment (`build_copy_anchor_prompt` -- e.g. "a black solid jersey
    basic t-shirt, product photography, plain background" for the T-shirt style), conditioned on
-   that style's own reference images. This is the generated-space analogue of C2's `upper_anchor`
-   (leave-one-out own-style real margin).
+   that style's own reference images. This is the generated-space analogue of the real-space
+   `upper_anchor` (leave-one-out own-style real margin).
 
 2. `unrelated_anchor_gen` ("how much does IP-Adapter's image conditioning alone pull toward the
    reference, even when the text prompt asks for something else"): same reference images, same
    `ip_adapter_scale=1.0`, but a prompt for a DELIBERATELY DIFFERENT garment
    (`build_unrelated_anchor_prompt`, `UNRELATED_GARMENT_DESCRIPTIONS`). This is the generated-space
-   analogue of C2's `lower_anchor` (cross-style real margin) -- except here the "cross-style" pull
-   comes from IP-Adapter's own visual conditioning on the SAME reference images that would otherwise
-   feed the copy anchor, not from a different real style's images.
+   analogue of the real-space `lower_anchor` (cross-style real margin) -- except here the
+   "cross-style" pull comes from IP-Adapter's own visual conditioning on the SAME reference images
+   that would otherwise feed the copy anchor, not from a different real style's images.
 
 3 styles x 2 anchor types x 3 seeds (`SEEDS`) = 18 generated images, scored in both CLIP and DINOv2
 embedding space (`nss.generate.margin_scoring.margin`) against that style's own real references and
@@ -52,14 +52,13 @@ OUTPUTS:
 - `reports/tables/margin_anchors_generated_space.csv`: per (style_key, anchor_type,
   embedding_space) mean/median/std/n across the 3 seeds, plus a pooled-across-all-3-styles row
   (`style_key == ALL_STYLES_POOLED_KEY`) per (anchor_type, embedding_space) for direct comparability
-  with C2's real-space anchors, which were themselves pooled across 23 styles rather than reported
+  with the real-space anchors, which were themselves pooled across 23 styles rather than reported
   per-style.
 - `reports/tables/margin_anchor_realspace_vs_genspace_gap.csv`: every generated-space summary row
   (style-level and pooled) joined against the matching real-space anchor
   (`copy_anchor_gen -> upper_anchor`, `unrelated_anchor_gen -> lower_anchor`), with
   `gap = genspace_mean - realspace_mean` computed explicitly (`compute_gap`). THIS GAP IS THE
-  MEASUREMENT ERROR C2's real-space anchors introduced when applied to generated images -- see task
-  E1's report for the write-up figure.
+  MEASUREMENT ERROR the real-space anchors introduced when applied to generated images.
 
 Two-phase VRAM-safe process, reused verbatim from `nss.generate.scale_sweep` /
 `nss.generate.final_concepts` (8 GB VRAM machine, SDXL alone peaks at ~6.5 GB): generate ALL 18
@@ -67,7 +66,7 @@ Two-phase VRAM-safe process, reused verbatim from `nss.generate.scale_sweep` /
 (`nss.generate.scale_sweep.free_sdxl_pipeline`), THEN import/run the CPU-only CLIP/DINOv2 scoring
 modules.
 
-MODELLING IS FROZEN for this task -- no retraining, no backtest re-runs. This is pure generation +
+MODELLING IS FROZEN here -- no retraining, no backtest re-runs. This is pure generation +
 scoring against the existing, unmodified `margin()` primitive and existing real-space anchor CSVs.
 
 Usage:
@@ -114,11 +113,11 @@ OUTPUT_DIR = Path("data/generated/anchors_generated_space")
 OUT_ANCHORS_PATH = Path("reports/tables/margin_anchors_generated_space.csv")
 OUT_GAP_PATH = Path("reports/tables/margin_anchor_realspace_vs_genspace_gap.csv")
 
-# The real-space anchor CSVs this module compares against (task C2's output) -- reused, not
+# The real-space anchor CSVs this module compares against -- reused, not
 # recomputed.
 REALSPACE_PATHS: dict[str, Path] = OUT_PATHS
 
-# UNRELATED-GARMENT PROMPTS (task E1 step 2, JUDGMENT CALL, documented per project convention):
+# UNRELATED-GARMENT PROMPTS (JUDGMENT CALL, documented per project convention):
 # each swap is a garment from a clearly different `product_type`/`garment_group` than the style's
 # own -- top<->bottom<->footwear, never a same-category variant -- chosen BEFORE generating or
 # scoring any image, so the choice cannot be read as reverse-engineered from a favorable result.
@@ -137,7 +136,7 @@ def build_copy_anchor_prompt(style_key: str) -> str:
     Reuses `nss.generate.scale_sweep.style_description` (e.g. "black solid jersey basic t-shirt")
     rather than that module's `build_prompt` (which wraps it in "a new ... fashion concept for
     <department>" creative-interpretation framing) -- this anchor is deliberately a direct
-    restatement, not a creative reinterpretation, per task E1 step 1.
+    restatement, not a creative reinterpretation.
 
     Args:
         style_key: `"Department || ProductType || ProductGroup || Colour || Pattern"`.
@@ -167,7 +166,7 @@ def build_unrelated_anchor_prompt(style_key: str) -> str:
     # style_description() output has no article of its own). A prior version of this function
     # prepended "a " unconditionally, producing "a a pair of denim trousers, ..."; fixed before
     # any image was scored under the buggy prompt (the 2 SDXL runs generated under the buggy
-    # prompt were discarded and regenerated -- see task E1 report).
+    # prompt were discarded and regenerated).
     return f"{UNRELATED_GARMENT_DESCRIPTIONS[style_key]}, product photography, plain background"
 
 
@@ -368,8 +367,8 @@ def load_realspace_anchor_summary(path: Path) -> dict[str, dict[str, float]]:
     """Load one embedding space's real-image anchor summary from a `margin_anchors_*.csv`.
 
     Args:
-        path: Path to `reports/tables/margin_anchors_clip.csv` or `..._dinov2.csv` (task C2's
-            output, `nss.generate.derive_margin_band`).
+        path: Path to `reports/tables/margin_anchors_clip.csv` or `..._dinov2.csv` (output of
+            `nss.generate.derive_margin_band`).
 
     Returns:
         Mapping `row_type ("upper_anchor"/"lower_anchor") -> {"mean": float, "std": float,
@@ -391,11 +390,11 @@ def compute_gap(genspace_mean: float, realspace_mean: float) -> float:
 
     Args:
         genspace_mean: The anchor's mean margin computed directly in generated-image space.
-        realspace_mean: The matching real-image anchor's mean margin (task C2).
+        realspace_mean: The matching real-image anchor's mean margin.
 
     Returns:
         `genspace_mean - realspace_mean`. Negative means generated images score LOWER-margin than
-        real ones for the same anchor construction (the direction task E1's root-cause narrative
+        real ones for the same anchor construction (the direction the root-cause narrative above
         expects, if generated images are systematically harder to match to real references than
         real images are to each other).
     """
@@ -438,7 +437,7 @@ def build_gap_table(
 
 
 def main() -> None:
-    """Run the full E1 pipeline: generate -> free VRAM -> score -> summarize -> gap -> write."""
+    """Run the full pipeline: generate -> free VRAM -> score -> summarize -> gap -> write."""
     wall_start = time.perf_counter()
 
     style_to_references = load_final_three_references(FINAL_THREE_MANIFEST_PATH)
@@ -483,7 +482,7 @@ def main() -> None:
     gap_df.write_csv(OUT_GAP_PATH)
     print(f"\nWrote {OUT_GAP_PATH}")
 
-    print("\n=== Real-space vs. generated-space gap (the measurement error task E1 corrects) ===")
+    print("\n=== Real-space vs. generated-space gap (the measurement error this corrects) ===")
     for row in gap_df.sort(["embedding_space", "anchor_type", "style_key"]).iter_rows(named=True):
         print(
             f"  {row['embedding_space']:6s} {row['anchor_type']:18s} {row['style_key']:70s} "

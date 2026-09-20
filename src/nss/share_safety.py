@@ -1,4 +1,4 @@
-"""Denylist for anything that leaves this machine (task L4): the reviewer bundle and the share zip.
+"""Denylist for anything that leaves this machine: the reviewer bundle and the share zip.
 
 The working folder holds two files that must never be shared -- `.env` (API keys) and
 `vertex-sa.json` (a GCP service-account key). Both are git-ignored and were never committed, but

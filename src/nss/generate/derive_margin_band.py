@@ -1,12 +1,12 @@
-"""Derive margin-based in-band thresholds for concept-vs-catalogue novelty scoring (task C2).
+"""Derive margin-based in-band thresholds for concept-vs-catalogue novelty scoring.
 
-Replaces B3's `nss.generate.derive_similarity_band` (absolute-cosine band, derived from the wrong
+Replaces `nss.generate.derive_similarity_band` (absolute-cosine band, derived from the wrong
 distribution -- catalogue-vs-catalogue pairs applied to generated-vs-catalogue pairs; see
 `nss.generate.margin_scoring`'s docstring for the full confound explanation) with a margin-based
 band, cross-validated by construction, computed independently in TWO embedding spaces (CLIP and
 DINOv2 -- see `nss.generate.clip_scoring` / `nss.generate.dino_scoring`).
 
-REFERENCE BASE (task C2 step 1): 23 non-control styles -- the 3 final-three styles
+REFERENCE BASE: 23 non-control styles -- the 3 final-three styles
 (`reports/tables/exemplar_images_final_three.csv`, `role` starting with `final_rank_`) + 20 newly
 selected random guard-passing styles (`reports/tables/exemplar_images_margin_reference.csv`,
 `role` starting with `margin_ref_`) -- plus the existing control pool (`role == "control"` rows of
@@ -14,7 +14,7 @@ selected random guard-passing styles (`reports/tables/exemplar_images_margin_ref
 successfully-fetched, on-disk images are used (`fetch_success == True` and the file actually
 exists, same defensive convention as `derive_similarity_band.group_by_style`).
 
-TWO ANCHORS (task C2 step 4):
+TWO ANCHORS:
 
 1. UPPER ANCHOR ("what a perfect copy looks like"): for every real image belonging to one of the
    23 non-control styles, compute its margin against ITS OWN style's OTHER reference images
@@ -30,7 +30,7 @@ TWO ANCHORS (task C2 step 4):
    SAME control pool as the second term. `style_a`/`style_b` are chosen by a single seeded
    `random.Random(42).sample` draw over the 23 non-control styles.
 
-   AMBIGUITY RESOLUTION (documented per project convention -- the task brief's exact phrasing
+   AMBIGUITY RESOLUTION (documented per project convention -- the original phrasing
    admits more than one reading, so the interpretation actually implemented is stated explicitly
    rather than left implicit): "not the control pool this time" is read as describing what's
    DIFFERENT about the lower anchor relative to a naive baseline check, not as dropping `margin()`'s
@@ -43,17 +43,17 @@ TWO ANCHORS (task C2 step 4):
    the whole construction secretly depends on. Expected result: margin ~= 0, since both terms are
    now "some style `style_a`'s images have no real relationship to."
 
-TARGET BAND DERIVATION (task C2 step 4, JUDGMENT CALL -- documented thoroughly per task
-instructions, same kind of reasoning B3's `LOWER_BOUND_PERCENTILE` choice used, now margin-based):
+TARGET BAND DERIVATION (JUDGMENT CALL -- documented thoroughly, same kind of reasoning the
+earlier `LOWER_BOUND_PERCENTILE` choice used, now margin-based):
 the band is expressed as `[LOWER_MARGIN_FRACTION, UPPER_MARGIN_FRACTION] * upper_anchor_mean`,
 i.e. a FRACTION of the "perfect copy" margin, not an absolute cosine value (which would not be
-comparable across CLIP's and DINOv2's differently-scaled embedding spaces -- see step 4's explicit
-instruction not to average the two spaces into one number).
+comparable across CLIP's and DINOv2's differently-scaled embedding spaces -- the two spaces are
+deliberately not averaged into one number).
 
 - `LOWER_MARGIN_FRACTION = 0.25`: a generated concept's margin must reach at least a QUARTER of
   the perfect-copy margin to count as recognizably on-style. Chosen conservatively-low (rather
-  than e.g. 0.5) because the reference base, while larger than B3's 6 styles, is still modest (23
-  non-control styles) -- see SMALL-SAMPLE CAVEAT below -- and a generous floor avoids
+  than e.g. 0.5) because the reference base, while larger than the earlier 6 styles, is still modest
+  (23 non-control styles) -- see SMALL-SAMPLE CAVEAT below -- and a generous floor avoids
   over-rejecting genuinely on-style but stylistically freer generations. Cross-validated by the
   lower anchor: as long as the lower anchor's mean sits well below `0.25 * upper_anchor_mean`
   (ideally close to 0, per its own construction), a 25% floor cleanly separates "genuine
@@ -66,13 +66,13 @@ instruction not to average the two spaces into one number).
   imply a false precision the current sample size doesn't support.
 
 Both fractions are METHODOLOGY choices, fixed BEFORE looking at the actual anchor numbers computed
-by this run (same "choose the method, then apply it" discipline as B3's 90th-vs-95th-percentile
-choice) -- not reverse-engineered from a target answer.
+by this run (same "choose the method, then apply it" discipline as the earlier
+90th-vs-95th-percentile choice) -- not reverse-engineered from a target answer.
 
 SMALL-SAMPLE CAVEAT: 23 non-control styles (up to 8 images each, ~180 candidate images before
 fetch failures) for the upper anchor, and a SINGLE (style_a, style_b) pair (up to 8 images) for the
-lower anchor. Better than B3's 6 styles, but still a rough, revisable empirical estimate -- NOT a
-large-sample-validated statistical threshold. The lower anchor in particular, with at most ~8
+lower anchor. Better than the earlier 6 styles, but still a rough, revisable empirical estimate --
+NOT a large-sample-validated statistical threshold. The lower anchor in particular, with at most ~8
 images, has a wide, unreported confidence interval around its mean; treat its value as a sanity
 check on construction validity (is it plausibly ~0?), not as a precise estimate of the true
 cross-style margin. Revisit once more styles/images are available.

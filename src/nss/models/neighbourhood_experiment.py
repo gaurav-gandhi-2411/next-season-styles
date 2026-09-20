@@ -1,4 +1,4 @@
-"""Q1: do cross-style neighbourhood features improve the embargoed forecast? One shot.
+"""Do cross-style neighbourhood features improve the embargoed forecast? One shot.
 
 Arms (both retrained here, same code path, same 12 test origins, same 13-week embargo protocol as
 `backtest_embargo_check`, both with the frozen `final_forecast.FINAL_MODEL_CONFIG`, seed 42):
@@ -29,8 +29,8 @@ trend propagation whether or not the headline metric moves. (In-sample SHAP: it 
 uses, not that the use generalises -- the paired out-of-sample table is what decides.)
 
 Outputs (new files only): reports/tables/neighbourhood_per_origin.csv,
-neighbourhood_paired_diff.csv, neighbourhood_decision.csv, neighbourhood_shap.csv, plus the last-fold
-treatment booster in the gitignored scratch folder `models/q1_scratch/` (never committed).
+neighbourhood_paired_diff.csv, neighbourhood_decision.csv, neighbourhood_shap.csv, plus the
+last-fold treatment booster in the gitignored scratch folder `models/q1_scratch/` (never committed).
 
 Usage:
     python -m nss.models.neighbourhood_experiment
@@ -186,7 +186,7 @@ def decision_table(paired_vs_control: pl.DataFrame, per_origin: pl.DataFrame) ->
 
 
 def main() -> None:
-    """Run both arms + baselines, write the four Q1 tables, print the decision."""
+    """Run both arms + baselines, write the four result tables, print the decision."""
     panel = pl.read_parquet(DEFAULT_PANEL_PATH)
     all_origins = generate_origin_schedule(panel)
     shared = identify_lightgbm_origins(panel)

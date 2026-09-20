@@ -299,7 +299,7 @@ def test_select_markdown_excluded_includes_only_guard2_specific_failures() -> No
 
 def test_select_markdown_excluded_excludes_multi_guard_failures() -> None:
     """A style failing guard 2 AND another guard is simply excluded, not in the markdown table --
-    see module docstring / task step 3.6."""
+    see module docstring."""
     ranking = _hand_built_ranking()
 
     excluded = select_markdown_excluded(ranking, top_n=10)

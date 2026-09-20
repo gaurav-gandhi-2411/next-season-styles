@@ -64,7 +64,7 @@ uv run --no-sync python scripts/run_pipeline.py [--n-seeds 2] [--stop-after <sta
 ```
 
 Runs local SDXL generation and the live VLM judges. Outputs go to `reports/pipeline_run/`
-(gitignored), never over the shipped deliverables.
+(gitignored), never over the committed deliverables.
 
 ## Status
 
@@ -80,15 +80,15 @@ for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to wh
 **Generation, honestly:** an earlier round produced no briefed design change in 12 images. The
 cause was measured, not assumed (`reports/tables/prompt_lever_summary.md`): an attribute-first prompt
 plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
-multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
-of four final concepts (sweater, dress) pass every automatic gate (1, 1b, integrity floor, 2, 3) and
-a human check; the white top fails the integrity floor (closest reference 0.733, below the global floor 0.779 that
-gates and the per-style floor 0.922 shown as advisory) and Gate 3, and the summer bikini top
-fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
+multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Three
+of four final concepts (sweater, dress, white top) pass every automatic check (Gates 1, 1b, the integrity floor, 2 and 3)
+and a human check; the summer bikini top fails Gate 2 on one reader's answer. Only 2 of the white top's 8
+seeds cleared every check, and the chosen one meets the global integrity floor (closest reference 0.828 against 0.779) but
+not the per-style floor shown as advisory (0.922). The local readers are small (the design-change reader says yes
 too easily), so a human check decides. Details: `reports/tables/final_selection.csv`,
 `reports/figures/evidence_chain.png`.
 
-**Evaluation correction:** the shipped walk-forward headline (Hit@3-in-top20 0.722) trained on
+**Evaluation correction:** my first walk-forward headline (Hit@3-in-top20 0.722) trained on
 labels that overlap the test window. With a 13-week gap it is **0.528** (paired drop 0.194, CI
 [0.111, 0.250]); see `reports/tables/backtest_embargo_check.csv`. Re-done as a paired comparison
 (`backtest_embargo_paired_diff.csv`), the embargoed model is comparable to seasonal naive on top-k
@@ -133,7 +133,7 @@ concept-sheet composition) over the **stdio** transport of the official
 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) (`mcp` package). Every tool
 reads artifacts already on disk — modelling is frozen; nothing here retrains a model or re-runs a
 backtest. `generate_concept` performs live GPU (or paid-API) work when invoked, and `score_concept`
-runs the shipped quality gates live (CLIP/DINOv2 on CPU; an optional Groq call for Gate 2).
+runs the quality checks live (CLIP/DINOv2 on CPU; an optional Groq call for Gate 2).
 
 Run it standalone:
 
@@ -172,7 +172,7 @@ uv run --no-sync python scripts/mcp_smoke_test.py
 ```
 
 Expected output (captured from a real run; long lists are elided by the script and say so; paths
-under `<your checkout>` are yours). `score_concept` runs the shipped checks on the committed
+under `<your checkout>` are yours). `score_concept` runs the quality checks on the committed
 sweater concept: Gate 1, Gate 1b and the integrity floor pass (the exact-clone control fails as
 required), Gates 2 and 3 are not run by default, and the human visual check is always required:
 

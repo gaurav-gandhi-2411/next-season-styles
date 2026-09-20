@@ -1,28 +1,28 @@
-"""IP-Adapter conditioning-strength (`ip_adapter_scale`) sweep -- novelty vs. fidelity (task C3).
+"""IP-Adapter conditioning-strength (`ip_adapter_scale`) sweep -- novelty vs. fidelity.
 
-SUPERSEDES task B4's absolute-CLIP-cosine sweep (the old `clip_similarity`/`is_in_band` approach,
-`nss.generate.derive_similarity_band`'s band). That approach was invalidated by task C2: its band
+SUPERSEDES the earlier absolute-CLIP-cosine sweep (the old `clip_similarity`/`is_in_band` approach,
+`nss.generate.derive_similarity_band`'s band). That approach was invalidated: its band
 was derived from catalogue-photo-vs-catalogue-photo pairs but applied to
 generated-image-vs-catalogue-photo pairs -- a different, confounded distribution (see
 `nss.generate.margin_scoring`'s module docstring for the full mechanism). This module replaces it
 with the margin-based approach (`nss.generate.margin_scoring.margin`), scored independently in TWO
 embedding spaces (CLIP and DINOv2, `nss.generate.clip_scoring` / `nss.generate.dino_scoring`),
-against the margin-based in-band ranges derived in task C2
+against the margin-based in-band ranges derived in `derive_margin_band`
 (`reports/tables/margin_anchors_clip.csv`, `reports/tables/margin_anchors_dinov2.csv`).
 
 Generates 3 images per `ip_adapter_scale` in `SCALES` (one per seed in `SEEDS`) -- fixed prompt,
 fixed reference set, `local_sdxl` backend -- for one chosen winning style (`STYLE_KEY`, unchanged
-from B4 for direct comparability), then scores each of the 24 images' margin against that style's
-own real references, in both embedding spaces. Repeating each scale across 3 seeds (rather than
-B4's single seed per scale) surfaces per-scale sampling noise directly, instead of silently baking
-one seed's luck into the only data point at each scale.
+from the earlier sweep for direct comparability), then scores each of the 24 images' margin against
+that style's own real references, in both embedding spaces. Repeating each scale across 3 seeds
+(rather than the earlier single seed per scale) surfaces per-scale sampling noise directly, instead
+of silently baking one seed's luck into the only data point at each scale.
 
-CONTROL POOL -- CORRECTED FROM THE TASK BRIEF'S PREMISE, DOCUMENTED HERE: the control pool used as
+CONTROL POOL -- CORRECTED FROM THE ORIGINAL PREMISE, DOCUMENTED HERE: the control pool used as
 the subtracted term in every `margin()` call in this module is `reports/tables/exemplar_images.csv`
 `role == "control"` rows (1 style, 5 images -- confirmed on disk, see `n_control_images` in
 `reports/tables/margin_anchors_clip.csv`), loaded via
 `nss.generate.derive_margin_band.load_control_pool`. This is NOT the 20-style/160-image
-`exemplar_images_margin_reference.csv` set. Re-reading `nss.generate.derive_margin_band` (task C2)
+`exemplar_images_margin_reference.csv` set. Re-reading `nss.generate.derive_margin_band`
 confirms `exemplar_images_margin_reference.csv`'s 20 styles were the "non-control" TEST/anchor-
 derivation set (supplying the leave-one-out own-style images for the upper anchor and the
 cross-style images for the lower anchor) -- the second, SUBTRACTED term of every `margin()` call
@@ -80,7 +80,7 @@ STYLE_KEY = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
 # final_rank_1's manifest rows: 8 candidate article images attempted, 7 successfully fetched (only
 # 610776002 failed -- see reports/tables/exemplar_images_final_three.csv). Chosen over
 # final_rank_2/3 (7 candidates attempted, 7 fetched each) because it is closest to a full 8-image
-# reference set, per the task's stated preference. Unchanged from B4 for direct comparability.
+# reference set, as preferred. Unchanged from the earlier sweep for direct comparability.
 REFERENCE_IMAGES = [
     Path("data/images/0554598001.jpg"),
     Path("data/images/0767862001.jpg"),
@@ -129,8 +129,8 @@ def style_description(style_key: str) -> str:
 def build_prompt(style_key: str) -> str:
     """Build the fixed generation prompt used across the whole sweep for one `style_key`.
 
-    Unchanged verbatim from B4's `build_prompt` for a fair, direct comparison against the old
-    (now-superseded) sweep results.
+    Unchanged verbatim from the earlier sweep's `build_prompt` for a fair, direct comparison against
+    the old (now-superseded) sweep results.
 
     Args:
         style_key: `"Department || ProductType || ProductGroup || Colour || Pattern"`.
@@ -295,8 +295,7 @@ def aggregate_by_scale(
 
     Spread is reported as sample standard deviation (`ddof=1`, matching
     `nss.generate.derive_margin_band.summarize`'s convention elsewhere in this project) across the
-    seeds at each scale -- documented here explicitly per the task's requirement to state which
-    spread statistic is used.
+    seeds at each scale -- documented here explicitly so the spread statistic is stated.
 
     Args:
         raw: Output of `run_scoring_phase` (one row per `(scale, seed)` pair).
@@ -340,8 +339,8 @@ def is_monotonic_increasing(values: list[float]) -> bool:
 def select_operating_scale(aggregated: pl.DataFrame) -> dict[str, Any]:
     """Report the `ip_adapter_scale`(s) recommended by CLIP, by DINOv2, and by both together.
 
-    Does not force a single number when CLIP and DINOv2 disagree -- see module docstring and task
-    instructions: if no scale lands in-band for both metrics simultaneously, the honest answer is
+    Does not force a single number when CLIP and DINOv2 disagree -- see module docstring:
+    if no scale lands in-band for both metrics simultaneously, the honest answer is
     to report each metric's own in-band scales rather than picking one arbitrarily.
 
     Args:
@@ -470,7 +469,7 @@ def plot_image_strip(
 
 
 def main() -> None:
-    """Run the full C3 sweep: generate -> free VRAM -> score -> aggregate -> plot -> report."""
+    """Run the full sweep: generate -> free VRAM -> score -> aggregate -> plot -> report."""
     for path in REFERENCE_IMAGES:
         if not path.exists():
             raise FileNotFoundError(f"Reference image not found: {path}")

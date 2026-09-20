@@ -1,4 +1,4 @@
-"""Concept-QC verdict engine -- the "concept-qc" skill (task C7).
+"""Concept-QC verdict engine -- the "concept-qc" skill.
 
 Generic, dataset-agnostic QC gate: given (a) an already-computed margin-band result (CLIP +
 DINOv2, both scored elsewhere -- see `nss.generate.clip_scoring` / `dino_scoring` /
@@ -10,7 +10,7 @@ knows a specific dataset's style-taxonomy column names -- both are the calling c
 `skills/style-brief/generate_brief.py`'s split from `nss.generate.build_design_briefs`).
 
 See `SKILL.md` for the full schema, the blindness contract, the self-scoring-contamination rule,
-the retry-value-selection strategy, and two fully worked examples (real C7 run output, not
+the retry-value-selection strategy, and two fully worked examples (real run output, not
 fabricated). This module's own docstrings cover implementation detail; `SKILL.md` is the skill's
 actual specification.
 """
@@ -33,7 +33,7 @@ LLM_CONSENSUS_LABEL = "LLM-consensus (NOT human ground truth)"
 # "is metric X discriminative" is a per-project, per-measurement finding, not a skill-level default.
 GATE1_METRICS: frozenset[str] = frozenset({"clip", "dinov2"})
 
-# Gate 2's default threshold FRACTION (task F2): a judge's pass threshold is `fraction * that
+# Gate 2's default threshold FRACTION: a judge's pass threshold is `fraction * that
 # judge's own positive-control calibration mean`, not a flat absolute score -- see
 # `judge_fidelity_threshold`.
 DEFAULT_FIDELITY_THRESHOLD_FRACTION = 0.75
@@ -62,7 +62,7 @@ class JudgeUnavailableError(RuntimeError):
     Distinguishing this from a bare exception lets `run_judge` treat "the Gemini/Groq API key is
     missing" or "the requested model is decommissioned for this account" as an expected, reportable
     (never silently swallowed) non-fatal condition -- the same convention
-    `nss.generate.final_concepts.generate_gemini_candidate` already uses for C6's Gemini appendix,
+    `nss.generate.final_concepts.generate_gemini_candidate` already uses for the Gemini appendix,
     extended here to judges.
     """
 
@@ -70,7 +70,7 @@ class JudgeUnavailableError(RuntimeError):
 class MarginBandResult(TypedDict):
     """One image's already-computed CLIP + DINOv2 two-sided margin-band scoring result.
 
-    DIAGNOSTIC ONLY as of task E2 -- this two-sided band (estimated from real-catalogue reference
+    DIAGNOSTIC ONLY -- this two-sided band (estimated from real-catalogue reference
     images, cross-applied to a DIFFERENT distribution of generated images) no longer gates
     `overall_pass`. It is still computed and reported alongside every `QCVerdict` for comparison,
     but the actual pass/fail decision is `copy_check_pass` (Gate 1, see `CopyCheckResult`) AND
@@ -90,9 +90,9 @@ class MarginBandResult(TypedDict):
 
 class CopyCheckResult(TypedDict):
     """One image's Gate-1 ("not a copy") result: BOTH CLIP and DINOv2 margins checked against a
-    per-style, per-embedding-space threshold derived from that style's OWN `copy_anchor_gen` (task
-    E1's generated-space anchors -- see `SKILL.md`'s "Gate 1" section). Replaces the DIAGNOSTIC-ONLY
-    `MarginBandResult.clip_in_band`/`dino_in_band` as the actual gating signal (task E2).
+    per-style, per-embedding-space threshold derived from that style's OWN `copy_anchor_gen` (the
+    generated-space anchors -- see `SKILL.md`'s "Gate 1" section). Replaces the DIAGNOSTIC-ONLY
+    `MarginBandResult.clip_in_band`/`dino_in_band` as the actual gating signal.
     """
 
     clip_margin: float
@@ -125,7 +125,7 @@ def copy_anchor_threshold(
     that invariant over both a positive and a negative anchor.
 
     Args:
-        copy_anchor_gen: This style's mean `copy_anchor_gen` margin (task E1's
+        copy_anchor_gen: This style's mean `copy_anchor_gen` margin (the
             `reports/tables/margin_anchors_generated_space.csv`), in ONE embedding space (CLIP or
             DINOv2 -- call this once per space).
         discount: Fraction of the anchor's own magnitude to subtract, moving the threshold strictly
@@ -151,8 +151,8 @@ def copy_check(
     Args:
         clip_margin: The image's already-computed CLIP margin.
         dino_margin: The image's already-computed DINOv2 margin.
-        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1).
-        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean (task E1).
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean.
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean.
         discount: See `copy_anchor_threshold`.
 
     Returns:
@@ -227,7 +227,7 @@ class JudgeResult(TypedDict):
 class QCVerdict(TypedDict):
     """The combined copy-check + blind-VLM-panel QC verdict for one generated concept image.
 
-    `overall_pass` is `copy_check_pass AND fidelity_pass` (task E2) -- `margin`/`margin_band_pass`
+    `overall_pass` is `copy_check_pass AND fidelity_pass` -- `margin`/`margin_band_pass`
     (the OLD two-sided real-space band) are retained verbatim as a DIAGNOSTIC field only, reported
     for comparison but no longer part of the gate. See `SKILL.md`'s "Gate 1" section.
     """
@@ -405,7 +405,7 @@ def run_judge(
        case, or ANY other exception, which is still captured here (message preserved in
        `excluded_reason`, printed by callers, never discarded) rather than crashing the whole QC
        gate over one judge's failure -- the same "one sub-task's failure must not block the rest"
-       convention `nss.generate.final_concepts.generate_gemini_candidate` already uses for C6.
+       convention `nss.generate.final_concepts.generate_gemini_candidate` already uses.
 
     Args:
         judge_name: This judge's provider-family identifier (see `is_self_scoring_contamination`).
@@ -489,8 +489,7 @@ def combine_judges(judge_results: dict[str, JudgeResult]) -> tuple[float, int]:
 def judge_fidelity_threshold(
     positive_control_mean: float, fraction: float = DEFAULT_FIDELITY_THRESHOLD_FRACTION
 ) -> float:
-    """One judge's Gate-2 pass threshold: `fraction` of that judge's OWN calibration ceiling
-    (task F2).
+    """One judge's Gate-2 pass threshold: `fraction` of that judge's OWN calibration ceiling.
 
     Replaces a flat, judge-agnostic threshold (e.g. `DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD`, picked
     without reference to any calibration data) with a PER-JUDGE value derived from what that judge
@@ -579,15 +578,15 @@ def _available_judge_scores(judge_results: dict[str, JudgeResult]) -> dict[str, 
 def within_style_novelty_pass(
     concept_similarity: dict[str, float], benchmark: dict[str, float]
 ) -> bool:
-    """Gate 1 (tasks H1 -> J2): is the concept inside the range real sibling products span?
+    """Gate 1: is the concept inside the range real sibling products span?
 
     `concept_similarity[space]` is the concept's mean cosine to its style's reference images in an
     embedding space; `benchmark[space]` is the p90 of the pairwise cosines between DISTINCT real
-    articles of that same style in the same space (task J2; H1 used the median, which fails ~half
-    of genuinely new real products by construction -- see `SKILL.md`'s Gate 1 section and the
-    leave-one-out control). Passes iff EVERY space is at or below its benchmark (joint AND, same
-    convention as `copy_check_pass`). The function is statistic-agnostic: it compares against
-    whatever per-space threshold the caller derived.
+    articles of that same style in the same space (an earlier version used the median, which
+    fails ~half of genuinely new real products by construction -- see `SKILL.md`'s Gate 1 section
+    and the leave-one-out control). Passes iff EVERY space is at or below its benchmark (joint
+    AND, same convention as `copy_check_pass`). The function is statistic-agnostic: it compares
+    against whatever per-space threshold the caller derived.
 
     Raises:
         ValueError: if the two dicts are empty or do not name exactly the same spaces -- a gate that
@@ -612,7 +611,7 @@ def qc_verdict(
 ) -> QCVerdict:
     """Combine an already-computed copy-check result + judge panel into the final `QCVerdict`.
 
-    `overall_pass` (task E2) is `copy_check_pass AND fidelity_pass` -- TWO one-sided tests: Gate 1
+    `overall_pass` is `copy_check_pass AND fidelity_pass` -- TWO one-sided tests: Gate 1
     (`copy_check_pass`, every ACTIVE metric's margin below its per-style copy-anchor threshold --
     see `active_metrics`/`copy_check_pass`) and Gate 2 (`fidelity_pass`, blind VLM attribute
     fidelity). The OLD two-sided `margin_band_pass` (BOTH `clip_in_band` AND `dino_in_band` against
@@ -629,7 +628,7 @@ def qc_verdict(
             `per_judge_fidelity_thresholds` is `None` (the default, backward-compatible path).
         active_metrics: Which Gate-1 metrics (`copy_check_pass`'s `active_metrics`) must pass.
             Defaults to both (`GATE1_METRICS`) -- the original behavior.
-        per_judge_fidelity_thresholds: `{judge_name: threshold}` (task F2, typically
+        per_judge_fidelity_thresholds: `{judge_name: threshold}` (typically
             `judge_fidelity_threshold`'s output per judge). When supplied, Gate 2 uses
             `fidelity_pass_from_per_judge` (every available judge independently above ITS OWN
             threshold) INSTEAD OF the old flat-threshold-on-the-consensus-mean check --

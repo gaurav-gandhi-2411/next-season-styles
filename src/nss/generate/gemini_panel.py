@@ -1,4 +1,4 @@
-"""Gemini judge with the refreshed key: calibration controls and the four final concepts (task R1).
+"""Gemini judge with the refreshed key: calibration controls and the four final concepts.
 
 The old key (an `AQ.` OAuth artifact) returned 401 for every call; the replacement is a proper
 `AIza` API key in `.env`. This module (1) re-runs the six calibration controls (3 real positives

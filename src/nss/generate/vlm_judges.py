@@ -1,4 +1,4 @@
-"""Concrete Gemini + Groq blind-VLM judge adapters for the `concept-qc` skill (task C7).
+"""Concrete Gemini + Groq blind-VLM judge adapters for the `concept-qc` skill.
 
 DATASET/PROVIDER-SPECIFIC ADAPTER CODE LIVES HERE, NOT IN THE SKILL: `skills/concept-qc/run_qc.py`
 deliberately knows nothing about Gemini, Groq, `google-genai`, or the `groq` SDK -- it only defines
@@ -7,7 +7,7 @@ extraction dict out) and the verdict/scoring math that consumes already-scored j
 is exactly the "calling code" that skill's docstring describes -- it implements two concrete
 `JudgeCaller`s conforming to that protocol.
 
-MODEL-ID DEVIATION FROM THE TASK BRIEF (documented, not silently substituted): the task brief named
+MODEL-ID DEVIATION FROM THE ORIGINAL PLAN (documented, not silently substituted): the plan named
 `gemini-2.5-flash` as Judge A. Tested directly against the live API on 2026-09-19 (this project's
 `GEMINI_API_KEY`) and it 404s: `'This model models/gemini-2.5-flash is no longer available to new
 users. Please update your code to use models/gemini-3.6-flash...'` -- even though it still appears
@@ -15,14 +15,14 @@ in `client.models.list()`. `GEMINI_JUDGE_MODEL_ID` below uses the model the API 
 replacement, confirmed working end-to-end (text + vision, JSON response mode) against this
 project's key before being wired in here.
 
-GROQ VISION JUDGE MODEL-ID CORRECTION (task E6, documented, not silently substituted): the task
-brief originally named Groq's "Llama 4 Scout vision" as Judge B
+GROQ VISION JUDGE MODEL-ID CORRECTION (documented, not silently substituted): the
+original plan named Groq's "Llama 4 Scout vision" as Judge B
 (`meta-llama/llama-4-scout-17b-16e-instruct`), which 404s for this account, as do three other
-guessed vision model names -- see task C7's report for that history. Rather than guessing a 5th
-name, task E6 queried the LIVE `GET https://api.groq.com/openai/v1/models` endpoint directly
-(2026-09-19, this project's `GROQ_API_KEY`) and inspected every returned model's
-`input_modalities`. Exactly one model in the account's live list declares `"image"` as an input
-modality: `qwen/qwen3.8-27b` (Alibaba Cloud, `input_modalities: ["text", "image"]`,
+guessed vision model names. Rather than guessing a 5th
+name, the LIVE `GET https://api.groq.com/openai/v1/models` endpoint was queried directly
+(2026-09-19, this project's `GROQ_API_KEY`) and every returned model's
+`input_modalities` inspected. Exactly one model in the account's live list declares `"image"` as an
+input modality: `qwen/qwen3.8-27b` (Alibaba Cloud, `input_modalities: ["text", "image"]`,
 `output_modalities: ["text"]`, supports `json_mode`). Every other returned model is text-only
 (`openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `openai/gpt-oss-safeguard-20b`, `groq/compound`,
 `groq/compound-mini`, `allam-2-7b`, two `meta-llama/llama-prompt-guard-2-*` text classifiers) or
@@ -92,7 +92,7 @@ distinct, `isinstance`-incompatible class objects for what looks like "the same"
 
 JudgeUnavailableError = SKILL.JudgeUnavailableError
 
-# Task H2: only VISUALLY OBSERVABLE attributes are scored. `garment_group` (e.g. "Jersey Basic",
+# Only VISUALLY OBSERVABLE attributes are scored. `garment_group` (e.g. "Jersey Basic",
 # "Under-, Nightwear") is an internal H&M merchandising taxonomy term with no visual referent -- a
 # judge shown a plain black T-shirt correctly answers "top" and scores 0.0 against "Jersey Basic"
 # (measured, `reports/tables/judge_rescore.csv`), so no image can ever score on it and it
@@ -104,7 +104,7 @@ ATTRIBUTE_DIMENSIONS: tuple[str, ...] = (
     "colour_family",
     "graphical_treatment",
 )
-# The pre-H2 checklist, kept ONLY so H2's paired before/after comparison can be recomputed from one
+# The earlier checklist, kept ONLY so the paired before/after comparison can be recomputed from one
 # set of stored per-attribute scores. Never used for gating.
 LEGACY_ATTRIBUTE_DIMENSIONS: tuple[str, ...] = (*ATTRIBUTE_DIMENSIONS, "garment_group")
 

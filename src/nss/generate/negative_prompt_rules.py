@@ -1,4 +1,4 @@
-"""Attribute-value-keyed negative-prompt rule table (task F4).
+"""Attribute-value-keyed negative-prompt rule table.
 
 TWO REAL, DOCUMENTED DEFECTS THIS MODULE REPLACES WITH A GENERIC MECHANISM:
 
@@ -9,9 +9,9 @@ TWO REAL, DOCUMENTED DEFECTS THIS MODULE REPLACES WITH A GENERIC MECHANISM:
 2. `nss.generate.final_concepts`'s Sweater-style candidates were degenerate fabric-texture
    close-up shots (see that module's docstring, "SWEATER MECHANISM"); the fix (excluding
    `close-up, macro, fabric swatch, texture detail, cropped, zoomed`) was hand-typed directly into
-   `reports/tables/design_briefs.json` for that ONE style by task E5 -- it is NOT derived from any
+   `reports/tables/design_briefs.json` for that ONE style -- it is NOT derived from any
    rule, so it would NOT automatically apply to a different knitwear/sweater style a future
-   retraining run (Track G) might select instead.
+   retraining run might select instead.
 
 This module replaces both single-style, ad-hoc fixes with a declarative rule table keyed OFF
 STYLE ATTRIBUTE VALUES -- never a hardcoded `style_id`/`style_key` string -- so a future style with
@@ -71,7 +71,7 @@ def is_knitwear_or_sweater(attrs: StyleAttributes) -> bool:
     return any(keyword in haystack for keyword in ("knitwear", "sweater"))
 
 
-# Declarative rule table (task F4 requirement 3): each entry is (predicate, terms-to-exclude).
+# Declarative rule table: each entry is (predicate, terms-to-exclude).
 # Keyed ENTIRELY off attribute VALUES, checked in this fixed order -- a style can match more than
 # one rule (e.g. a Solid knitwear sweater matches both rule 1 and rule 3 simultaneously; both sets
 # of terms are applied, see `apply_negative_prompt_rules`).

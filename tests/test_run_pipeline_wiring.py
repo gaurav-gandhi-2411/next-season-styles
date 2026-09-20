@@ -8,7 +8,7 @@ from nss.generate import final_deliverables
 
 
 def test_run_pipeline_hero_stage_kwargs_match_final_deliverables_main() -> None:
-    """Regression: F6 renamed `final_deliverables.main`'s first parameter and `run_pipeline.py`
+    """Regression: `final_deliverables.main`'s first parameter was renamed and `run_pipeline.py`
     kept passing the old `final_concepts_v2_path=`, so the hero stage crashed with a TypeError
     only after the whole GPU pipeline had run. Every keyword passed must exist in the signature.
     """

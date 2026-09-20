@@ -1,17 +1,18 @@
-"""Task G2: LightGBM `lambdarank` (LambdaMART) model -- a ranking-objective alternative to the
+"""LightGBM `lambdarank` (LambdaMART) model -- a ranking-objective alternative to the
 existing L2-regression LightGBM model (`nss.models.lightgbm_model`), trained/scored through the
 SAME walk-forward harness and feature/target pipeline.
 
-MOTIVATION (see PLAN.md / Task G1, `reports/tables/ranking_diagnostics_summary.csv`): G1 found that a
-causally-clean 16-week-lag persistence oracle actually UNDERPERFORMS the current L2 model on all 3
-headline metrics -- so this task is NOT "closing a gap to an achievable oracle" (that framing was
-the task's original, now-falsified, motivating hypothesis). What DID hold up from G1: prediction
-compression (predictions ~18% narrower by std than actuals) consistent with L2-on-log1p
-regression-to-the-mean, and near-tie noise at the #3/#4 cutoff (mean gap 0.61% of the #3 value) that
-lowers the Precision@3 ceiling for ANY model, not specifically LightGBM. A ranking objective doesn't
-share L2's mean-shrinkage defect and optimizes directly for the head-of-ranking decision (which
-styles are in the top few) rather than pointwise accuracy across the whole distribution -- this
-module tests whether that actually helps, honestly reporting whatever the result is.
+MOTIVATION (see PLAN.md, `reports/tables/ranking_diagnostics_summary.csv`): the ranking
+diagnostics found that a causally-clean 16-week-lag persistence oracle actually UNDERPERFORMS the
+current L2 model on all 3 headline metrics -- so this experiment is NOT "closing a gap to an
+achievable oracle" (that framing was the original, now-falsified, motivating hypothesis). What DID
+hold up from the diagnostics: prediction compression (predictions ~18% narrower by std than actuals)
+consistent with L2-on-log1p regression-to-the-mean, and near-tie noise at the #3/#4 cutoff (mean gap
+0.61% of the #3 value) that lowers the Precision@3 ceiling for ANY model, not specifically LightGBM.
+A ranking objective doesn't share L2's mean-shrinkage defect and optimizes directly for the
+head-of-ranking decision (which styles are in the top few) rather than pointwise accuracy across the
+whole distribution -- this module tests whether that actually helps, honestly reporting whatever the
+result is.
 
 REUSE, UNCHANGED: `nss.features.model_features.build_features`, `nss.features.targets.
 compute_forward_target`, `nss.models.backtest`'s origin schedule / eval-set construction /
@@ -40,21 +41,21 @@ contiguous per STYLE, not per origin) -- `_sort_for_ranking` re-sorts by `["orig
 "style_key"]` before every train/predict call. This sort key is a full row identity (one row per
 `(style_key, origin_week)` pair, per `build_model_frame`'s own contract), so it is fully
 deterministic on its own with no ties to break -- no `maintain_order` flag
-is needed for THIS specific sort (unlike the D3a join fix elsewhere in this project, which fixed a
+is needed for THIS specific sort (unlike the join fix elsewhere in this project, which fixed a
 genuinely tie-prone/unstable ordering).
 
 DETERMINISM: reuses `nss.models.lightgbm_model.LGBM_DETERMINISM_PARAMS` verbatim
 (`deterministic=True`, `force_row_wise=True`, `num_threads=1`, and the three RNG sub-seeds, all
 pinned to `RANDOM_SEED`) on the `lgb.LGBMRanker` constructor -- the same fix that made the L2 model
-bit-identical within- and cross-process (see that module's DETERMINISM (A5) / (A5 FOLLOW-UP) (D3a)
-docstring sections for the full mechanism) applies identically here: `LGBMRanker` is still a
-gradient-boosted tree ensemble built via the same C++ histogram/split code, so the same floating-
-point-summation-order and RNG-stream sources of nondeterminism apply, and the same fixes close them.
-Verified via `tests/test_lambdarank_model.py`'s
+bit-identical within- and cross-process (see that module's DETERMINISM (WITHIN-PROCESS) /
+(CROSS-PROCESS) docstring sections for the full mechanism) applies identically here: `LGBMRanker` is
+still a gradient-boosted tree ensemble built via the same C++ histogram/split code, so the same
+floating-point-summation-order and RNG-stream sources of nondeterminism apply, and the same fixes
+close them. Verified via `tests/test_lambdarank_model.py`'s
 `test_train_lambdarank_is_bit_identical_across_repeated_runs` (within-process) and
-`tests/test_lambdarank_determinism_cross_process.py` (cross-process, via a
-`subprocess.run` worker -- the ONLY way to exercise the `pl.Enum`/cross-process class of bug at all,
-per the existing L2 test's own docstring).
+`tests/test_lambdarank_determinism_cross_process.py` (cross-process, via a `subprocess.run` worker
+-- the ONLY way to exercise the `pl.Enum`/cross-process class of bug at all, per the existing L2
+test's own docstring).
 
 TRUNCATION LEVEL SELECTION (JUDGMENT CALL, bounded): `lambdarank_truncation_level` controls how
 many top-ranked items per query LightGBM's lambda-gradient computation actually considers -- a
@@ -72,8 +73,8 @@ hyperparameters (`num_leaves`, `learning_rate`, `n_estimators`, `min_child_sampl
 FIXED at the L2 model's own winning config (`nss.models.final_forecast.FINAL_MODEL_CONFIG`) rather
 than re-run through a
 fresh grid search -- this isolates the comparison to "same tree-building budget, different
-objective", which is the actual question this task asks, and keeps the search bounded per the task's
-own "not a full hyperparameter search" instruction.
+objective", which is the actual question asked here, and keeps the search bounded (this is not a
+full hyperparameter search).
 
 `eval_at=(3, 10, 20)` is passed to every `LGBMRanker.fit` call together with a SELF eval_set (the
 same training data/group, not a held-out split) purely so LightGBM's own internal NDCG@{3,10,20}
@@ -127,7 +128,7 @@ LAMBDARANK_TRUNCATION_CANDIDATES: tuple[int, ...] = (10, 20, 30)
 EVAL_AT: tuple[int, ...] = (3, 10, 20)
 
 # Held fixed at the L2 model's own winning config -- see module docstring TRUNCATION LEVEL
-# SELECTION for why only lambdarank_truncation_level is tuned in this task.
+# SELECTION for why only lambdarank_truncation_level is tuned here.
 LAMBDARANK_CONFIG: LGBMConfig = dict(FINAL_MODEL_CONFIG)
 
 DEFAULT_PANEL_PATH = Path("data/processed/style_week_panel.parquet")

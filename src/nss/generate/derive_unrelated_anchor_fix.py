@@ -1,31 +1,31 @@
-"""Fix E1's contaminated `unrelated_anchor_gen` anchor (task F1).
+"""Fix the contaminated `unrelated_anchor_gen` anchor of the generated-space derivation.
 
-ROOT CAUSE BEING FIXED (documented here, not just in the task brief, per project convention): E1's
+ROOT CAUSE BEING FIXED (documented here, per project convention): the original
 `nss.generate.derive_generated_space_anchors` generated BOTH `copy_anchor_gen` and
 `unrelated_anchor_gen` at the SAME `ip_adapter_scale=1.0` (full-strength IP-Adapter conditioning).
-E1's own upstream evidence (`nss.generate.scale_sweep`'s C3 sweep) already showed IP-Adapter's
-image conditioning dominates the text prompt at high scale -- but E1 applied full-strength
+The upstream evidence (`nss.generate.scale_sweep`'s scale sweep) already showed IP-Adapter's
+image conditioning dominates the text prompt at high scale -- but the original applied full-strength
 conditioning to `unrelated_anchor_gen` anyway, using a DELIBERATELY-DIFFERENT-GARMENT text prompt to
 try to pull the embedding away from the reference. The measured consequence
-(`reports/tables/margin_anchor_realspace_vs_genspace_gap.csv`, E1's own output, pooled across all 3
-final-three styles): `copy_anchor_gen` and `unrelated_anchor_gen` scored almost identically -- CLIP
-0.0960 vs 0.0931 (gap 0.0029), DINOv2 0.5150 vs 0.4899 (gap 0.0251). Gate 1's "not a copy" side had
-no real discriminative power under this construction: "genuinely a copy" and "genuinely unrelated"
-produced almost the same margin, because at scale=1.0 the reference IMAGE, not the text prompt,
-dominates what gets generated regardless of what the prompt asks for.
+(`reports/tables/margin_anchor_realspace_vs_genspace_gap.csv`, the original output, pooled across
+all 3 final-three styles): `copy_anchor_gen` and `unrelated_anchor_gen` scored almost identically --
+CLIP 0.0960 vs 0.0931 (gap 0.0029), DINOv2 0.5150 vs 0.4899 (gap 0.0251). Gate 1's "not a copy" side
+had no real discriminative power under this construction: "genuinely a copy" and "genuinely
+unrelated" produced almost the same margin, because at scale=1.0 the reference IMAGE, not the text
+prompt, dominates what gets generated regardless of what the prompt asks for.
 
 THE FIX: regenerate ONLY `unrelated_anchor_gen` at `ip_adapter_scale=0.0` -- pure text-to-image,
 ZERO IP-Adapter image conditioning. This is the correct construction for "what does this
 reference's own unrelated-garment text prompt produce with zero influence from the reference
 image" -- a genuinely different-garment generation uncontaminated by IP-Adapter's image-conditioning
-pull. `copy_anchor_gen` (E1, `ip_adapter_scale=1.0`) is UNCHANGED by this task and NOT
+pull. `copy_anchor_gen` (`ip_adapter_scale=1.0`) is UNCHANGED here and NOT
 regenerated -- it is a correct construction as-is (a literal-restatement prompt AT full image
-conditioning is exactly "what does a copy look like"; the task F1 brief confirms this explicitly).
+conditioning is exactly "what does a copy look like").
 
-REUSES, VERBATIM, FROM `nss.generate.derive_generated_space_anchors` (E1): `SEEDS` (the same 3
+REUSES, VERBATIM, FROM `nss.generate.derive_generated_space_anchors`: `SEEDS` (the same 3
 seeds, for direct before/after comparability), `build_unrelated_anchor_prompt` +
 `UNRELATED_GARMENT_DESCRIPTIONS` (the same unrelated-garment prompts, JUDGMENT CALL already made and
-documented in E1, not re-litigated here), `AnchorImage`, `_slugify`, `score_anchor_images`
+documented there, not re-litigated here), `AnchorImage`, `_slugify`, `score_anchor_images`
 (embedding-space-agnostic, works for any `AnchorImage` list regardless of `anchor_type`),
 `summarize_margins_by_style_and_pooled`, `load_realspace_anchor_summary`, `build_gap_table`,
 `REALSPACE_PATHS`/`REALSPACE_ROW_TYPE`, `ALL_STYLES_POOLED_KEY`.
@@ -35,20 +35,20 @@ MERGE STRATEGY, NOT A FULL REWRITE: this module reads the EXISTING
 `reports/tables/margin_anchor_realspace_vs_genspace_gap.csv`, keeps every `copy_anchor_gen` row
 VERBATIM (never recomputed, never re-embedded), and REPLACES only the `unrelated_anchor_gen` rows
 with freshly generated-and-scored values -- the smallest change that corrects the contaminated
-anchor without touching the anchor task F1's own brief confirms is correct.
+anchor without touching the anchor that is correct as-is.
 
-METRIC-DROPPING DECISION (task F1's explicit instruction): if a metric's CORRECTED pooled
+METRIC-DROPPING DECISION: if a metric's CORRECTED pooled
 copy-vs-unrelated gap is still under `NON_DISCRIMINATIVE_GAP_THRESHOLD` (0.05), that metric remains
 non-discriminative in generated space even after the fix and must be DROPPED from Gate 1 entirely
-(`is_discriminative`, evaluated in `main()` against the actual corrected numbers -- see the task F1
-report for which metric(s), if any, this run drops, and
+(`is_discriminative`, evaluated in `main()` against the actual corrected numbers -- the
+run's report says which metric(s), if any, it drops, and
 `nss.generate.concept_qc_pipeline.GATE1_ACTIVE_METRICS` for where the decision is wired into the
 actual gate).
 
-Two-phase VRAM-safe process, reused verbatim from E1 (8 GB VRAM machine, SDXL alone peaks at
-~6.5 GB): generate all 9 `local_sdxl` images first, explicitly free the cached pipeline
-(`nss.generate.scale_sweep.free_sdxl_pipeline`), THEN import/run the CPU-only CLIP/DINOv2 scoring
-modules.
+Two-phase VRAM-safe process, reused verbatim from the original derivation (8 GB VRAM machine, SDXL
+alone peaks at ~6.5 GB): generate all 9 `local_sdxl` images first, explicitly free the cached
+pipeline (`nss.generate.scale_sweep.free_sdxl_pipeline`), THEN import/run the CPU-only CLIP/DINOv2
+scoring modules.
 
 Usage:
     uv run python -m nss.generate.derive_unrelated_anchor_fix
@@ -88,7 +88,7 @@ CORRECTED_IP_ADAPTER_SCALE = 0.0
 
 OUTPUT_DIR = Path("data/generated/anchors_generated_space_fixed")
 
-# See module docstring METRIC-DROPPING DECISION -- both E1's contaminated gaps (CLIP 0.0029,
+# See module docstring METRIC-DROPPING DECISION -- both the original contaminated gaps (CLIP 0.0029,
 # DINOv2 0.0251) were far below this bar, which is why the contamination was visible at all; 0.05
 # is an order-of-magnitude-above-noise cutoff chosen BEFORE looking at this run's corrected
 # numbers, not fit to them.
@@ -101,7 +101,7 @@ def is_discriminative(gap: float, threshold: float = NON_DISCRIMINATIVE_GAP_THRE
     Args:
         gap: `copy_anchor_gen mean - unrelated_anchor_gen mean`, pooled across the final-three
             styles, in ONE embedding space (`compute_gap`'s convention, but evaluated here on the
-            CORRECTED `unrelated_anchor_gen`, not E1's contaminated one).
+            CORRECTED `unrelated_anchor_gen`, not the original contaminated one).
         threshold: Minimum absolute gap to trust the metric as discriminative (see module
             docstring METRIC-DROPPING DECISION for why `0.05` was chosen).
 
@@ -121,12 +121,13 @@ def generate_unrelated_anchor_images(
     seed.
 
     Mirrors `nss.generate.derive_generated_space_anchors.generate_anchor_images`, restricted to
-    the single anchor type this task fixes -- see that function's docstring for the shared
+    the single anchor type this module fixes -- see that function's docstring for the shared
     per-call conventions (labeled output path, metadata sidecar copy).
 
     Args:
         style_to_references: `style_key -> that style's real reference image Path`s.
-        seeds: Seeds to generate one candidate per, for each style (same 3 seeds as E1, for direct
+        seeds: Seeds to generate one candidate per, for each style (same 3 seeds as the original,
+        for direct
             before/after comparability).
         ip_adapter_scale: IP-Adapter conditioning strength (`CORRECTED_IP_ADAPTER_SCALE`, `0.0`, by
             default -- see module docstring THE FIX).
@@ -179,10 +180,10 @@ def merge_corrected_unrelated_rows(
 
     Args:
         corrected_summaries: Output of `summarize_margins_by_style_and_pooled` for the freshly
-            generated-and-scored `unrelated_anchor_gen` images (this task).
+            generated-and-scored `unrelated_anchor_gen` images.
         existing_anchors_path: Path to the already-written `margin_anchors_generated_space.csv`
-            (E1's output) -- read, never overwritten in place until `main()` explicitly writes the
-            merged result back.
+            (the original output) -- read, never overwritten in place until `main()` explicitly
+            writes the merged result back.
 
     Returns:
         `copy_anchor_gen` rows from `existing_anchors_path`, verbatim, PLUS `corrected_summaries`
@@ -195,7 +196,7 @@ def merge_corrected_unrelated_rows(
 
 
 def main() -> None:
-    """Run the full F1 pipeline: generate (corrected scale) -> free VRAM -> score -> merge -> gap
+    """Run the full pipeline: generate (corrected scale) -> free VRAM -> score -> merge -> gap
     -> write -> metric-dropping decision."""
     wall_start = time.perf_counter()
 
@@ -245,7 +246,7 @@ def main() -> None:
     gap_df.write_csv(OUT_GAP_PATH)
     print(f"\nWrote {OUT_GAP_PATH}")
 
-    print("\n=== Corrected copy-vs-unrelated pooled gap (task F1) ===")
+    print("\n=== Corrected copy-vs-unrelated pooled gap ===")
     is_pooled = pl.col("style_key") == ALL_STYLES_POOLED_KEY
     pooled_copy = merged_df.filter(is_pooled & (pl.col("anchor_type") == "copy_anchor_gen"))
     pooled_unrelated = merged_df.filter(is_pooled & (pl.col("anchor_type") == UNRELATED_ANCHOR))
@@ -265,7 +266,7 @@ def main() -> None:
     if not active_metrics:
         print(
             "WARNING: neither metric is discriminative even after correction -- Gate 1's "
-            "copy-check would have no signal to gate on. See the task F1 report."
+            "copy-check would have no signal to gate on."
         )
 
     print(f"\nTotal wall-clock (generation + scoring): {wall_seconds:.1f}s")

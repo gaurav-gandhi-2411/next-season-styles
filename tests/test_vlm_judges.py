@@ -1,11 +1,11 @@
-"""Tests for `nss.generate.vlm_judges` (task E6): the Groq judge adapter, mocked end-to-end.
+"""Tests for `nss.generate.vlm_judges`: the Groq judge adapter, mocked end-to-end.
 
 No real API calls anywhere in this module -- `groq.Groq` (imported locally inside
 `check_groq_availability`/`extract_attributes_groq`) is patched at its `groq.Groq` source so the
 local `from groq import Groq` binds to the mock regardless of import timing. The live-discovery
-work that picked `GROQ_JUDGE_MODEL_ID` (task E6: querying `GET /openai/v1/models` and a real,
-one-off end-to-end vision call) is documented in `vlm_judges.py`'s module docstring and the task
-report -- deliberately NOT repeated here, since this suite must never hit a real API.
+work that picked `GROQ_JUDGE_MODEL_ID` (querying `GET /openai/v1/models` and a real,
+one-off end-to-end vision call) is documented in `vlm_judges.py`'s module docstring --
+deliberately NOT repeated here, since this suite must never hit a real API.
 """
 
 from __future__ import annotations
@@ -123,7 +123,7 @@ def test_extract_attributes_groq_success_parses_json_response(tmp_path: Path) ->
 
         result = vlm_judges.extract_attributes_groq(image_path, _DIMENSIONS, api_key="fake-key")
 
-    # Task H2: the checklist no longer asks for `garment_group`, so an extra key a judge volunteers
+    # The checklist no longer asks for `garment_group`, so an extra key a judge volunteers
     # is dropped rather than returned.
     assert result == {
         "product_type": "t-shirt",

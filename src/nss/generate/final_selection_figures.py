@@ -1,6 +1,6 @@
-"""Final deliverable figures + selection table (rebuilt for the N9 concepts, Gate 3 and integrity).
+"""Final deliverable figures + selection table, rebuilt with Gate 3 and integrity.
 
-Best candidate per style from task N9's 8-seed runs, chosen by: passes every automatic gate ->
+Best candidate per style from the 8-seed runs, chosen by: passes every automatic gate ->
 most briefed changes visible -> highest fidelity, then confirmed by a human looking at the image
 (`HUMAN_CHECK`). The graded artifact is a fashion deliverable, so a style whose every candidate
 fails still gets its best candidate shown, with its real verdict.
@@ -11,7 +11,7 @@ verified outputs.
 
 `evidence_chain.png` carries the honest per-style verdict: Gate 1 and 1b against the real
 within-style p90 limits, the integrity floor, Gate 2 (each local judge vs its calibrated threshold),
-Gate 3 (are the briefed changes visible, per judge), the closed-loop forecast (task N8) and a human
+Gate 3 (are the briefed changes visible, per judge), the closed-loop forecast and a human
 visual check. An unmeasured gate is never rendered as a pass.
 
 Usage:
@@ -21,7 +21,6 @@ Usage:
 from __future__ import annotations
 
 import re
-import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +29,6 @@ import matplotlib
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt
 import polars as pl
-from PIL import Image
 
 from nss.generate import concept_generation, final_registry
 from nss.generate.concept_scoring import ADVISORY_JUDGES
@@ -38,22 +36,22 @@ from nss.generate.final_deliverables import (
     STYLE_ORDER,
     PanelData,
     build_exemplar_composite,
-    build_hero_figure,
     display_name,
 )
+from nss.viz import deliverable_figures
 
 HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
 SELECTION_OUT = Path("reports/tables/final_selection.csv")
 SCORED = Path("reports/tables/candidates_scored.csv")
-FORECAST = Path("reports/tables/concept_forecast_retrieval.csv")  # retrieval closed loop (Q2)
+FORECAST = Path("reports/tables/concept_forecast_retrieval.csv")  # retrieval closed loop
 SWEATER, DRESS, TOP = STYLE_ORDER
 N9 = Path("data/generated/n9")
-# style -> chosen candidate image (an N9 output at the per-style scale from the sweep)
+# style -> chosen candidate image (a candidate output at the per-style scale from the sweep)
 SELECTED: dict[str, Path] = {
     SWEATER: N9 / "ladieswear_sweater_knitwear_beige_melange" / "s0.35_seed45.png",
     DRESS: N9 / "ladieswear_dress_dresses-ladies_red_solid" / "s0.35_seed44.png",
-    TOP: N9 / "ladieswear_top_jersey-basic_white_solid" / "s0.35_seed42.png",
+    TOP: N9 / "ladieswear_top_jersey-basic_white_solid" / "s0.35_seed47.png",
 }
 # The Summer (forecast origin 2020-06-01) concept, chosen from its own 8-seed run.
 SUMMER_SELECTED = N9 / "ladieswear_bikini-top_swimwear_orange_all-over-pattern" / "s0.35_seed48.png"
@@ -65,7 +63,7 @@ OBSERVED_CAPTIONS: dict[str, str] = {
     ),
     SWEATER: "Ribbed beige knit sweater, dark-brown funnel neck, dark-brown cuffs and hem.",
     DRESS: "Red midi dress: square neckline, large puff sleeves, self belt tied in a bow.",
-    TOP: "White long-sleeve top: square neckline, full balloon sleeves gathered at the cuff.",
+    TOP: "White long-sleeve top: square neckline, full balloon sleeves ending in wide ribbed cuffs.",
 }
 # What a human saw, including whether each briefed change shows.
 HUMAN_CHECK: dict[str, str] = {
@@ -82,8 +80,8 @@ HUMAN_CHECK: dict[str, str] = {
         "the waist). Solid red, plain flat-lay. One coherent garment."
     ),
     TOP: (
-        "Square neckline and balloon sleeves visible; the cuffs are narrower than the briefed "
-        "'wide ribbed' cuffs. Clean flat-lay, one coherent garment."
+        "Square neckline, long balloon sleeves and wide ribbed cuffs all visible. Clean flat-lay, "
+        "one coherent garment."
     ),
 }
 # Human verdict: is every briefed change visible?
@@ -127,7 +125,7 @@ _ORDINALS = {2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
 
 
 def closed_loop_view(style_id: str) -> dict[str, Any] | None:
-    """Top-5 retrieval view of one concept's closed loop, read from the recorded Q2 table.
+    """Top-5 retrieval view of one concept's closed loop, read from the recorded retrieval table.
 
     Presentation only: parses the `top5` column (best-first, 3-decimal similarities) and marks where
     the intended style falls. Nothing is recomputed, re-ranked or re-thresholded.
@@ -217,140 +215,21 @@ def selection_rows() -> list[dict[str, Any]]:
     return rows
 
 
-def _gate_text(r: dict[str, Any]) -> str:
-    def mark(ok: bool) -> str:
-        return "PASS" if ok else "FAIL"
-
-    return "\n".join(
-        [
-            "Gate 1 (mean sim <= p90 of real pairs)",
-            f"CLIP   {r['clip_mean_sim']:.3f} <= {r['clip_p90_limit']:.3f}",
-            f"DINOv2 {r['dinov2_mean_sim']:.3f} <= {r['dinov2_p90_limit']:.3f}"
-            f"  -> {mark(r['gate1_pass'])}",
-            "",
-            "Gate 1b (closest ref <= p90 of real nearest)",
-            f"CLIP   {r['clip_max_sim']:.3f} <= {r['clip_gate1b_limit']:.3f}",
-            f"DINOv2 {r['dinov2_max_sim']:.3f} <= {r['dinov2_gate1b_limit']:.3f}"
-            f"  -> {mark(r['gate1b_pass'])}",
-            "",
-            "Integrity floor, GLOBAL (gates): closest ref",
-            f"DINOv2 {r['floor_max_sim']:.3f} >= {r['global_floor_limit']:.3f}"
-            f"  -> {mark(r['integrity_floor_pass'])}",
-            f"Per-style floor (advisory) {r['floor_limit']:.3f}"
-            f"  -> {mark(r['integrity_style_pass'])}",
-            f"(refs: {r['n_refs']} screened real articles)",
-        ]
-    )
-
-
-def _judge_text(r: dict[str, Any]) -> str:
-    lines = ["Gate 2 -- attribute fidelity (local judges)"]
-    for j in r["judges"].split(","):
-        tag = " (advisory)" if j in ADVISORY_JUDGES else ""
-        lines.append(
-            f"{j}{tag}: {r[f'{j}_fidelity']:.2f}  {'PASS' if r[f'{j}_gate2_pass'] else 'FAIL'}"
-        )
-    lines += ["", "Gate 3 -- briefed changes visible?"]
-    for j in r["judges"].split(","):
-        if r.get(f"{j}_gate3_answers") is not None:
-            lines.append(
-                f"{j}: {r[f'{j}_gate3_answers']}  {'PASS' if r[f'{j}_gate3_pass'] else 'FAIL'}"
-            )
-    return "\n".join(lines)
-
-
-def _closed_loop_text(r: dict[str, Any]) -> str:
-    v = closed_loop_view(r["style_id"])
-    if v is None:
-        return "Closed loop: not run"
-    out = ["\n".join(textwrap.wrap(CLOSED_LOOP_LABEL, 78)), ""]
-    out.append(f"Top-5 matched styles of {v['n_styles']:,} (similarity, forecast rank):")
-    for t in v["rows"]:
-        mark = ">>" if t["intended"] else "  "
-        key = t["key"].replace(" || ", "/")
-        out.append(f"{mark} {t['pos']}. {key}  {t['sim']:.3f} #{t['rank']}")
-    out.append(">> = the style this concept was designed from")
-    out.append(f"{v['summary']}; top-5 similarity spread {v['spread']:.3f}.")
-    out.append(
-        f"Of the top 5: {v['same_type']}/5 share the intended product type, "
-        f"{v['same_colour']}/5 the intended colour."
-    )
-    out.append(f"Top-1 forecast: {v['units']:.1f} units/product/wk ({v['confidence']} confidence)")
-    return "\n".join(out)
-
-
 def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]]) -> plt.Figure:
-    """refs -> brief -> concept -> Gate 1/1b/integrity -> Gate 2/3/forecast -> verdict."""
-    fig, axes = plt.subplots(
-        len(rows),
-        6,
-        figsize=(30, 5.4 * len(rows)),
-        gridspec_kw={"width_ratios": [1.0, 0.85, 1.0, 1.0, 1.9, 1.1]},
+    """Evidence chain: references, briefed changes, concept, checks, closed loop, verdict.
+
+    Layout and typography live in `nss.viz.deliverable_figures`; this supplies the recorded data.
+    """
+    return deliverable_figures.build_evidence(
+        rows,
+        refs,
+        display_name=display_name,
+        changes_for=lambda sid: concept_generation.CHANGES[sid]["applied_changes"],
+        exemplar_composite=build_exemplar_composite,
+        closed_loop_view=closed_loop_view,
+        closed_loop_label=CLOSED_LOOP_LABEL,
+        advisory_judges=ADVISORY_JUDGES,
     )
-    titles = (
-        "Real references",
-        "Briefed changes (inputs, not verified)",
-        "Generated concept",
-        "Gates 1, 1b, integrity",
-        "Gates 2, 3, closed-loop forecast",
-        "Verdict",
-    )
-    for i, r in enumerate(rows):
-        a_ref, a_brief, a_img, a_g1, a_g2, a_v = axes[i]
-        a_ref.imshow(build_exemplar_composite(refs[r["style_id"]]))
-        a_ref.set_xticks([])
-        a_ref.set_yticks([])
-        a_ref.set_ylabel(display_name(r["style_id"]), fontsize=11, fontweight="bold")
-        a_img.imshow(Image.open(r["image_path"]))
-        a_img.axis("off")
-        brief = "Changes asked for:\n" + "\n".join(
-            f"  - {c}" for c in concept_generation.CHANGES[r["style_id"]]["applied_changes"]
-        )
-        scale_line = f"IP scale {r['scale']:.2f}, seed {r['seed']}, weight 1.5, 8-ref concat"
-        brief += f"\n\n{scale_line}"
-        for ax, txt in ((a_brief, brief), (a_g1, _gate_text(r)), (a_g2, _judge_text(r))):
-            ax.axis("off")
-            ax.text(
-                0.02, 0.98, txt, transform=ax.transAxes, va="top", fontsize=7.8, family="monospace"
-            )
-        a_g2.text(
-            0.02,
-            0.70,
-            _closed_loop_text(r),
-            transform=a_g2.transAxes,
-            va="top",
-            fontsize=8.6,
-            family="monospace",
-        )
-        a_v.axis("off")
-        human = "briefed changes visible" if r["human_brief_met"] else "brief NOT met"
-        a_v.text(
-            0.05,
-            0.70,
-            f"Automatic gates: {r['automatic_gates']}\nHuman check: {human}",
-            transform=a_v.transAxes,
-            fontsize=13,
-            fontweight="bold",
-            va="center",
-        )
-        a_v.text(
-            0.05,
-            0.52,
-            "Human visual check:\n" + textwrap.fill(r["human_check"], 52),
-            transform=a_v.transAxes,
-            fontsize=8.5,
-            va="top",
-        )
-    for ax, t in zip(axes[0], titles, strict=True):
-        ax.set_title(t, fontsize=10.5, fontweight="bold", pad=10)
-    fig.suptitle(
-        "Evidence chain: references -> briefed changes -> concept -> Gates 1 / 1b / integrity -> "
-        "Gate 2 / Gate 3 / closed-loop forecast -> verdict",
-        fontsize=14,
-        fontweight="bold",
-    )
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
-    return fig
 
 
 def main() -> None:
@@ -369,12 +248,16 @@ def main() -> None:
         for r in rows
         if r["style_id"] in STYLE_ORDER
     ]
-    hero = build_hero_figure(panels)
-    hero.savefig(HERO_OUT, dpi=150, bbox_inches="tight")
+    hero = deliverable_figures.build_hero(panels)
+    hero.savefig(
+        HERO_OUT, dpi=150, bbox_inches="tight", pad_inches=0.3, facecolor=hero.get_facecolor()
+    )
     plt.close(hero)
     refs = concept_generation.load_refs()
     ev = build_evidence_figure(rows, refs)
-    ev.savefig(EVIDENCE_OUT, dpi=150, bbox_inches="tight")
+    ev.savefig(
+        EVIDENCE_OUT, dpi=150, bbox_inches="tight", pad_inches=0.3, facecolor=ev.get_facecolor()
+    )
     plt.close(ev)
     for r in rows:
         print(

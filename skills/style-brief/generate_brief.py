@@ -286,7 +286,7 @@ def generate_design_brief(profile: dict[str, Any]) -> dict[str, Any]:
         "rise)",
     ]
 
-    # ATTRIBUTE-FIRST ORDERING (task F4, fixing a real defect E5 found by hand): SDXL's CLIP text
+    # ATTRIBUTE-FIRST ORDERING (fixing a real defect found by hand): SDXL's CLIP text
     # encoders truncate at 77 tokens, and truncation always drops the TAIL of the prompt. Earlier
     # versions of this template put the four defining attributes (`garment_category`,
     # `construction_group`, `colour_name`, `pattern_or_finish` -- exactly what a copy-check/VLM-

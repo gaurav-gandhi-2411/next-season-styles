@@ -1,6 +1,6 @@
 """Validate `style_key` semantic coherence via sentence-embedding clustering of `detail_desc`.
 
-Phase 1's `style_key` (see `style_panel.py`) is a composite of 5 categorical attribute columns
+The `style_key` (see `style_panel.py`) is a composite of 5 categorical attribute columns
 from `articles.csv`. This module asks: does an independent, purely text-based notion of product
 similarity roughly agree with that categorical partition? Clustering products by the free-text
 `detail_desc` field encodes visual/semantic similarity through a completely different signal
@@ -14,14 +14,14 @@ DEPENDENCY NOTE: this module is the sole reason `sentence-transformers` (and its
 repo. Scope is deliberately narrow: one offline validation script, CPU-only,
 `all-MiniLM-L6-v2` (small, fast, well-established sentence embedding model), no GPU, no online
 serving. If this dependency ever becomes a build/deploy liability, this module (and it alone) can
-be excised without touching any other Phase 1/2 code path.
+be excised without touching any other code path.
 
 Method:
-1. Restrict `articles.csv` to `article_id`s whose style_key survived Phase 1's support filter (the
+1. Restrict `articles.csv` to `article_id`s whose style_key survived the panel's support filter (the
    distinct style_key combinations present in `data/processed/style_week_panel.parquet`).
 2. Embed each article's `detail_desc` with `all-MiniLM-L6-v2` (CPU). ~0.39% of articles have a
-   null `detail_desc` (matches the rate Phase 1 reported); those articles are dropped from the
-   embedding step rather than embedded as an empty string, so a missing description never
+   null `detail_desc` (matches the rate the panel build reported); those articles are dropped from
+   the embedding step rather than embedded as an empty string, so a missing description never
    contributes a degenerate/near-zero vector that would silently drag down its style_key's mean.
 3. Mean-pool article embeddings per style_key -> one embedding vector per style_key.
 4. K-means cluster the style_key-level embeddings; pick k by silhouette score over a small sweep.
@@ -89,7 +89,7 @@ def load_validation_articles(
     kept_style_keys: pl.DataFrame,
     articles_path: Path = DEFAULT_ARTICLES_PATH,
 ) -> pl.DataFrame:
-    """Restrict `articles.csv` to articles whose style_key survived the Phase 1 support filter.
+    """Restrict `articles.csv` to articles whose style_key survived the panel's support filter.
 
     Args:
         kept_style_keys: Distinct kept style_key rows, as returned by `load_kept_style_keys`.
@@ -97,7 +97,7 @@ def load_validation_articles(
 
     Returns:
         One row per matching article, with `article_id`, `detail_desc`, `style_key`, and the 5
-        `STYLE_KEY_COLS`. Articles belonging to a style_key that did not pass the Phase 1 support
+        `STYLE_KEY_COLS`. Articles belonging to a style_key that did not pass the panel's support
         filter are excluded (inner join).
     """
     articles = pl.scan_csv(articles_path).select(["article_id", "detail_desc", *STYLE_KEY_COLS])

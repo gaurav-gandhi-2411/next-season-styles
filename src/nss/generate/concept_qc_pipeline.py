@@ -1,4 +1,4 @@
-"""H&M-specific `concept-qc` skill pipeline (task C7): QC gate + retry loop over C6's 3 selected
+"""H&M-specific `concept-qc` skill pipeline: QC gate + retry loop over the 3 selected
 final concepts.
 
 DATASET-SPECIFIC ADAPTER CODE LIVES HERE, NOT IN THE SKILL: `skills/concept-qc/run_qc.py`
@@ -7,29 +7,29 @@ this module is exactly the "calling code" that skill's docstring describes. It (
 `style_id` onto the skill's generic attribute-checklist ground truth, (2) wires the skill's
 `qc_verdict`/`run_judge`/`choose_next_retry_value` primitives to this project's real margin scoring
 (`nss.generate.clip_scoring`/`dino_scoring`/`margin_scoring`) and real judges
-(`nss.generate.vlm_judges`), (3) implements the max-2-retry loop by reusing C6's own generation
+(`nss.generate.vlm_judges`), (3) implements the max-2-retry loop by reusing the concept generation
 primitive (`nss.generate.backends.generate_concept`, via `nss.generate.final_concepts`'s prompt-
 building helpers) with an adjusted `ip_adapter_scale`, and (4) writes the two output artifacts.
 
 RETRY-VALUE RATIONALE FOR THIS PROJECT (the concrete inputs to the skill's generic
-`choose_next_retry_value`): C3's scale sweep (`nss.generate.scale_sweep`, T-shirt style only,
+`choose_next_retry_value`): the scale sweep (`nss.generate.scale_sweep`, T-shirt style only,
 `SCALES = (0.2, ..., 0.9)`) found CLIP margin rises roughly monotonically with `ip_adapter_scale`
 (0.2 -> 0.097, up to 0.9 -> 0.144) while DINOv2 margin is U-shaped, MINIMIZED at the highest tested
 scale (0.9 -> 0.688, vs. 0.5's peak of 0.739) -- still nowhere near DINOv2's band regardless. This
 pipeline therefore treats CLIP as the primary metric (`primary_*` in `choose_next_retry_value`,
-matching C6's own CLIP-primary selection-time ranking convention) and DINOv2 as secondary with
-`secondary_favors_higher=True`. These trends were measured ONLY on the T-shirt style -- applying
-them to the underwear/sweater styles is a documented EXTRAPOLATION, not re-verified evidence; this
-pipeline still follows rule 101c (never conclude "can't be done" without trying) and attempts every
+matching the CLIP-primary selection-time ranking convention of `final_concepts`) and DINOv2 as
+secondary with `secondary_favors_higher=True`. These trends were measured ONLY on the T-shirt style
+-- applying them to the underwear/sweater styles is a documented EXTRAPOLATION, not re-verified
+evidence; this pipeline still never concludes "can't be done" without trying, and attempts every
 retry for direct per-style evidence regardless of whether the T-shirt trend predicts success.
 
-UNDERWEAR VISUAL QC: C6 found 3 of 4 original underwear candidates showed a human model despite a
-strengthened negative prompt (`nss.generate.final_concepts.UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS`)
--- automated CLIP/DINOv2/VLM-attribute scoring cannot detect "does this image show a person." Any
-NEW underwear image this pipeline generates (a retry) carries the same risk and REQUIRES the same
-manual visual inspection C6's task report documents; this module cannot automate that check and
-does not claim to -- see the C7 task report for the manual finding on any retry image actually
-generated for the underwear style.
+UNDERWEAR VISUAL QC: the original generation found 3 of 4 original underwear candidates showed a
+human model despite a strengthened negative prompt
+(`nss.generate.final_concepts.UNDERWEAR_VISUAL_QC_DISQUALIFIED_SEEDS`) -- automated
+CLIP/DINOv2/VLM-attribute scoring cannot detect "does this image show a person." Any NEW underwear
+image this pipeline generates (a retry) carries the same risk and REQUIRES the same manual visual
+inspection documented in `final_concepts`; this module cannot automate that check and does not claim
+to -- any retry image actually generated for the underwear style needs its own manual finding.
 
 Usage:
     uv run python -m nss.generate.concept_qc_pipeline
@@ -92,19 +92,18 @@ FINAL_CONCEPTS_V2_RESCORED_PATH = Path("reports/tables/final_concepts_v2_rescore
 MAX_RETRIES = 2
 ATTRIBUTE_FIDELITY_THRESHOLD = SKILL.DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD  # 0.75 -- OLD flat
 # threshold, kept only as the fallback `qc_verdict(per_judge_fidelity_thresholds=None)` path uses;
-# task F2's actual Gate 2 threshold is per-judge, see `compute_fidelity_thresholds` below.
+# the actual Gate 2 threshold is per-judge, see `compute_fidelity_thresholds` below.
 COPY_ANCHOR_DISCOUNT = SKILL.DEFAULT_COPY_ANCHOR_DISCOUNT  # 0.10 -- see run_qc.py's Gate 1 note
 
-# TASK F1 -- Gate-1 active metrics after correcting `unrelated_anchor_gen`'s contaminated
+# Gate-1 active metrics after correcting `unrelated_anchor_gen`'s contaminated
 # ip_adapter_scale=1.0 construction (`nss.generate.derive_unrelated_anchor_fix`, regenerated at
 # ip_adapter_scale=0.0): both CLIP and DINOv2's corrected, pooled copy-vs-unrelated gap cleared
 # `nss.generate.derive_unrelated_anchor_fix.NON_DISCRIMINATIVE_GAP_THRESHOLD` (0.05) -- MEASURED
 # (`reports/tables/margin_anchors_generated_space.csv`'s ALL_STYLES_POOLED rows): CLIP copy_mean
-# 0.0960, unrelated_mean -0.0438, gap=+0.1398 (E1's contaminated gap: +0.0029); DINOv2 copy_mean
-# 0.5150, unrelated_mean 0.0097, gap=+0.5053 (E1's contaminated gap: +0.0251) -- so BOTH remain
+# 0.0960, unrelated_mean -0.0438, gap=+0.1398 (the contaminated gap was +0.0029); DINOv2 copy_mean
+# 0.5150, unrelated_mean 0.0097, gap=+0.5053 (the contaminated gap was +0.0251) -- so BOTH remain
 # active; neither metric was dropped. See
-# `reports/tables/margin_anchor_realspace_vs_genspace_gap.csv` for the full corrected numbers, and
-# the task F1 report for the full before/after comparison.
+# `reports/tables/margin_anchor_realspace_vs_genspace_gap.csv` for the full corrected numbers.
 GATE1_ACTIVE_METRICS: frozenset[str] = frozenset({"clip", "dinov2"})
 
 # A judge PASSES calibration iff mean(positive control scores) - mean(negative control scores) >=
@@ -169,7 +168,7 @@ def parse_style_attributes(style_id: str) -> dict[str, str]:
 
 
 def load_copy_anchors_gen(path: Path = MARGIN_ANCHORS_GEN_PATH) -> dict[str, dict[str, float]]:
-    """Load per-style `copy_anchor_gen` mean margins (task E1) for the E2 Gate-1 copy check.
+    """Load per-style `copy_anchor_gen` mean margins for the Gate 1 copy check.
 
     Deliberately PER-STYLE, never pooled: the Sweater style's CLIP `copy_anchor_gen` (-0.0472) is
     NEGATIVE while the T-shirt/Underwear bottom styles' are positive (and even sign-flipped
@@ -179,7 +178,7 @@ def load_copy_anchors_gen(path: Path = MARGIN_ANCHORS_GEN_PATH) -> dict[str, dic
     correct per-style regardless of sign.
 
     Args:
-        path: Path to `margin_anchors_generated_space.csv` (task E1's derived anchors).
+        path: Path to `margin_anchors_generated_space.csv` (the derived anchors).
 
     Returns:
         `{style_key: {"clip": mean_copy_anchor_clip, "dinov2": mean_copy_anchor_dinov2}}`, excluding
@@ -217,14 +216,14 @@ def run_judge_panel(
         groq_unavailable_detail: The detail string from that same one-time check, folded into
             Groq's `excluded_reason` when `groq_available` is `False`.
         dimensions: Attribute checklist to ask about and score; defaults to
-            `vlm_judges.ATTRIBUTE_DIMENSIONS` (visually observable only, task H2). `ground_truth`
+            `vlm_judges.ATTRIBUTE_DIMENSIONS` (visually observable only). `ground_truth`
             is restricted to these keys, since `score_attributes` scores every ground-truth key.
 
     Returns:
         `{"gemini": JudgeResult, "groq": JudgeResult}`.
     """
     if dimensions is None:
-        # Task L2: drop `graphical_treatment` when the style's pattern label is a non-visual
+        # Drop `graphical_treatment` when the style's pattern label is a non-visual
         # catch-all (explicit list in `nss.generate.fidelity`), so the judge is never scored on a
         # word it cannot name from a picture.
         from nss.generate.fidelity import applicable_dimensions
@@ -313,7 +312,7 @@ def generate_retry_candidate(
     prompt_2: str | None = None,
     negative_prompt_2: str | None = None,
 ) -> Path:
-    """Generate ONE retry candidate via C6's own generation primitive (same seed, new scale).
+    """Generate ONE retry candidate via the original generation primitive (same seed, new scale).
 
     Calls `nss.generate.backends.generate_concept` directly (the same primitive
     `nss.generate.final_concepts.generate_candidates_for_style` wraps) rather than that wrapper,
@@ -331,9 +330,9 @@ def generate_retry_candidate(
         reference_images: IP-Adapter reference images for this style.
         seed: The seed to reuse (fixed across retries).
         ip_adapter_scale: The new (adjusted) scale for this retry.
-        attempt_number: 1 or 2 (this project's retry numbering; 0 is the original C6 candidate).
+        attempt_number: 1 or 2 (this project's retry numbering; 0 is the original candidate).
         output_dir: Directory to write the labeled retry image into.
-        prompt_2: Optional text prompt for SDXL's second text encoder (task F4 -- see
+        prompt_2: Optional text prompt for SDXL's second text encoder (see
             `nss.generate.final_concepts.build_prompt_2`). `None` (the default) leaves diffusers'
             own default (reuses `prompt`) -- behavior-identical to callers written before this
             parameter existed.
@@ -389,15 +388,15 @@ def run_qc_with_retries(
     active_metrics: frozenset[str] = GATE1_ACTIVE_METRICS,
     per_judge_fidelity_thresholds: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
-    """Run the C7/E2 QC gate for one style, retrying up to `max_retries` times on failure.
+    """Run the QC gate for one style, retrying up to `max_retries` times on failure.
 
-    Every attempt (the original C6 candidate, attempt 0, plus up to `max_retries` retries) is
-    scored and appended to the returned list -- nothing is discarded, per the task's explicit
-    requirement that the full retry history is itself the deliverable. `judge_panel_fn`/
+    Every attempt (the original candidate, attempt 0, plus up to `max_retries` retries) is
+    scored and appended to the returned list -- nothing is discarded, since the full retry
+    history is itself the deliverable. `judge_panel_fn`/
     `margin_fn`/`generate_fn` are injected so this function is fully unit-testable with fakes (no
     real API/GPU calls) -- see `tests/test_concept_qc_pipeline.py`.
 
-    `overall_pass` (task E2) is Gate 1 (`copy_check_pass`, both CLIP and DINOv2 margins below their
+    `overall_pass` is Gate 1 (`copy_check_pass`, both CLIP and DINOv2 margins below their
     per-style `copy_anchor_gen`-derived thresholds) AND Gate 2 (`fidelity_pass`). `clip_band`/
     `dino_band` (the OLD two-sided real-space band) are STILL used, unchanged, to pick the retry
     DIRECTION via `choose_next_retry_value` (an orthogonal concern -- which way to move
@@ -407,11 +406,11 @@ def run_qc_with_retries(
 
     Args:
         style_id: Opaque identifier, passed through.
-        original_seed: The seed C6 selected (held fixed across every retry).
-        original_scale: The `ip_adapter_scale` C6 used for its original selection
+        original_seed: The seed originally selected (held fixed across every retry).
+        original_scale: The `ip_adapter_scale` used for the original selection
             (`nss.generate.final_concepts.IP_ADAPTER_SCALE`).
-        original_image_path: Path to C6's originally selected candidate image.
-        original_margin: `MarginBandResult`-shaped dict, C6's already-computed margin scores for
+        original_image_path: Path to the originally selected candidate image.
+        original_margin: `MarginBandResult`-shaped dict, the already-computed margin scores for
             the original candidate (reused verbatim for attempt 0 -- never recomputed).
         ground_truth: Output of `parse_style_attributes`.
         generation_backend: Identifier of the generation backend (`nss.generate.backends.LOCAL_SDXL`
@@ -419,24 +418,24 @@ def run_qc_with_retries(
         clip_band: `(lower, upper)` CLIP margin band -- retry-DIRECTION heuristic input + diagnostic
             reporting only (see above), does NOT gate `overall_pass`.
         dino_band: `(lower, upper)` DINOv2 margin band -- same caveat as `clip_band`.
-        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1) -- the actual
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean -- the actual
             Gate-1 input.
-        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean (task E1).
+        dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean.
         judge_panel_fn: `image_path -> {"gemini": JudgeResult, "groq": JudgeResult}`.
         margin_fn: `image_path -> MarginBandResult`.
         generate_fn: `(new_scale, attempt_number) -> new_image_path` -- generates one retry
             candidate (only called when a retry is actually triggered).
         all_scales: The full tested `ip_adapter_scale` range (`nss.generate.scale_sweep.SCALES`).
-        max_retries: Maximum number of retries (task C7: 2).
+        max_retries: Maximum number of retries (2).
         attribute_fidelity_threshold: Minimum consensus mean attribute fidelity to pass Gate 2.
         copy_anchor_discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold`.
         secondary_favors_higher: See `skills/concept-qc/run_qc.py`'s
             `choose_next_retry_value` -- this project's own evidence (module docstring
             RETRY-VALUE RATIONALE) says `True`.
-        active_metrics: Task F1's Gate-1 metric set (`GATE1_ACTIVE_METRICS`) -- which metrics must
+        active_metrics: The Gate-1 metric set (`GATE1_ACTIVE_METRICS`) -- which metrics must
             independently pass `copy_check_pass`. Defaults to the current evidence-based set
-            (both, as of this task -- see that constant's docstring).
-        per_judge_fidelity_thresholds: Task F2's per-judge Gate-2 thresholds
+            (both -- see that constant's docstring).
+        per_judge_fidelity_thresholds: The per-judge Gate-2 thresholds
             (`compute_fidelity_thresholds`'s output), or `None` to keep the OLD flat-threshold
             behavior (`attribute_fidelity_threshold`) -- see `run_qc.qc_verdict`'s docstring for
             the full behavior split.
@@ -625,7 +624,7 @@ def compute_fidelity_thresholds(
     calibration_summary: dict[str, dict[str, Any]],
     fraction: float = SKILL.DEFAULT_FIDELITY_THRESHOLD_FRACTION,
 ) -> dict[str, float]:
-    """Per-judge Gate-2 threshold (task F2): `fraction * that judge's own positive-control mean`.
+    """Per-judge Gate-2 threshold: `fraction * that judge's own positive-control mean`.
 
     Replaces the old flat `0.75` (`ATTRIBUTE_FIDELITY_THRESHOLD`, picked without reference to any
     calibration data) with a threshold scaled to what EACH judge actually achieves on a genuine
@@ -689,9 +688,9 @@ def compute_overall_kappa(
 def write_results_csv(attempts: list[dict[str, Any]], path: Path = QC_RESULTS_PATH) -> None:
     """Flatten the full retry history (every style, every attempt) into `concept_qc_results.csv`.
 
-    `overall_pass` reflects the E2 gate (`copy_check_pass AND fidelity_pass`); `margin_band_pass`
-    (the old two-sided real-space band) is retained as a DIAGNOSTIC-ONLY column -- see
-    `skills/concept-qc/run_qc.py`'s `QCVerdict` docstring.
+    `overall_pass` reflects the Gate 1 + Gate 2 verdict (`copy_check_pass AND fidelity_pass`);
+    `margin_band_pass` (the old two-sided real-space band) is retained as a DIAGNOSTIC-ONLY column
+    -- see `skills/concept-qc/run_qc.py`'s `QCVerdict` docstring.
 
     Args:
         attempts: Concatenated output of `run_qc_with_retries` across every style, with
@@ -751,7 +750,7 @@ def write_results_csv(attempts: list[dict[str, Any]], path: Path = QC_RESULTS_PA
 
 
 def load_selected_candidates(path: Path = FINAL_CONCEPTS_PATH) -> dict[str, dict[str, Any]]:
-    """Load C6's `final_concepts.csv`, keyed by `style_id`."""
+    """Load `final_concepts.csv`, keyed by `style_id`."""
     df = pl.read_csv(path)
     return {row["style_id"]: row for row in df.iter_rows(named=True)}
 
@@ -765,24 +764,24 @@ def rescore_attempt_under_new_gate(
     discount: float = COPY_ANCHOR_DISCOUNT,
     active_metrics: frozenset[str] = SKILL.GATE1_METRICS,
 ) -> dict[str, Any]:
-    """Re-evaluate ONE already-computed `(clip_margin, dino_margin, fidelity_pass)` triple (task E2
-    part 3) against the NEW Gate-1 copy-check -- never recomputes an embedding, a margin, or a VLM
-    judge call. `fidelity_pass` (Gate 2, UNCHANGED by task E2) is reused verbatim from the
+    """Re-evaluate ONE already-computed `(clip_margin, dino_margin, fidelity_pass)` triple
+    against the NEW Gate-1 copy-check -- never recomputes an embedding, a margin, or a VLM
+    judge call. `fidelity_pass` (Gate 2, UNCHANGED) is reused verbatim from the
     already-logged `concept_qc_results.csv` row.
 
     Args:
         clip_margin: Already-logged CLIP margin for this attempt.
         dino_margin: Already-logged DINOv2 margin for this attempt.
-        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean (task E1,
-            `margin_anchors_generated_space.csv`).
+        clip_copy_anchor_gen: This style's `copy_anchor_gen` CLIP mean
+            (`margin_anchors_generated_space.csv`).
         dino_copy_anchor_gen: This style's `copy_anchor_gen` DINOv2 mean.
         fidelity_pass: The already-logged Gate 2 (attribute-fidelity) verdict, reused unchanged.
         discount: See `skills/concept-qc/run_qc.py`'s `copy_anchor_threshold` for the sign-safety
             reasoning.
-        active_metrics: Which Gate-1 metrics must pass (`SKILL.copy_check_pass`'s `active_metrics`
-            -- task F1). Defaults to BOTH (`SKILL.GATE1_METRICS`), i.e. this function's ORIGINAL
-            (task E2) behavior is unchanged unless a caller explicitly passes task F1's corrected
-            set (`GATE1_ACTIVE_METRICS`).
+        active_metrics: Which Gate-1 metrics must pass (`SKILL.copy_check_pass`'s `active_metrics`).
+            Defaults to BOTH (`SKILL.GATE1_METRICS`), i.e. this function's ORIGINAL behavior is
+            unchanged unless a caller explicitly passes the corrected set
+            (`GATE1_ACTIVE_METRICS`).
 
     Returns:
         A flat dict with the new gate's per-metric thresholds/verdicts, `copy_check_pass`,
@@ -813,16 +812,15 @@ def rescore_results_csv(
     output_path: Path = RESCORED_RESULTS_PATH,
     discount: float = COPY_ANCHOR_DISCOUNT,
 ) -> pl.DataFrame:
-    """Re-score every row already logged in `concept_qc_results.csv` under the E2 gate (task E2
-    part 3).
+    """Re-score every row already logged in `concept_qc_results.csv` under the copy-anchor Gate 1.
 
-    Reads ONLY already-computed values (`clip_margin`, `dino_margin`, `fidelity_pass`) from the C7
+    Reads ONLY already-computed values (`clip_margin`, `dino_margin`, `fidelity_pass`) from that
     run -- never regenerates an image, recomputes an embedding, or re-calls a VLM judge. Writes
     `output_path` and returns the resulting DataFrame.
 
     Args:
-        results_path: Path to the already-logged `concept_qc_results.csv` (C7 run).
-        anchors_path: Path to `margin_anchors_generated_space.csv` (task E1).
+        results_path: Path to the already-logged `concept_qc_results.csv` (the earlier run).
+        anchors_path: Path to `margin_anchors_generated_space.csv`.
         output_path: Destination for the re-scored CSV.
         discount: See `rescore_attempt_under_new_gate`.
 
@@ -884,25 +882,25 @@ def rescore_final_concepts_v2_under_f1_f2(
     active_metrics: frozenset[str] = GATE1_ACTIVE_METRICS,
     fidelity_thresholds: dict[str, float] | None = None,
 ) -> pl.DataFrame:
-    """Re-score E5's 24 already-generated `final_concepts_v2.csv` candidates under tasks F1 (Gate-1
-    active-metrics correction) and F2 (per-judge Gate-2 threshold).
+    """Re-score the 24 already-generated `final_concepts_v2.csv` candidates under the Gate-1
+    active-metrics correction and the per-judge Gate-2 threshold.
 
     Reads ONLY already-logged values -- never regenerates an image, recomputes an embedding, or
     re-calls a VLM judge (same "re-score already-computed values" convention as
     `rescore_attempt_under_new_gate`/`rescore_results_csv`). `copy_anchor_gen` itself (and
     therefore every row's already-logged `clip_copy_anchor_gen`/`dino_copy_anchor_gen`/
     `clip_copy_anchor_threshold`/`dino_copy_anchor_threshold`/`clip_below_copy_anchor`/
-    `dino_below_copy_anchor` columns) is UNCHANGED by task F1 -- only `unrelated_anchor_gen` was
-    contaminated and regenerated (see `nss.generate.derive_unrelated_anchor_fix`), and Gate 1 never
-    reads `unrelated_anchor_gen` directly (see `SKILL.md`'s "Gate 1" section). The only Gate-1
+    `dino_below_copy_anchor` columns) is UNCHANGED by the correction -- only `unrelated_anchor_gen`
+    was contaminated and regenerated (see `nss.generate.derive_unrelated_anchor_fix`), and Gate 1
+    never reads `unrelated_anchor_gen` directly (see `SKILL.md`'s "Gate 1" section). The only Gate-1
     change this re-score applies is re-combining each row's already-logged per-metric
-    `*_below_copy_anchor` booleans under `active_metrics` (task F1's evidence-based metric set).
+    `*_below_copy_anchor` booleans under `active_metrics` (the evidence-based metric set).
 
     Args:
-        path: Path to the already-written `final_concepts_v2.csv` (E5's 24 candidates).
+        path: Path to the already-written `final_concepts_v2.csv` (the 24 candidates).
         output_path: Destination for the re-scored CSV.
-        active_metrics: Task F1's Gate-1 metric set (`GATE1_ACTIVE_METRICS`).
-        fidelity_thresholds: Task F2's per-judge Gate-2 thresholds
+        active_metrics: The Gate-1 metric set (`GATE1_ACTIVE_METRICS`).
+        fidelity_thresholds: The per-judge Gate-2 thresholds
             (`compute_fidelity_thresholds`'s output). `None` (the default) re-derives them from
             `reports/tables/vlm_calibration_results.csv` directly, so this function is runnable
             standalone without a caller having to re-run calibration first.
@@ -954,7 +952,7 @@ def rescore_final_concepts_v2_under_f1_f2(
 
 
 def main() -> None:
-    """Run the full C7/E2 pipeline: calibration -> per-style QC-with-retries -> write artifacts."""
+    """Run the full pipeline: calibration -> per-style QC-with-retries -> write artifacts."""
     briefs = final_concepts.load_design_briefs()
     style_references = final_concepts.load_final_three_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
@@ -963,8 +961,8 @@ def main() -> None:
     clip_band = load_margin_band(CLIP_BAND_PATH)
     dino_band = load_margin_band(DINO_BAND_PATH)
     copy_anchors = load_copy_anchors_gen()
-    print(f"CLIP band (diagnostic only, see E2): {clip_band}")
-    print(f"DINOv2 band (diagnostic only, see E2): {dino_band}")
+    print(f"CLIP band (diagnostic only): {clip_band}")
+    print(f"DINOv2 band (diagnostic only): {dino_band}")
     print(f"Copy anchors (generated space, Gate 1): {copy_anchors}")
 
     groq_available, groq_detail = vlm_judges.check_groq_availability()
@@ -981,7 +979,7 @@ def main() -> None:
 
     fidelity_thresholds = compute_fidelity_thresholds(calibration_summary)
     print(
-        "Per-judge Gate-2 thresholds (task F2, 0.75 x each judge's own calibration ceiling): "
+        "Per-judge Gate-2 thresholds (0.75 x each judge's own calibration ceiling): "
         f"{fidelity_thresholds}"
     )
 
@@ -992,7 +990,7 @@ def main() -> None:
         row = selected[style_id]
         ground_truth = parse_style_attributes(style_id)
         prompt, negative_prompt = final_concepts.build_generation_spec(style_id, brief)
-        prompt_2 = final_concepts.build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
+        prompt_2 = final_concepts.build_prompt_2(style_id)  # SDXL's second text encoder
         references = style_references[style_id]
 
         from nss.generate import clip_scoring, dino_scoring

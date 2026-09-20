@@ -1,4 +1,4 @@
-"""Build the real per-(style, week) buyer-mix feature table from the raw H&M files (U1).
+"""Build the real per-(style, week) buyer-mix feature table from the raw H&M files.
 
 Reads `customers.csv`, the month-partitioned transactions Parquet and `articles.csv` (all
 read-only, under `NSS_DATA_ROOT`, default `data/`), maps every transaction to

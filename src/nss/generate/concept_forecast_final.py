@@ -1,4 +1,4 @@
-"""Closed loop for the final concepts (tasks N8, Q2): score each through the forecaster.
+"""Closed loop for the final concepts: score each through the forecaster.
 
 Each final concept image is embedded (CLIP ViT-L/14 + DINOv2), matched to the nearest catalogue
 style by the mean-embedding retrieval of `concept_forecast_index`, and looked up in the frozen
@@ -12,8 +12,8 @@ to its intended style is expected by construction and is weak evidence of anythi
 on held-out real photos (`concept_forecast_validation`) is the evidence for the method. No photo is
 excluded from the index here.
 
-Output: `reports/tables/concept_forecast_retrieval.csv` (same columns as the N8 file
-`concept_forecast_final.csv`, which is left untouched, plus `top5`, `similarity`, `margin`,
+Output: `reports/tables/concept_forecast_retrieval.csv` (same columns as the earlier free-text
+file `concept_forecast_final.csv`, which is left untouched, plus `top5`, `similarity`, `margin`,
 `n_index_styles`, `n_index_images`).
 
 Usage:

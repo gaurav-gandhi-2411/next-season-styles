@@ -1,4 +1,4 @@
-"""Validate Gate 3 and the integrity check against human labels (tasks N2 and N3).
+"""Validate Gate 3 and the integrity check against human labels.
 
 A gate is only trusted after it has been run on cases with known answers:
 

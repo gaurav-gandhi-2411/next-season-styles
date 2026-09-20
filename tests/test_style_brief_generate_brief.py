@@ -120,7 +120,7 @@ def test_generate_design_brief_rendered_prompt_has_no_human_model_language() -> 
 
 
 def test_generate_design_brief_rendered_prompt_leads_with_attribute_clause() -> None:
-    """`rendered_prompt` must start with `attribute_clause` (task F4: SDXL/CLIP truncation always
+    """`rendered_prompt` must start with `attribute_clause` (SDXL/CLIP truncation always
     drops the TAIL of a too-long prompt, so the 4 defining attributes must lead, not trail)."""
     brief = generate_design_brief(_synthetic_profile())
 
@@ -132,7 +132,7 @@ def test_generate_design_brief_rendered_prompt_leads_with_attribute_clause() -> 
 
 def test_generate_design_brief_novelty_clauses_come_after_attribute_clause() -> None:
     """Novelty/change-axis content must appear AFTER the defining-attribute clause, never before
-    -- the exact ordering defect a real generation run found (task F4)."""
+    -- the exact ordering defect a real generation run found."""
     brief = generate_design_brief(_synthetic_profile())
     prompt = brief["rendered_prompt"]
     attribute_end = prompt.index(brief["attribute_clause"]) + len(brief["attribute_clause"])

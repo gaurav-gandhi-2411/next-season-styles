@@ -1,4 +1,4 @@
-"""Widen the real reference base per final style (task N5): candidates for 25 screened references.
+"""Widen the real reference base per final style: candidates for 25 screened references.
 
 WHY: Gate 1/1b limits and the leave-one-out control rest on only 4-8 real articles per style, so
 the p90 thresholds were noisy (a p90 over 4-6 references is essentially the closest real pair).
@@ -47,7 +47,7 @@ SUMMER_OUT = Path("reports/tables/reference_pool_widened_summer.csv")
 def main(summer: bool = False) -> None:
     """Select and fetch candidate references for every final style; write the pool manifest.
 
-    `summer=True` does the N6 Summer style instead, with the sales window ending at the summer
+    `summer=True` does the Summer style instead, with the sales window ending at the summer
     forecast origin (the forecast could not have seen later sales).
     """
     final = (

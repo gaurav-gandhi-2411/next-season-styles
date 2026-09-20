@@ -3,7 +3,7 @@
 Every function here scores ONE origin's eval set against ONE method's predictions: a 1-D array of
 realized targets (`y_true`), a 1-D array of that method's predictions (`y_pred`), and (for WMAPE
 only) a 1-D array of per-row weights. `score_predictions` is the single reusable entry point -- it
-takes those three arrays and returns all 7 metrics in one dict. A later task that plugs in a
+takes those three arrays and returns all 7 metrics in one dict. A later model that plugs in a
 LightGBM prediction column (or a random-permutation floor -- see `nss.models.random_floor`) calls
 `score_predictions` exactly the same way the 4 baselines in `nss.models.backtest` do; nothing in
 this module is baseline-specific.

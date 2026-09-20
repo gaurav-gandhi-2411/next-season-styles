@@ -1,6 +1,6 @@
-"""Cross-process determinism regression test for `nss.models.lambdarank_model` (Task G2).
+"""Cross-process determinism regression test for `nss.models.lambdarank_model`.
 
-Same rationale/mechanism as `tests/test_determinism_cross_process.py` (the L2 model's own
+Same rationale/mechanism as `tests/test_determinism_cross_process.py` (the LightGBM model's own
 cross-process test): a single Python process cannot exercise the cross-process class of
 nondeterminism at all (see that module's docstring for the root cause -- `pl.Categorical`'s
 category->code dictionary construction, fixed via `pl.Enum` in `nss.features.model_features`),
@@ -40,7 +40,7 @@ def test_lambdarank_predictions_are_bit_identical_across_separate_process_invoca
     """Two genuinely separate `python` process runs of the same `lambdarank` train+predict
     pipeline, on the same synthetic data and hyperparameters, must produce EXACTLY the same
     predictions for every (style_key, origin_week) row -- `np.array_equal`, not `np.allclose`, the
-    same bar as the L2 model's own cross-process test."""
+    same bar as the LightGBM model's own cross-process test."""
     run1 = _run_worker()
     run2 = _run_worker()
 

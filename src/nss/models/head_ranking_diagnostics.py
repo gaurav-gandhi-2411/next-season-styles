@@ -1,9 +1,9 @@
-"""Task G1: four read-only diagnostics probing whether the Precision@3 head-ranking result is a
+"""Four read-only diagnostics probing whether the Precision@3 head-ranking result is a
 genuine noise floor or a fixable objective-mismatch defect. NO TRAINING happens in this module
 except the one sanctioned exception in (b) -- see COMPRESSION (b) below -- which reproduces the
 FROZEN, already-established LightGBM model's own predictions (never a new model/config).
 
-MOTIVATION (see PLAN.md / task A1): the TRUE top-3 overlaps 0.421 between consecutive backtest
+MOTIVATION (see PLAN.md): the TRUE top-3 overlaps 0.421 between consecutive backtest
 origins (4 weeks apart), suggesting the head IS reachable from recent history. Yet the current
 LightGBM L2-regression model's pooled Precision@3 is ~0.056
 (`reports/tables/backtest_summary_v2.csv`). This module runs 4 diagnostics to tell defect from
@@ -28,7 +28,7 @@ never checked in (only aggregate per-origin metrics in `backtest_per_origin_ligh
 `lightgbm_walk_forward_raw_predictions` re-runs the EXACT existing walk-forward inference loop
 (`nss.models.lightgbm_model.build_model_frame` / `train_lightgbm` / `predict_lightgbm`, unchanged)
 with the FROZEN winning hyperparameters (`nss.models.final_forecast.FINAL_MODEL_CONFIG`) to
-recover them -- per this project's own verified cross-process determinism guarantee (D3a, see
+recover them -- per this project's own verified cross-process determinism guarantee (see
 `nss.models.lightgbm_model` module docstring), this reproduces BIT-IDENTICAL predictions to the
 ones already checked in, not a new model. `main()` cross-checks this directly against
 `backtest_per_origin_lightgbm.csv`'s own `precision_at_3` column before trusting the reproduced
@@ -94,7 +94,7 @@ DEFAULT_PER_ORIGIN_OUT_PATH = Path("reports/tables/ranking_diagnostics_per_origi
 NEAR_TIE_GAP_RANKS: tuple[int, ...] = (4, 5, 10)
 
 # A per-origin cross-check tolerance for `main()`'s reproduced-vs-checked-in-CSV determinism
-# verification (see module docstring (b)) -- this project's own D3a ablation measured bit-identical
+# verification (see module docstring (b)) -- this project's own ablation measured bit-identical
 # (`np.array_equal`, max abs diff 0.0) reproduction across separate processes, so any tolerance
 # above float64 noise would already hide a real regression; this is deliberately tight, not loose.
 DETERMINISM_CHECK_RTOL = 1e-9
@@ -228,7 +228,7 @@ def lightgbm_walk_forward_raw_predictions(
     origin), but returns the raw `(style_key, origin_week, y_true, y_pred)` rows instead of
     aggregated metrics -- those raw predictions were never checked in. Uses the FROZEN, already-
     established `config` (never re-tuned here) -- per this project's own verified cross-process
-    determinism guarantee (D3a), this reproduces bit-identical predictions to whatever already
+    determinism guarantee, this reproduces bit-identical predictions to whatever already
     produced `backtest_per_origin_lightgbm.csv`, not a new model.
 
     Args:

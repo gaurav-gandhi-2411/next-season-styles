@@ -1,4 +1,4 @@
-"""Time-budgeted fetch of catalogue photos for the Q2 retrieval index.
+"""Time-budgeted fetch of catalogue photos for the retrieval index.
 
 Coverage-first plan (chosen BEFORE any retrieval numbers exist, and independent of the 40 validation
 photos): walk the forecast table's styles in predicted-intensity rank order and fetch ONE article

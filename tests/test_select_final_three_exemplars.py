@@ -49,8 +49,8 @@ def _final_three_fixture(rows: list[dict[str, object]]) -> pl.DataFrame:
 
 
 def test_select_final_three_targets_orders_t1_then_t2_by_growth_ratio_desc() -> None:
-    """final_rank_1 is the T1 row; final_rank_2/3 are T2 rows in descending growth_ratio order,
-    regardless of the input table's row order."""
+    """final_rank_1 is the incumbent row; final_rank_2/3 are emerging rows in descending
+    growth_ratio order, regardless of the input table's row order."""
     # Deliberately out of final order, to prove sorting (not table order) drives the result.
     final_three = _final_three_fixture([_T2_LOW_GROWTH_ROW, _T1_ROW, _T2_HIGH_GROWTH_ROW])
 
@@ -142,7 +142,7 @@ def test_find_reusable_rows_returns_none_for_unseen_style_key() -> None:
 
 def test_find_reusable_rows_ignores_control_role() -> None:
     """A style_key that happens to only appear under `control` must not be treated as reusable
-    (only Phase 2 `winner_rank_*` rows are equivalent exemplar selections)."""
+    (only the earlier `winner_rank_*` rows are equivalent exemplar selections)."""
     existing = _existing_manifest_fixture()
 
     reused = find_reusable_rows(existing, "Menswear || Scarf || Accessories || Grey || Melange")

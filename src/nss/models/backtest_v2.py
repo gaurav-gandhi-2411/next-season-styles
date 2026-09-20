@@ -1,6 +1,6 @@
 """Backtest v2: like-for-like LightGBM-vs-baselines comparison, random-guessing floor, paired diffs.
 
-FIXES THE PHASE 2 GAP (see PLAN / session report): Phase 2's `backtest_summary.csv` scored the 4
+FIXES A GAP IN THE FIRST BACKTEST (see PLAN): the first `backtest_summary.csv` scored the 4
 baselines over all 20 rolling origins, while `backtest_summary_lightgbm.csv` scored LightGBM over
 only the 12 walk-forward test origins (`nss.models.lightgbm_model`'s `INITIAL_POOL_SIZE` reserves
 the first 8 as a training-only pool) -- an invalid head-to-head comparison. This module re-runs
@@ -69,8 +69,8 @@ from nss.models.random_floor import (
 )
 
 # A split needs at least this many origins for its CI to be reported as more than "directional
-# only" -- see module docstring / task spec. Deliberately less than BOOTSTRAP_BLOCK_SIZE*2 (8) would
-# leave under 2 full blocks for the bootstrap to draw from; 8 is the task's own specified cutoff.
+# only" -- see module docstring. Deliberately less than BOOTSTRAP_BLOCK_SIZE*2 (8) would
+# leave under 2 full blocks for the bootstrap to draw from; 8 is the specified cutoff.
 MIN_ORIGINS_FOR_NON_DIRECTIONAL = 8
 
 DEFAULT_PANEL_PATH = Path("data/processed/style_week_panel.parquet")

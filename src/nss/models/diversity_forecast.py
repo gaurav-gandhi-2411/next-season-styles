@@ -1,52 +1,55 @@
-"""Diversity-constrained reselection (task A7): T1 "incumbent" / T2 "emerging" winners plus a
+"""Diversity-constrained reselection: "incumbent" / "emerging" winners plus a
 diversity-constrained seasonal bonus v2, all built on top of `nss.models.final_forecast`'s already-
 trained final model, ranking frame, and guard/SHAP infrastructure (imported and reused verbatim,
 never duplicated -- see that module's own docstring for the model/guard/season rationale, not
 re-litigated here).
 
 DIVERSITY COLLISION DEFINITION: two styles collide iff they share BOTH `product_type_name` AND
-`perceived_colour_master_name` -- exactly the task brief's own pair, not the full 5-column
+`perceived_colour_master_name` -- the specified pair, not the full 5-column
 `style_key` (which would make collisions nearly impossible and defeat the constraint's purpose:
 avoiding e.g. several near-identical black T-shirts dominating one list). See
 `DIVERSITY_KEY_COLS` / `apply_diversity_constraint`.
 
 DIVERSITY WALK CONVENTION: `apply_diversity_constraint` walks an already-sorted (best-first) ranking
 top-down; a row whose `DIVERSITY_KEY_COLS` pair was already claimed by a higher-ranked row is
-SKIPPED outright -- not included in the output at any rank, never backfilled or renumbered around,
-per task instructions. If the eligible pool is exhausted before `top_n` diversity-compliant styles
+SKIPPED outright -- not included in the output at any rank, never backfilled or renumbered around.
+If the eligible pool is exhausted before `top_n` diversity-compliant styles
 are found, fewer than `top_n` rows are returned (never an error) -- `main()` logs this if it
 happens.
 
-T2 GROWTH RATIO (JUDGMENT CALL): `growth_ratio = predicted_intensity / trailing_13w_mean_intensity`,
-where the trailing mean uses the SAME inclusive-of-origin-week windowing convention as
-`final_forecast`'s GUARD WINDOW CONVENTION (13 weeks, `min_samples=1`, current row is the window's
-last element) -- consistent with how every other "trailing N observed weeks" window in this
-codebase treats the forecast origin. This is a NEW column computed here (not present anywhere in
-`final_forecast`), on `units_per_active_article` (the raw historical intensity signal, matching
-what `predicted_intensity` itself represents on the log1p scale -- see `final_forecast`'s
-DISCREPANCY A), not on `intensity_shrunk` (a shrunk model INPUT feature, not a comparable historical
-observation for a ratio denominator).
+EMERGING GROWTH RATIO (JUDGMENT CALL): `growth_ratio = predicted_intensity /
+trailing_13w_mean_intensity`, where the trailing mean uses the SAME inclusive-of-origin-week
+windowing convention as `final_forecast`'s GUARD WINDOW CONVENTION (13 weeks, `min_samples=1`,
+current row is the window's last element) -- consistent with how every other "trailing N observed
+weeks" window in this codebase treats the forecast origin. This is a NEW column computed here (not
+present anywhere in `final_forecast`), on `units_per_active_article` (the raw historical intensity
+signal, matching what `predicted_intensity` itself represents on the log1p scale -- see
+`final_forecast`'s DISCREPANCY A), not on `intensity_shrunk` (a shrunk model INPUT feature, not a
+comparable historical observation for a ratio denominator).
 
-T2 ZERO-TRAILING-MEAN HANDLING (JUDGMENT CALL): styles with `trailing_13w_mean_intensity <= 0` (no
-recent sales at all) are EXCLUDED from T2 entirely, rather than assigned an infinite/undefined
+EMERGING ZERO-TRAILING-MEAN HANDLING (JUDGMENT CALL): styles with
+`trailing_13w_mean_intensity <= 0` (no recent sales at all) are EXCLUDED from the emerging list
+entirely, rather than assigned an infinite/undefined
 ratio or a floored denominator. "Growth from zero" is not a meaningful multiplicative ratio, and a
 style with zero recent sales is exactly the kind of speculative, commercially-thin pick the
 absolute-intensity floor below already exists to filter out -- excluding it at the ratio step is
 consistent with that intent, not a separate ad hoc rule.
 
-T2 ABSOLUTE-INTENSITY FLOOR (JUDGMENT CALL): a T2 candidate must ALSO have `predicted_intensity >=
-t2_absolute_intensity_floor(ranking)`, defined as the MEDIAN `predicted_intensity` among ALL
-guard-passing styles at the forecast origin (pre-diversity, pre-growth-ranking). Rationale: this
-ties "emerging" to "commercially comparable to at least a typical guard-passing style" rather than
-letting a tiny micro-style's large relative jump (e.g. 0.5 -> 2.0 units) dominate a list that is
-supposed to be commercially meaningful. The median is a RELATIVE-TO-THE-DATA choice (moves with the
-panel, needs no re-tuning if its scale shifts) rather than a fixed literal; `GUARD1_MIN_MEAN_N_
-ACTIVE_ARTICLES` itself is an article-COUNT threshold, not on the same unit scale as
-`predicted_intensity`, so it is not a valid floor here directly (considered and rejected).
+EMERGING ABSOLUTE-INTENSITY FLOOR (JUDGMENT CALL): an emerging candidate must ALSO have
+`predicted_intensity >= t2_absolute_intensity_floor(ranking)`, defined as the MEDIAN
+`predicted_intensity` among ALL guard-passing styles at the forecast origin (pre-diversity,
+pre-growth-ranking). Rationale: this ties "emerging" to "commercially comparable to at least a
+typical guard-passing style" rather than letting a tiny micro-style's large relative jump (e.g. 0.5
+-> 2.0 units) dominate a list that is supposed to be commercially meaningful. The median is a
+RELATIVE-TO-THE-DATA choice (moves with the panel, needs no re-tuning if its scale shifts) rather
+than a fixed literal; `GUARD1_MIN_MEAN_N_ACTIVE_ARTICLES` itself is an article-COUNT threshold, not
+on the same unit scale as `predicted_intensity`, so it is not a valid floor here directly
+(considered and rejected).
 
-FINAL THREE (`build_final_three`): T1 rank 1 + T2 ranks 1-2, skipping a T2 entry that duplicates the
-T1 pick (moving to the next T2 entry on collision, per task step 4) -- note this is a SEPARATE
-de-duplication step from the diversity constraint (a T1/T2 duplicate style can still collide on
+FINAL THREE (`build_final_three`): incumbent rank 1 + emerging ranks 1-2, skipping an emerging
+entry that duplicates the incumbent pick (moving to the next emerging entry on collision) -- note
+this is a SEPARATE de-duplication step from the diversity constraint (an incumbent/emerging
+duplicate style can still collide on
 `DIVERSITY_KEY_COLS` with itself trivially; the two rules compose but are not the same rule).
 """
 
@@ -65,7 +68,7 @@ from nss.models.final_forecast import compute_local_shap_drivers
 DIVERSITY_KEY_COLS: tuple[str, str] = ("product_type_name", "perceived_colour_master_name")
 
 # Same inclusive-of-origin-week trailing window convention as final_forecast.GUARD1_WINDOW_WEEKS.
-# See module docstring T2 GROWTH RATIO.
+# See module docstring EMERGING GROWTH RATIO.
 GROWTH_RATIO_WINDOW_WEEKS = final_forecast.GUARD1_WINDOW_WEEKS
 
 DEFAULT_T1_OUT_PATH = Path("reports/tables/top_styles_incumbent.csv")
@@ -106,7 +109,7 @@ def apply_diversity_constraint(
 
 
 def select_t1_incumbent(ranking: pl.DataFrame, top_n: int = final_forecast.TOP_N) -> pl.DataFrame:
-    """T1 "incumbent winners": `final_forecast`'s own guard-passing, absolute-`predicted_intensity`
+    """Incumbent winners: `final_forecast`'s own guard-passing, absolute-`predicted_intensity`
     ranking (identical basis to `top_styles.csv`), diversity-constrained."""
     passing = ranking.filter(
         pl.col("guard1_pass") & pl.col("guard2_pass") & pl.col("guard3_pass")
@@ -115,8 +118,10 @@ def select_t1_incumbent(ranking: pl.DataFrame, top_n: int = final_forecast.TOP_N
 
 
 def _add_trailing_intensity_mean(panel: pl.DataFrame) -> pl.DataFrame:
-    """Attach `trailing_13w_mean_intensity` (T2's growth-ratio denominator). See module docstring
-    T2 GROWTH RATIO for the windowing convention."""
+    """Attach `trailing_13w_mean_intensity` (the emerging list's growth-ratio denominator).
+
+    See module docstring EMERGING GROWTH RATIO for the windowing convention.
+    """
     return panel.with_columns(
         trailing_13w_mean_intensity=pl.col("units_per_active_article")
         .rolling_mean(window_size=GROWTH_RATIO_WINDOW_WEEKS, min_samples=1)
@@ -135,12 +140,15 @@ def build_trailing_intensity_frame(
 
 
 def t2_absolute_intensity_floor(ranking: pl.DataFrame) -> float:
-    """T2's absolute-intensity floor: the MEDIAN `predicted_intensity` among all guard-passing
-    styles at the forecast origin. See module docstring T2 ABSOLUTE-INTENSITY FLOOR."""
+    """The emerging list's absolute-intensity floor: the MEDIAN `predicted_intensity` among all
+    guard-passing styles at the forecast origin. See module docstring EMERGING ABSOLUTE-INTENSITY
+    FLOOR."""
     passing = ranking.filter(pl.col("guard1_pass") & pl.col("guard2_pass") & pl.col("guard3_pass"))
     median = passing["predicted_intensity"].median()
     if median is None:
-        raise ValueError("No guard-passing styles -- cannot compute a T2 absolute-intensity floor.")
+        raise ValueError(
+            "No guard-passing styles -- cannot compute an emerging absolute-intensity floor."
+        )
     return float(median)
 
 
@@ -149,9 +157,12 @@ def build_t2_candidate_frame(
     ranking: pl.DataFrame,
     forecast_origin: date = final_forecast.FORECAST_ORIGIN,
 ) -> pl.DataFrame:
-    """T2's full guard-passing, floor-passing, growth-ratio-ranked candidate pool (pre-diversity,
-    sorted descending by `growth_ratio`). See module docstring T2 ZERO-TRAILING-MEAN HANDLING and
-    T2 ABSOLUTE-INTENSITY FLOOR for the two eligibility rules applied beyond the 3 base guards."""
+    """The emerging list's full guard-passing, floor-passing, growth-ratio-ranked candidate pool
+    (pre-diversity, sorted descending by `growth_ratio`).
+
+    See module docstring EMERGING ZERO-TRAILING-MEAN HANDLING and EMERGING ABSOLUTE-INTENSITY FLOOR
+    for the two eligibility rules applied beyond the 3 base guards.
+    """
     trailing = build_trailing_intensity_frame(panel, forecast_origin)
     floor = t2_absolute_intensity_floor(ranking)
     candidates = (
@@ -179,7 +190,7 @@ def select_t2_emerging(
     top_n: int = final_forecast.TOP_N,
     forecast_origin: date = final_forecast.FORECAST_ORIGIN,
 ) -> pl.DataFrame:
-    """T2 "emerging winners": top `top_n` by `growth_ratio`, diversity-constrained. See
+    """Emerging winners: top `top_n` by `growth_ratio`, diversity-constrained. See
     `build_t2_candidate_frame` for eligibility."""
     candidates = build_t2_candidate_frame(panel, ranking, forecast_origin)
     return apply_diversity_constraint(candidates, top_n).drop("rank_unguarded")
@@ -207,8 +218,9 @@ def build_final_three(
     forecast_frame: pl.DataFrame,
     columns: list[str],
 ) -> pl.DataFrame:
-    """T1 rank 1 + T2 ranks 1-2 (skipping a T2 entry that duplicates the T1 pick, per module
-    docstring FINAL THREE), with top-5 local SHAP drivers and a `source_table` column attached.
+    """Incumbent rank 1 + emerging ranks 1-2 (skipping an emerging entry that duplicates the
+    incumbent pick, per module docstring FINAL THREE), with top-5 local SHAP drivers and a
+    `source_table` column attached.
 
     Args:
         t1: `select_t1_incumbent`'s output (already diversity-constrained, sorted by rank).
@@ -218,9 +230,10 @@ def build_final_three(
         columns: The model's feature columns (for SHAP).
 
     Returns:
-        Up to 3 rows: T1's rank-1 style, then up to 2 T2 styles (fewer if T2 itself has fewer than
-        3 non-duplicate entries), each with `source_table` in `{"T1_incumbent", "T2_emerging"}`,
-        `growth_ratio` (null for the T1-sourced row), and `shap_driver_{1..5}_{feature,value}`.
+        Up to 3 rows: the incumbent list's rank-1 style, then up to 2 emerging styles (fewer if the
+        emerging list itself has fewer than 3 non-duplicate entries), each with `source_table` in
+        `{"T1_incumbent", "T2_emerging"}`, `growth_ratio` (null for the incumbent-sourced row), and
+        `shap_driver_{1..5}_{feature,value}`.
     """
     t1_pick = t1.head(1).with_columns(
         pl.lit("T1_incumbent").alias("source_table"),
@@ -370,10 +383,14 @@ def main() -> None:
     target_n = final_forecast.TOP_N
     t1 = select_t1_incumbent(ranking)
     if t1.height < target_n:
-        print(f"T1: diversity-constrained pool exhausted at {t1.height} styles (< {target_n})")
+        print(
+            f"incumbent: diversity-constrained pool exhausted at {t1.height} styles (< {target_n})"
+        )
     t2 = select_t2_emerging(panel, ranking)
     if t2.height < target_n:
-        print(f"T2: diversity-constrained pool exhausted at {t2.height} styles (< {target_n})")
+        print(
+            f"emerging: diversity-constrained pool exhausted at {t2.height} styles (< {target_n})"
+        )
 
     t1_shap = compute_local_shap_drivers(model, t1["style_key"].to_list(), forecast_frame, columns)
     t1_out = _t1_output_frame(t1.join(t1_shap, on="style_key", how="left"))

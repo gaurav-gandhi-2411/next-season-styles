@@ -94,7 +94,7 @@ which avoids exploding the feature space for the higher-cardinality columns (e.g
 this is a plain, target-free categorical representation whose sole purpose is letting a model
 transfer knowledge to short-history / cold-start styles via their shared attributes.
 
-DETERMINISM (A5 FOLLOW-UP) (D3a): `pl.Enum` is used here rather than `pl.Categorical` specifically
+DETERMINISM (CROSS-PROCESS): `pl.Enum` is used here rather than `pl.Categorical` specifically
 because `pl.Categorical`'s category->integer-code dictionary is built by an internal (Rust-side,
 effectively hash-order-dependent) unique-value collection -- CONFIRMED empirically (a standalone
 minimal repro: casting >=2 columns to `pl.Categorical` in the same `with_columns` call already
@@ -109,7 +109,7 @@ mapping is identical every time. See `_style_key_enum`.
 
 IMPORTANT HONESTY NOTE ON MAGNITUDE: this `pl.Enum` fix, in isolation, was MEASURED (via a
 controlled ablation on the real production panel + the real `FINAL_MODEL_CONFIG` model -- see
-`nss.models.lightgbm_model`'s DETERMINISM (A5) FOLLOW-UP (D3a) docstring section for the full
+`nss.models.lightgbm_model`'s DETERMINISM (CROSS-PROCESS) docstring section for the full
 ablation table) to close only a floating-point-noise-level residual (max abs diff 5.3e-15) of the
 originally reported cross-process jitter -- NOT the dominant cause. The dominant cause (up to ~52%
 relative / ~6.2 absolute difference on the real model) was a missing `maintain_order="left"` on
@@ -318,7 +318,7 @@ def _add_share_of_parent_group(panel: pl.DataFrame) -> pl.DataFrame:
 def _style_key_enum(panel: pl.DataFrame, col: str) -> pl.Enum:
     """A fixed `pl.Enum` dtype for `col`, categories alphabetically sorted.
 
-    See module docstring DETERMINISM (A5 FOLLOW-UP) for why `pl.Enum` (an explicit, literal
+    See module docstring DETERMINISM (CROSS-PROCESS) for why `pl.Enum` (an explicit, literal
     category list) is used instead of `pl.Categorical` (an internally, non-deterministically
     built dictionary): `sorted(...)` on Python strings is a pure, deterministic operation with no
     hashing involved, so the resulting category->code mapping is identical across every process
@@ -386,7 +386,7 @@ def build_features(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataFram
         every `style_key` with a panel row at that exact `week_start` (i.e. the style already
         existed as of that origin -- see module docstring for why this is the eligibility rule).
         Columns: `style_key`, `origin_week`, the 5 `STYLE_KEY_COLS` attribute columns (cast to a
-        fixed, sorted `pl.Enum` -- see DETERMINISM (A5 FOLLOW-UP) in the module docstring), and
+        fixed, sorted `pl.Enum` -- see DETERMINISM (CROSS-PROCESS) in the module docstring), and
         every feature in `_FEATURE_COLS`.
     """
     missing = set(_REQUIRED_INPUT_COLS) - set(panel.columns)
@@ -415,7 +415,7 @@ def build_features(panel: pl.DataFrame, origin_weeks: list[date]) -> pl.DataFram
     )
     # Vocabulary built from `working` (the full panel, before the origin_weeks filter), not `out`,
     # so a given (style_key, origin_week) row's category codes never depend on which OTHER origin
-    # weeks were requested in the same call -- see DETERMINISM (A5 FOLLOW-UP) in the module
+    # weeks were requested in the same call -- see DETERMINISM (CROSS-PROCESS) in the module
     # docstring and `_style_key_enum`.
     out = out.with_columns([pl.col(c).cast(_style_key_enum(working, c)) for c in STYLE_KEY_COLS])
     return out.select(_OUTPUT_COLS)

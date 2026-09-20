@@ -1,4 +1,4 @@
-"""Score every N1 lever image with Gate 3 + integrity (API judge, one batched call per image).
+"""Score every lever image with Gate 3 + integrity (API judge, one batched call per image).
 
 The acceptance test for a lever is a VLM asked directly, per briefed change, "does this garment
 have <change>?" and answering yes. Results go to `reports/tables/prompt_lever_gate3.csv`

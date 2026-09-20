@@ -17,7 +17,7 @@ from nss.generate.scale_sweep import (
 
 
 def test_style_description_splits_final_rank_1_style_key() -> None:
-    """The chosen C3 style_key parses into its 5 attribute parts in the expected order."""
+    """The chosen sweep style_key parses into its 5 attribute parts in the expected order."""
     assert style_description(STYLE_KEY) == "black solid jersey basic t-shirt"
 
 

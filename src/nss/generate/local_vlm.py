@@ -1,4 +1,4 @@
-"""Local vision-language judge: no API quota, runs on the 8 GB GPU / CPU (task N4).
+"""Local vision-language judge: no API quota, runs on the 8 GB GPU / CPU.
 
 WHY: the Groq and Gemini judges are free-tier and quota-limited (Gemini 20 requests/day; Groq daily
 token budget), which made every earlier Gate-2 run partial, delayed or single-judge. A local model

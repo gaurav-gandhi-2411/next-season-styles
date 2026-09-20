@@ -1,4 +1,4 @@
-"""U3: re-tune the hyperparameters under the EMBARGOED protocol, selecting on rolling origins only.
+"""Re-tune the hyperparameters under the EMBARGOED protocol, selecting on rolling origins only.
 
 WHY: `lightgbm_model.select_hyperparameters` picked `FINAL_MODEL_CONFIG` (grid entry 5: 63 leaves,
 lr 0.05, 200 trees, min_child_samples 50) by training on pool origins 0..6 and validating on pool
@@ -9,7 +9,7 @@ PROTOCOL (fixed before running, no changes after seeing results):
 
 - SAME grid (`lightgbm_model.HYPERPARAM_GRID`, 6 configs), SAME criterion (validation RMSE on the
   log1p target scale), current shipped feature set (`build_model_frame`; features are held fixed so
-  U3 answers "was the config right", independent of U1/U2).
+  this answers "was the config right", independent of the customer/price features).
 - ROLLING-ORIGIN validation over the initial-pool origins ONLY: validation origin index `v` in
   `ROLLING_VALIDATION_INDICES = (4, 5, 6, 7)` (2019-04-08 .. 2019-07-01), each trained on the
   embargoed set `embargoed_train_origin_weeks(origins, v)` (origins `<= v - 16 weeks`, i.e. indices
@@ -29,8 +29,8 @@ column (`strict_single_origin_rmse`); the four-origin criterion is the one that 
 origin trained on one origin is not a usable selection signal.
 
 Outputs (new files): `reports/tables/embargoed_retune_grid.csv` (config x validation origin),
-`reports/tables/embargoed_retune_selected.csv` (one row per config: mean RMSE, rank, strict-origin RMSE,
-flags for selected and current).
+`reports/tables/embargoed_retune_selected.csv` (one row per config: mean RMSE, rank, strict-origin
+RMSE, flags for selected and current).
 
 Usage:
     python -m nss.models.embargoed_retune
@@ -55,7 +55,7 @@ from nss.models.lightgbm_model import (
     train_lightgbm,
 )
 from nss.models.metrics import score_predictions
-from nss.models.u_common import load_panel
+from nss.models.experiment_common import load_panel
 
 ROLLING_VALIDATION_INDICES: tuple[int, ...] = (4, 5, 6, 7)
 # the only validation origin whose label window closes before the first test origin

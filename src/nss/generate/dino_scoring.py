@@ -1,4 +1,4 @@
-"""DINOv2-based image embeddings, the second embedding space for margin scoring (task C2).
+"""DINOv2-based image embeddings, the second embedding space for margin scoring.
 
 Companion to `nss.generate.clip_scoring`: same `embed_image(path) -> L2-normalized np.ndarray`
 shape, different backbone (`facebook/dinov2-base` via `transformers`' `AutoModel`/
@@ -11,7 +11,7 @@ against natural-language captions, so its embedding space is comparatively sensi
 whole-image "gestalt" cues that correlate with how a caption would describe a photo -- including
 shared product-photography conventions (white background, flat-lay framing, centered garment)
 that inflate raw cosine similarity between genuinely different H&M styles regardless of actual
-style relatedness (the B3 confound `nss.generate.margin_scoring`'s docstring describes: mean 0.799
+style relatedness (the confound `nss.generate.margin_scoring`'s docstring describes: mean 0.799
 CLIP cosine similarity across styles that share nothing but photography convention). DINOv2 is
 trained with a self-supervised, purely visual objective (no paired-caption supervision) that
 explicitly targets object/part-level structure -- shape, texture, local geometry -- over

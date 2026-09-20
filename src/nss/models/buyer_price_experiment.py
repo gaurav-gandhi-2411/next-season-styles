@@ -1,11 +1,12 @@
-"""U4: train the treatment model (current features + U1 customer + U2 price) and decide. ONE SHOT.
+"""Train the treatment model (current features + customer + price features) and decide. ONE SHOT.
 
 Arms (both retrained here on the same 12 embargoed test origins, seed 42, same `train_lightgbm`):
 
 - control:   `build_model_frame` features with `final_forecast.FINAL_MODEL_CONFIG` (the shipped
              model under the embargo protocol);
 - treatment: control features + `CUSTOMER_FEATURE_COLS` + `PRICE_FEATURE_COLS`, with the config
-             chosen by U3 (`reports/tables/embargoed_retune_selected.csv`, the row with `selected`).
+             chosen by the embargoed retune (`reports/tables/embargoed_retune_selected.csv`, the row
+             with `selected`).
 
 Baselines (seasonal_naive, ewma_persistence, global_mean, parent_category_mean) come from
 `backtest.run_backtest` on the same origins. Paired per-origin differences (block bootstrap: block
@@ -41,25 +42,25 @@ test origins with a block-bootstrap CI.
 In-sample SHAP says what the model uses, not that the use generalises; the paired out-of-sample
 table decides adoption.
 
-ERRATUM (added AFTER the run; the code, the recorded rule and `buyer_price_hypothesis.csv` are unchanged):
-"falling age concentration" means RISING age dispersion, so the expected sign for the four
-`cust_age_std_*` / `cust_age_gini_*` slopes should have been +1, not -1 as coded in
+ERRATUM (added AFTER the run; the code, the recorded rule and `buyer_price_hypothesis.csv` are
+unchanged): "falling age concentration" means RISING age dispersion, so the expected sign for the
+four `cust_age_std_*` / `cust_age_gini_*` slopes should have been +1, not -1 as coded in
 `HYPOTHESIS_FEATURES`. As declared (age signs -1) 4 of 10 features are SHAP-consistent and 6 of 10
 growth-consistent (verdict MIXED); with the four age signs flipped, 7 of 10 are SHAP-consistent
 (verdict still MIXED, needs 8) and 10 of 10 growth-consistent. The verdict is MIXED under both
 readings, so the specification error does not change the conclusion; the adoption rule is
 unaffected.
 
-NEW TOP-3: the treatment model is retrained on the wide final-model origin set with the U3 config,
-scored at the forecast origin, and passed through the SAME selection guards as the shipped pipeline
-(`final_forecast` guards -> `diversity_forecast.select_t2_emerging` ->
+NEW TOP-3: the treatment model is retrained on the wide final-model origin set with the retuned
+config, scored at the forecast origin, and passed through the SAME selection guards as the shipped
+pipeline (`final_forecast` guards -> `diversity_forecast.select_t2_emerging` ->
 `reselect_final_three.reselect`). The same procedure run with the control (current features, shipped
 config) must reproduce the committed `top_styles_final_three.csv`, otherwise the comparison is
 flagged.
 
-Outputs (new files only): buyer_price_per_origin.csv, buyer_price_paired_diff.csv, buyer_price_decision.csv, buyer_price_shap.csv,
-buyer_price_hypothesis.csv, buyer_price_new_top3.csv under `reports/tables/`; the last-fold booster goes to the
-gitignored `models_scratch/`.
+Outputs (new files only): buyer_price_per_origin.csv, buyer_price_paired_diff.csv,
+buyer_price_decision.csv, buyer_price_shap.csv, buyer_price_hypothesis.csv, buyer_price_new_top3.csv
+under `reports/tables/`; the last-fold booster goes to the gitignored `models_scratch/`.
 
 Usage:
     python -m nss.models.buyer_price_experiment
@@ -99,7 +100,7 @@ from nss.models.lightgbm_model import (
 )
 from nss.models.metrics import METRIC_KEYS
 from nss.models.reselect_final_three import intimate_product_types, reselect
-from nss.models.u_common import (
+from nss.models.experiment_common import (
     ARTICLES_PATH,
     build_treatment_frame,
     load_panel,
@@ -210,7 +211,7 @@ def decision_table(paired_vs_control: pl.DataFrame, per_origin: pl.DataFrame) ->
 
 
 def selected_u3_config() -> LGBMConfig:
-    """The grid config U3 selected (row with `selected`), looked up in `HYPERPARAM_GRID`."""
+    """The `HYPERPARAM_GRID` config the embargoed retune selected (row with `selected`)."""
     row = pl.read_csv(U3_SELECTED).filter(pl.col("selected")).row(0, named=True)
     return HYPERPARAM_GRID[int(row["grid_index"])]
 
@@ -357,7 +358,7 @@ def _ranking_frame(
 def forecast_final_three(
     panel: pl.DataFrame, config: LGBMConfig, with_new_features: bool
 ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    """Wide-origin final model -> ranking -> T2 emerging -> final three (shipped selection rules).
+    """Wide-origin final model -> ranking -> emerging -> final three (shipped selection rules).
 
     Returns:
         `(final_three, t2_emerging, ranking)`.
@@ -405,7 +406,7 @@ def main() -> None:
         raise SystemExit("control did not reproduce the recorded embargoed headline; stopping")
 
     config = selected_u3_config()
-    print(f"treatment config (U3 selected): {config}")
+    print(f"treatment config (retune selected): {config}")
     treatment_frame = build_treatment_frame(control_frame, panel)
     assert treatment_frame.height == control_frame.height
     assert treatment_frame.select(control_frame.columns).equals(control_frame)
@@ -482,7 +483,7 @@ def main() -> None:
         print(top3)
     print(f"new top-3 == current: {new_keys == current} (as sets: {set(new_keys) == set(current)})")
     print(
-        "new T2 (rank 1..10) present in committed T2: "
+        "new emerging (rank 1..10) present in committed emerging: "
         f"{[k in committed_t2 for k in new_t2['style_key'].to_list()]}"
     )
     print(f"DECISION: {decision['decision'][0]}")

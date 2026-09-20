@@ -22,7 +22,7 @@ _TSHIRT_STYLE = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
 
 
 def test_build_copy_anchor_prompt_is_a_literal_restatement() -> None:
-    """Matches the exact wording task E1 gives as the worked example for the T-shirt style."""
+    """Matches the exact wording used as the worked example for the T-shirt style."""
     assert build_copy_anchor_prompt(_TSHIRT_STYLE) == (
         "a black solid jersey basic t-shirt, product photography, plain background"
     )

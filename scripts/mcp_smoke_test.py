@@ -1,4 +1,4 @@
-"""MCP smoke test a reviewer can repeat (task K5).
+"""MCP smoke test a reviewer can repeat.
 
 Reads the `mcpServers` config block from the README's "MCP server" section AS WRITTEN (only the
 documented `cwd` placeholder is substituted with this checkout's path, which is exactly what the

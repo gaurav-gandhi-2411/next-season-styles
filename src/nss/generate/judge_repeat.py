@@ -1,4 +1,4 @@
-"""Judge repeat-scoring of the FINAL concepts (tasks J3/J4): fidelity median + observed spread.
+"""Judge repeat-scoring of the FINAL concepts: fidelity median + observed spread.
 
 Why: the same T-shirt image scored 0.64 then 0.43 across two judge calls (~0.2 noise) against Gate-2
 thresholds of 0.513 (Groq) / 0.667 (Gemini). A single call is not a precise measurement. Each final
@@ -74,7 +74,7 @@ def repeat_records() -> dict[tuple[str, str], list[dict[str, Any]]]:
 
 
 def judge_thresholds() -> dict[str, float]:
-    """Per-judge Gate-2 thresholds from H2's calibration (`0.75 x` each judge's positive mean)."""
+    """Per-judge Gate-2 thresholds from the calibration (`0.75 x` each judge's positive mean)."""
     _, _, thresholds = judge_rescore.recompute_calibration()
     return thresholds
 

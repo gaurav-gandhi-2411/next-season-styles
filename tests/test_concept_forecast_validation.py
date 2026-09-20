@@ -80,7 +80,7 @@ def test_sample_matches_the_n8_evaluation_set_and_gallery_excludes_eval_photos()
     # like-for-like with the 12.5% baseline: exactly the same 40 styles
     assert set(reps["style_key"].to_list()) == set(old["style_key"].to_list())
     assert reps.height == v.N_STYLES
-    # N8's representative-article rule: the lowest article_id of each style
+    # the free-text baseline's representative-article rule: the lowest article_id of each style
     art = v.cfi.load_article_styles()
     for row in reps.iter_rows(named=True):
         ids = art.filter(pl.col("style_key") == row["style_key"])["article_id"]

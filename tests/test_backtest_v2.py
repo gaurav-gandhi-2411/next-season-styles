@@ -31,7 +31,7 @@ def test_identify_lightgbm_origins_matches_checked_in_csv(tmp_path) -> None:
     panel = _real_extent_panel()
     all_origins = generate_origin_schedule(panel)
     expected = all_origins[INITIAL_POOL_SIZE:]
-    assert len(expected) == 12  # sanity, matches the task's documented 12 walk-forward origins
+    assert len(expected) == 12  # sanity, matches the documented 12 walk-forward origins
 
     csv_path = tmp_path / "backtest_per_origin_lightgbm.csv"
     pl.DataFrame({"origin_week": [o.origin_week for o in expected]}).write_csv(csv_path)

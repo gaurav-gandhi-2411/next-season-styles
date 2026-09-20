@@ -1,8 +1,8 @@
-"""Task G3: ranking-improvement variants tried against the G2 finding that `lambdarank`
+"""Ranking-improvement variants tried against the finding that `lambdarank`
 UNDERPERFORMS the existing L2 model on both headline Hit@3-in-topN metrics (see
-`nss.models.lambdarank_vs_l2`'s paired, block-bootstrapped comparison). Three variants, in the
-order the task specifies, each scored through the SAME `nss.models.metrics.score_predictions` /
-`nss.models.backtest.block_bootstrap_ci` machinery over the SAME 12 walk-forward test origins
+`nss.models.lambdarank_vs_l2`'s paired, block-bootstrapped comparison). Three variants, each scored
+through the SAME `nss.models.metrics.score_predictions` / `nss.models.backtest.block_bootstrap_ci`
+machinery over the SAME 12 walk-forward test origins
 (`nss.models.backtest_v2.identify_lightgbm_origins`) as L2/lambdarank, so every number here is
 directly, honestly comparable to `reports/tables/lambdarank_vs_l2_comparison.csv`.
 
@@ -10,7 +10,7 @@ FIXED TREE HYPERPARAMETERS (JUDGMENT CALL, same precedent as `nss.models.lambdar
 variant below reuses `nss.models.final_forecast.FINAL_MODEL_CONFIG` (the L2 model's own winning
 `num_leaves`/`learning_rate`/`n_estimators`/`min_child_samples`) rather than re-running
 `select_hyperparameters` -- this isolates each comparison to "same tree-building budget, different
-weighting/staging/ensembling", which is the actual question this task asks, and keeps the search
+weighting/staging/ensembling", which is the actual question asked here, and keeps the search
 bounded (no re-tuning against the walk-forward test set, which would be leakage).
 
 VARIANT (a) TOP-HEAVY SAMPLE WEIGHTING: plain L2 objective (`train_lightgbm_weighted` below is
@@ -25,8 +25,8 @@ tilt toward the head, since the headline metrics (Hit@3-in-top20/top10) only eve
 
 VARIANT (b) TWO-STAGE RANKING: stage 1 is the plain L2 model, trained/predicted exactly as
 `nss.models.lightgbm_model` does. Stage 2 is a SEPARATE L2-objective model trained ONLY on the
-TRAINING set's true-top-`HEAD_SIZE` rows per origin (by realised `y_true`, `HEAD_SIZE=50` -- the
-task's own suggested cutoff), i.e. a specialist that never sees tail rows at all. At TEST time, true
+TRAINING set's true-top-`HEAD_SIZE` rows per origin (by realised `y_true`, `HEAD_SIZE=50`), i.e. a
+specialist that never sees tail rows at all. At TEST time, true
 ranks are unknown, so the "head subset re-ranked by stage 2" is necessarily STAGE 1's OWN predicted
 top-`HEAD_SIZE` styles (the closest available proxy to "true top-50" at prediction time) -- stage 2
 re-scores exactly those `HEAD_SIZE` styles, and the final predicted ranking places all `HEAD_SIZE`
@@ -327,7 +327,7 @@ def run_variant_c_ensemble(
 
 
 def build_g3_comparison(panel: pl.DataFrame) -> pl.DataFrame:
-    """Assemble the full G3 comparison table: all 3 variants, each scored AND paired-diffed
+    """Assemble the full comparison table: all 3 variants, each scored AND paired-diffed
     against a FRESHLY-recomputed L2 model over the SAME 12 walk-forward test origins.
 
     L2 is recomputed here (via `run_lightgbm_walk_forward`) rather than read back from the
@@ -398,7 +398,7 @@ def build_g3_comparison(panel: pl.DataFrame) -> pl.DataFrame:
 
 
 def main() -> None:
-    """CLI entry point: build the full G3 comparison table, write it to `DEFAULT_OUT_PATH`."""
+    """CLI entry point: build the full comparison table, write it to `DEFAULT_OUT_PATH`."""
     panel = pl.read_parquet(DEFAULT_PANEL_PATH)
     comparison = build_g3_comparison(panel)
 

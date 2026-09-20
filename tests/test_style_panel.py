@@ -177,7 +177,7 @@ def test_densify_panel_inserts_zero_sale_weeks(tmp_path: Path) -> None:
 def test_densify_panel_no_nan_or_inf_anywhere(tmp_path: Path) -> None:
     """No numeric column contains NaN or +/-inf, on zero-sale rows or otherwise.
 
-    Regression test for C3: `units_per_active_article` is filled with the literal 0.0 on
+    Regression test: `units_per_active_article` is filled with the literal 0.0 on
     zero-sale rows (not computed via a 0/0 division), so it must never be NaN. `mean_price` /
     `median_price` are expected to be *null* (no price observed) on zero-sale rows -- that is a
     distinct, correct-by-design condition, not the NaN/inf this test guards against.

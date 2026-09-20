@@ -1,4 +1,4 @@
-"""Seasonal concept for the chosen season (task K8): the existing pipeline, conditioned on Summer.
+"""Seasonal concept for the chosen season: the existing pipeline, conditioned on Summer.
 
 The brief asks how the top styles OR generated concepts change for a chosen season. The seasonal
 top-3 tables already show the styles; this module closes the concept half by running the SAME

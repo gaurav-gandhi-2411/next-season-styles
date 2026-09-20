@@ -1,4 +1,4 @@
-"""Tests for `nss.generate.derive_unrelated_anchor_fix` (task F1)."""
+"""Tests for `nss.generate.derive_unrelated_anchor_fix`."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def test_is_discriminative_uses_absolute_value() -> None:
 
 
 def test_is_discriminative_reproduces_e1_contaminated_gaps_as_non_discriminative() -> None:
-    """E1's own contaminated gaps (task F1's motivating evidence) both fail this bar -- CLIP
+    """The original contaminated gaps (the motivating evidence) both fail this bar -- CLIP
     0.0029, DINOv2 0.0251, both far below 0.05."""
     assert is_discriminative(0.0029) is False
     assert is_discriminative(0.0251) is False
@@ -49,9 +49,10 @@ def test_is_discriminative_custom_threshold() -> None:
 def test_non_discriminative_gap_threshold_is_order_of_magnitude_above_e1_contaminated_gaps() -> (
     None
 ):
-    """Sanity check on the constant itself: it sits well above both of E1's contaminated gaps, so
-    the contamination this task fixes would have been correctly flagged non-discriminative under
-    the OLD (uncorrected) anchors too -- confirming the bar isn't fit to this run's own numbers."""
+    """Sanity check on the constant itself: it sits well above both of the original contaminated
+    gaps, so the contamination this module fixes would have been correctly flagged
+    non-discriminative under the OLD (uncorrected) anchors too -- confirming the bar isn't fit to
+    this run's own numbers."""
     assert NON_DISCRIMINATIVE_GAP_THRESHOLD > 0.0251
     assert NON_DISCRIMINATIVE_GAP_THRESHOLD > 0.0029
 

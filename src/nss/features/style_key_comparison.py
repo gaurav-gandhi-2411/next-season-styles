@@ -1,6 +1,6 @@
 """Compare the 5-column `style_key` against a reduced 4-column key via article-level silhouette.
 
-Phase 2's `style_validation.py` compared text-embedding clusters against `index_group_name`
+The earlier `style_validation.py` compared text-embedding clusters against `index_group_name`
 (coarse, only 5 values) via ARI/NMI and found weak agreement (ARI~=0.025, NMI~=0.15). That
 comparison has since been judged the WRONG test for style_key COHERENCE: `index_group_name` is far
 coarser than the 3,076-way style_key partition, so weak agreement with it is close to
@@ -85,7 +85,7 @@ REDUCED_STYLE_KEY_COLS: list[str] = [
 ]
 
 N_PERMUTATIONS = 50
-# Seeds 42, 43, ..., 91 -- one per permutation, documented scheme per task spec.
+# Seeds 42, 43, ..., 91 -- one per permutation, documented scheme.
 PERMUTATION_SEED_START = 42
 SILHOUETTE_SAMPLE_SIZE = 8000
 SILHOUETTE_SUBSAMPLE_SEED = 42

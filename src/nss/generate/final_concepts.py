@@ -1,13 +1,13 @@
-"""Generate + select the 3 final winning-style concept images (task C6).
+"""Generate + select the 3 final winning-style concept images.
 
-Consumes the 3 design briefs C5 wrote (`reports/tables/design_briefs.json`), generates 4
-`local_sdxl` candidates per style (one per seed in `SEEDS`), scores every candidate's margin in
-both CLIP and DINOv2 embedding space (`nss.generate.margin_scoring.margin`, against that style's
-own real references + the shared control pool), and selects the best candidate per style.
+Consumes the 3 design briefs written by `build_design_briefs` (`reports/tables/design_briefs.json`),
+generates 4 `local_sdxl` candidates per style (one per seed in `SEEDS`), scores every candidate's
+margin in both CLIP and DINOv2 embedding space (`nss.generate.margin_scoring.margin`, against that
+style's own real references + the shared control pool), and selects the best candidate per style.
 
-OPERATING POINT: `ip_adapter_scale=0.2` -- the only evidence-based in-band candidate from C3's
-scale sweep (`nss.generate.scale_sweep`). C3 found no scale tested landed in-band for BOTH CLIP
-and DINOv2 simultaneously: CLIP's only in-band scale was 0.2 (at the edge of its upper bound),
+OPERATING POINT: `ip_adapter_scale=0.2` -- the only evidence-based in-band candidate from the
+scale sweep (`nss.generate.scale_sweep`). The sweep found no scale tested landed in-band for BOTH
+CLIP and DINOv2 simultaneously: CLIP's only in-band scale was 0.2 (at the edge of its upper bound),
 DINOv2 never entered its band at any tested scale (0.2-0.9). This module does NOT try to work
 around that finding by hunting for a different scale that was never actually validated -- it uses
 the one scale the sweep evidence supports, and reports (never suppresses) a DINOv2 band miss if
@@ -15,22 +15,21 @@ one occurs. See `select_best_candidate`'s docstring for exactly how CLIP/DINOv2 
 handled at selection time.
 
 SELECTION RULE (documented, not left implicit): CLIP in-band status is PRIMARY, DINOv2 margin is
-a reported SECONDARY signal only (per C3's finding that DINOv2 may never be in-band -- a strict
-DINOv2 requirement would then block every candidate, which is not a workable selection rule given
-that finding). Candidates are ranked by distance-to-CLIP-band (0 if inside the band), then by
-higher CLIP margin, then by seed for a fully deterministic tie-break. C7 (a later task, the VLM
-attribute panel) may still re-rank or reject a selection made here via its own QC gate -- this
-module does not attempt to anticipate that, per the task's explicit instruction not to block C6 on
-a not-yet-run later task.
+a reported SECONDARY signal only (per the sweep's finding that DINOv2 may never be in-band -- a
+strict DINOv2 requirement would then block every candidate, which is not a workable selection rule
+given that finding). Candidates are ranked by distance-to-CLIP-band (0 if inside the band), then by
+higher CLIP margin, then by seed for a fully deterministic tie-break. The later VLM
+attribute panel may still re-rank or reject a selection made here via its own QC gate -- this
+module does not attempt to anticipate that and does not block on it.
 
 UNDERWEAR HARD REQUIREMENT: for the underwear style (`UNDERWEAR_STYLE_KEY`), the design brief's
 prompt/negative_prompt are strengthened (`strengthen_underwear_prompts`) with explicit
 no-human-model exclusions before generation -- flat-lay/mannequin product-catalogue framing only,
 never a worn/editorial/human shot. This is enforced two ways: (1) via SDXL's own `negative_prompt`
 conditioning (see `nss.generate.backends.generate_concept`'s `negative_prompt` parameter -- newly
-added by this task, since the design briefs' `negative_prompt` field was previously computed but
-never actually wired into generation), and (2) via a mandatory MANUAL visual check the task
-requires a human (here, the operating agent) to perform on the selected candidate before accepting
+added together with this module, since the design briefs' `negative_prompt` field was previously
+computed but never actually wired into generation), and (2) via a mandatory MANUAL visual check that
+requires a human to perform on the selected candidate before accepting
 it -- automated CLIP/DINOv2 margin scoring cannot verify "does this image show a person," so it is
 not treated as a substitute for actually looking at the image.
 
@@ -39,7 +38,7 @@ generate ALL local_sdxl candidates first, explicitly free the cached SDXL pipeli
 (`nss.generate.scale_sweep.free_sdxl_pipeline`), THEN import/run the CPU-only CLIP/DINOv2 scoring
 modules -- never in the same process turn as an SDXL generation call, on this 8 GB VRAM machine.
 
-TOKEN-BUDGET + GENERIC NEGATIVE-PROMPT RULE TABLE (task F4): `build_generation_spec` (below) now
+TOKEN-BUDGET + GENERIC NEGATIVE-PROMPT RULE TABLE: `build_generation_spec` (below)
 re-derives a short, mandatory attribute clause directly from `style_id`, fits the FULL assembled
 prompt to SDXL's real 77-CLIP-token budget (`nss.generate.prompt_budget`, dropping novelty content
 first, then descriptive detail -- never silently truncating), and applies
@@ -47,11 +46,11 @@ first, then descriptive detail -- never silently truncating), and applies
 intimates/Knitwear-sweater exclusions). The underwear framing requirement below is now triggered
 GENERICALLY off `negative_prompt_rules.is_underwear_or_intimate`, not `style_id ==
 UNDERWEAR_STYLE_KEY` equality, so it (and the rule table) keep applying correctly regardless of
-which styles a future retraining run (Track G) selects. `build_generation_spec`'s return type
+which styles a future retraining run selects. `build_generation_spec`'s return type
 (`(prompt, negative_prompt)`) is UNCHANGED so every existing caller keeps working without
 modification; `build_prompt_2` is a new, separate function for callers that also want SDXL's
 second text encoder populated (`prompt_2`/`negative_prompt_2`, wired into
-`nss.generate.backends.generate_concept` by this same task) -- see that function's docstring.
+`nss.generate.backends.generate_concept`) -- see that function's docstring.
 
 Usage:
     uv run python -m nss.generate.final_concepts
@@ -84,7 +83,7 @@ OUTPUT_DIR = Path("data/generated/final_concepts")
 GEMINI_OUTPUT_DIR = Path("data/generated/final_concepts_gemini")
 OUTPUT_TABLE_PATH = Path("reports/tables/final_concepts.csv")
 
-IP_ADAPTER_SCALE = 0.2  # the only evidence-based candidate from C3 -- see module docstring.
+IP_ADAPTER_SCALE = 0.2  # the only evidence-based candidate from the sweep -- see docstring.
 SEEDS = (42, 43, 44, 45)
 
 UNDERWEAR_STYLE_KEY = "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
@@ -95,12 +94,12 @@ UNDERWEAR_STYLE_KEY = "Ladieswear || Underwear bottom || Under-, Nightwear || Re
 # "worn by a model" (e.g. a person merely holding or posed near the garment). Each term is only
 # appended if not already present in the brief's negative_prompt (idempotent).
 #
-# TRIMMED (task F5, real defect found -- not silently patched): the original list also included
-# "underwear model" and "human figure". Combined with task F4's `negative_prompt_rules` rule table
+# TRIMMED (real defect found -- not silently patched): the original list also included
+# "underwear model" and "human figure". Combined with the `negative_prompt_rules` rule table
 # (also applied to this style, ahead of this list, and itself adding "person"/"body") and this
 # style's `design_briefs.json` base `negative_prompt` (which already contains the substring "human
 # model"), the FULL assembled negative_prompt reached 83 tokens -- 6 OVER SDXL's 77-token budget,
-# discovered only now because this is the first run that actually exercises the F4 rule table and
+# discovered only now because this is the first run that actually exercises the rule table and
 # this list together for this exact style (`build_generation_spec` correctly refused to silently
 # truncate, per its own documented contract -- see that function's Raises section). Both dropped
 # terms are literal redundant compounds of terms already guaranteed present elsewhere in this same
@@ -128,8 +127,8 @@ UNDERWEAR_PROMPT_SUFFIX = (
     "worn-on-body shot, no person in frame."
 )
 
-# MANUAL VISUAL QC FINDING (task C6, recorded after actually inspecting all 4 generated
-# candidates -- see the C6 task report): seeds 42/43/44 each show a human model (torso/hips/legs)
+# MANUAL VISUAL QC FINDING (recorded after actually inspecting all 4 generated
+# candidates): seeds 42/43/44 each show a human model (torso/hips/legs)
 # despite the strengthened negative_prompt above; only seed 45 is a clean flat-lay/product shot.
 # The underwear style's OWN reference images (`exemplar_images_final_three.csv`, final_rank_2) are
 # themselves clean flat-lay product photos with no human model -- confirmed by inspection, not
@@ -147,7 +146,7 @@ def load_design_briefs(path: Path = DESIGN_BRIEFS_PATH) -> dict[str, dict[str, A
     """Load `design_briefs.json`, keyed by `style_id`.
 
     Args:
-        path: Path to `reports/tables/design_briefs.json` (C5's output).
+        path: Path to `reports/tables/design_briefs.json` (the output of `build_design_briefs`).
 
     Returns:
         Mapping of `style_id -> brief dict` (carries `rendered_prompt`, `negative_prompt`, etc.).
@@ -256,19 +255,19 @@ def _build_attribute_clause(attrs: dict[str, str]) -> str:
 def build_generation_spec(style_id: str, brief: dict[str, Any]) -> tuple[str, str]:
     """Build the (prompt, negative_prompt) pair actually used for generation for one style.
 
-    TASK F4 REWRITE (fixing a real defect task E5 found by hand -- see module docstring "TOKEN-
+    TOKEN BUDGET + RULE TABLE (fixing a real defect found by hand -- see module docstring "TOKEN-
     BUDGET + GENERIC NEGATIVE-PROMPT RULE TABLE"): earlier versions of this function passed
     `brief["rendered_prompt"]` straight through, unchecked against SDXL's real 77-CLIP-token
     truncation limit. This function now:
 
     1. Re-derives a short, mandatory `attribute_clause` directly from `style_id`
        (`_parse_generic_attributes` + `_build_attribute_clause`) -- independent of whether `brief`
-       has task F4's new skill-level `attribute_clause`/`novelty_clauses`/`descriptive_clause`
+       has the new skill-level `attribute_clause`/`novelty_clauses`/`descriptive_clause`
        fields, since this project's CURRENT `reports/tables/design_briefs.json` predates them
-       (hand-edited by task E5 -- regenerating it is explicitly out of scope for task F4, per the
+       (hand-edited -- regenerating it is out of scope here, per the
        guard `scripts/run_pipeline.py` already has against overwriting a curated
        `design_briefs.json`).
-    2. GENERICALLY (attribute-value-keyed -- task F4) applies `strengthen_underwear_prompts`'s
+    2. GENERICALLY (attribute-value-keyed) applies `strengthen_underwear_prompts`'s
        hard no-human-model framing requirement, keyed off
        `negative_prompt_rules.is_underwear_or_intimate` instead of `style_id ==
        UNDERWEAR_STYLE_KEY` equality, folded directly into the MANDATORY `attribute_clause` (never
@@ -280,7 +279,7 @@ def build_generation_spec(style_id: str, brief: dict[str, Any]) -> tuple[str, st
        module docstring point 3) over the generic `brief["change"]` axis list when present, and
        dropping novelty clauses first, then descriptive detail, never the mandatory clause.
     4. Applies `nss.generate.negative_prompt_rules.apply_negative_prompt_rules` (the Solid/
-       underwear-intimates/Knitwear-sweater rule table, task F4) to `negative_prompt`, THEN layers
+       underwear-intimates/Knitwear-sweater rule table) to `negative_prompt`, THEN layers
        `strengthen_underwear_prompts`'s richer 16-term underwear list on top for underwear/
        intimates styles (a strict superset of the rule table's 4-term underwear rule -- both calls
        are idempotent/additive, so this never double-applies a term).
@@ -340,8 +339,8 @@ def build_generation_spec(style_id: str, brief: dict[str, Any]) -> tuple[str, st
         f"[prompt-budget] {style_id!r}: prompt={token_count}/{prompt_budget.SDXL_TOKEN_BUDGET} "
         f"tokens" + (f", dropped {len(dropped)} clause(s) to fit" if dropped else "")
     )
-    # Guaranteed by fit_prompt_to_token_budget's own contract -- asserted here too per task F4's
-    # explicit "assert it's under 77" requirement.
+    # Guaranteed by fit_prompt_to_token_budget's own contract -- asserted here too as an
+    # explicit "assert it's under 77" check.
     assert token_count <= prompt_budget.SDXL_TOKEN_BUDGET
 
     negative_token_count = prompt_budget.count_clip_tokens(negative_prompt)
@@ -361,7 +360,7 @@ def build_generation_spec(style_id: str, brief: dict[str, Any]) -> tuple[str, st
 
 
 def build_prompt_2(style_id: str) -> str:
-    """Build the SHORT, attribute-only text prompt for SDXL's SECOND text encoder (task F4).
+    """Build the SHORT, attribute-only text prompt for SDXL's SECOND text encoder.
 
     Populates the same `attribute_clause` `build_generation_spec` treats as mandatory (never
     dropped by budget fitting) -- including the underwear framing requirement, when applicable --
@@ -454,7 +453,7 @@ def generate_candidates_for_style(
             call -- see `nss.generate.backends` module docstring note 1).
         seeds: Seeds to generate one candidate per.
         ip_adapter_scale: IP-Adapter conditioning strength.
-        prompt_2: Optional text prompt for SDXL's second text encoder (task F4 -- see
+        prompt_2: Optional text prompt for SDXL's second text encoder (see
             `build_prompt_2`). `None` (the default) leaves diffusers' own default (reuses
             `prompt`) -- behavior-identical to callers written before this parameter existed.
         negative_prompt_2: Optional negative prompt for encoder 2, same default convention.
@@ -566,7 +565,7 @@ def select_best_candidate(
     (closer to the band's center from below, or further past a near-miss from above); ties broken
     by the lower seed for determinism. DINOv2's band membership is computed and reported on every
     candidate but does NOT enter the ranking key -- see module docstring SELECTION RULE for why
-    (C3's finding that DINOv2 may never be in-band for any tested scale).
+    (the sweep's finding that DINOv2 may never be in-band for any tested scale).
 
     Args:
         scored_candidates: Output of `score_candidates`, all for the SAME style_id (non-empty).
@@ -575,7 +574,7 @@ def select_best_candidate(
         disqualified_seeds: Seeds VETOED by a manual visual QC check (e.g. a candidate showing a
             human model despite the underwear style's hard no-human-model requirement --  see
             module docstring UNDERWEAR HARD REQUIREMENT). Automated CLIP/DINOv2 margin scoring
-            cannot detect this on its own -- a human (here, the operating agent) must inspect the
+            cannot detect this on its own -- a human must inspect the
             candidate images and pass disqualifying seeds in explicitly; this is never inferred
             from the margin scores. Disqualified candidates are still margin-ranked and appear in
             `discarded` (tagged `visual_qc_disqualified=True`) for transparency, but can never be
@@ -636,9 +635,9 @@ def generate_gemini_candidate(
 ) -> Path | None:
     """Attempt one `gemini`-backend candidate for `style_id`; returns `None` if blocked.
 
-    Task C6's Gemini backend-parity appendix must not block the `local_sdxl` primary deliverable.
+    The Gemini backend-parity appendix must not block the `local_sdxl` primary deliverable.
     This wraps `generate_concept(backend="gemini", ...)` and converts two documented, expected
-    failure modes into a `None` return + printed report line instead of crashing the whole C6
+    failure modes into a `None` return + printed report line instead of crashing the whole
     pipeline: (1) a missing `GEMINI_API_KEY` (`RuntimeError`), and (2) a Gemini-side API failure --
     `google.genai.errors.APIError` and subclasses, e.g. `ClientError` 429 `RESOURCE_EXHAUSTED`
     (quota exhausted on the free tier) or a `ServerError` 5xx. Any OTHER exception is NOT swallowed
@@ -693,7 +692,7 @@ def generate_gemini_candidate(
 
 
 def main() -> None:
-    """Run the full C6 pipeline: generate -> free VRAM -> score -> select -> write -> Gemini."""
+    """Run the full pipeline: generate -> free VRAM -> score -> select -> write -> Gemini."""
     briefs = load_design_briefs()
     style_references = load_final_three_references()
     control_images = load_control_pool(CONTROL_MANIFEST_PATH)
@@ -703,7 +702,7 @@ def main() -> None:
     gen_specs: dict[str, tuple[str, str]] = {}
     for style_id, brief in briefs.items():
         prompt, negative_prompt = build_generation_spec(style_id, brief)
-        prompt_2 = build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
+        prompt_2 = build_prompt_2(style_id)  # SDXL's second text encoder
         gen_specs[style_id] = (prompt, negative_prompt)
         print(f"\nStyle: {style_id}")
         print(f"Prompt: {prompt!r}")

@@ -32,12 +32,12 @@ THE 4 BASELINES, each producing one `y_pred_<method>` column in `build_predictio
 - `ewma_persistence`: `log1p(ewma_halflife_13w)`, the style's own causal EWMA-of-`intensity_shrunk`
   feature as of the origin (already built by `build_features`). See `_predict_ewma_persistence`'s
   docstring for the one deliberate scale caveat (this baseline's underlying signal is EB-shrunk
-  intensity, not raw `units_per_active_article`, per the task's own definition of this baseline).
+  intensity, not raw `units_per_active_article`, by this baseline's definition).
 - `parent_category_mean`: TRAILING (causal, current-week-EXCLUDED, expanding all-history) mean of
   `units_per_active_article` across all OTHER styles in the same `PARENT_CATEGORY_GROUP_COL` group
   (`index_group_name` -- see that constant's docstring for why, over `garment_group_name`), log1p'd.
 - `global_mean`: TRAILING (causal, current-week-EXCLUDED, expanding all-history) mean of
-  `units_per_active_article` across ALL styles (no exclusion -- the task specifies "all styles" for
+  `units_per_active_article` across ALL styles (no exclusion -- "all styles" is specified for
   this one, unlike the parent-category baseline's explicit "all OTHER styles"), log1p'd.
 
 Both trailing-mean baselines are built by `_trailing_sum_count_strictly_before`, the SAME causal
@@ -281,7 +281,7 @@ def _predict_ewma_persistence(features: pl.DataFrame) -> pl.DataFrame:
 
     `ewma_halflife_13w` is already a causal, as-of-origin feature computed by `build_features`
     (a strictly recursive EWMA of `intensity_shrunk` -- see that module's EWMA section). SCALE
-    CAVEAT (deliberate, per this baseline's task-specified definition): `intensity_shrunk` is
+    CAVEAT (deliberate, per this baseline's specified definition): `intensity_shrunk` is
     empirical-Bayes-SHRUNK toward the style's `(index_group_name, garment_group_name)` trailing
     mean, not the raw `units_per_active_article` the target itself aggregates -- this is the one
     baseline whose underlying signal genuinely differs from the target's own raw metric. `log1p` is

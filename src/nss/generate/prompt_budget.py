@@ -1,20 +1,20 @@
-"""SDXL/CLIP text-encoder 77-token prompt budget enforcement (task F4).
+"""SDXL/CLIP text-encoder 77-token prompt budget enforcement.
 
 WHY THIS MODULE EXISTS: both of SDXL's text encoders (`prompt` via CLIP ViT-L/14, `prompt_2` via
 OpenCLIP ViT-bigG) truncate at 77 tokens -- confirmed directly against
-`CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")` (task E5): the first drafted
+`CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")`: the first drafted
 `design_briefs.json` prompts measured 175 tokens, and the pipeline's own truncation warning named
 the ENTIRE "Novel accents to introduce" clause as the silently-dropped remainder -- i.e. the part
-of the prompt task E5 was specifically asked to add never actually reached the model. E5 fixed
-that defect BY HAND for the 3 specific prompts it wrote (see `reports/tables/design_briefs.json`'s
+of the prompt that had been added specifically never actually reached the model. That defect was
+fixed BY HAND for the 3 specific prompts written then (see `reports/tables/design_briefs.json`'s
 `rendered_prompt` fields, hand-shortened and hand-reordered). This module makes the fix SYSTEMATIC
-so it survives any future prompt this project builds (e.g. new styles Track G's retraining
+so it survives any future prompt this project builds (e.g. new styles a retraining run
 selects) without needing another by-hand pass.
 
-Two guarantees this module provides that did not exist anywhere in the codebase before task F4
+Two guarantees this module provides that did not exist anywhere in the codebase before this module
 (grep confirms `CLIPTokenizer` was previously referenced only in a module DOCSTRING, in
-`nss.generate.final_concepts_v2`, never actually imported or called -- the E5 "fix" was a one-time
-manual check, not code):
+`nss.generate.final_concepts_v2`, never actually imported or called -- the earlier "fix" was a
+one-time manual check, not code):
 
 1. `count_clip_tokens` -- the REAL token count (never an estimate like `len(text.split())`), via
    the exact tokenizer that governs truncation at generation time.
@@ -60,7 +60,7 @@ def count_clip_tokens(text: str) -> int:
 
     This is the same count SDXL's 77-token position-embedding limit is checked against -- never an
     estimate (e.g. whitespace-splitting or `len(text) // 4`), since the whole point of this module
-    is to replace exactly that kind of guess with a measured number (task E5's original defect was
+    is to replace exactly that kind of guess with a measured number (the original defect was
     found by measuring, not estimating -- see module docstring).
 
     Args:
@@ -95,8 +95,8 @@ def fit_prompt_to_token_budget(
     3. `novelty_clauses` -- LOWEST priority, dropped FIRST. This is deliberate: the attribute-
        fidelity gate (`skills/concept-qc/run_qc.py`) scores the 4 defining attributes, not the
        novelty axes, so losing a novelty clause to a budget trim is a much smaller correctness risk
-       than losing an attribute or the framing requirement -- exactly the opposite of what task
-       E5's original defect did (it silently dropped the ENTIRE novelty clause while leaving less
+       than losing an attribute or the framing requirement -- exactly the opposite of what the
+       original defect did (it silently dropped the ENTIRE novelty clause while leaving less
        important content in place, purely because novelty happened to sit at the string's tail).
 
     Args:

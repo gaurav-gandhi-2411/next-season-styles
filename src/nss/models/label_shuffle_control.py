@@ -1,4 +1,4 @@
-"""Label-shuffle control (task K1): how do we know the headline is not leakage?
+"""Label-shuffle control: how do we know the headline is not leakage?
 
 The forward target is randomly permuted ACROSS styles WITHIN each origin (the target's marginal
 distribution per origin is preserved; only the style<->target correspondence is destroyed). The L2

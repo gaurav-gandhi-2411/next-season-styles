@@ -1,3 +1,4 @@
+# ruff: noqa: E501  -- long lines are the transcript's narrative template text
 """Agent-layer demonstration driver, run against the current quality checks.
 
 Walks through the `agents/` layer's typical forecast-then-design request (a buyer asking what to
@@ -11,13 +12,13 @@ Every step is labelled in the transcript as one of:
   server). The driver refuses a call whose tool is not in the calling agent's allowlist, parsed
   from `agents/<agent>.md` (so a stale agent definition fails loudly instead of being narrated
   past).
-- **REPLAY**: read from a table recorded by an earlier real run (the N9 candidate scores, the
+- **REPLAY**: read from a table recorded by an earlier real run (the candidate scores, the
   summer forecast, the recorded closed-loop table). Concept GENERATION is always a replay: no GPU
   is touched by this driver, `generate_concept` is never called.
 - **HUMAN (recorded)**: the human visual check. It is a person's judgment, recorded in
   `nss.generate.final_selection_figures.HUMAN_CHECK`; this driver cannot perform it and says so.
 
-The critic's retry loop is REPLAYED over the recorded N9 candidates of each style in seed order
+The critic's retry loop is REPLAYED over the recorded candidates of each style in seed order
 with `agents/critic.md`'s rules (stop at the first candidate that clears every gating gate; at most
 1 original + 2 retries). Nothing is fabricated: each verdict is derived from the recorded gate
 columns of `reports/tables/candidates_scored.csv`, and the shipped images plus the rejected
@@ -197,7 +198,7 @@ def critic_replay(
     """Replay `agents/critic.md`'s retry loop over recorded candidates, in the order given.
 
     Attempt 1 is `rows[0]`; each REJECT is followed by the next recorded candidate as the retry
-    (the N9 candidates differ only in seed at a fixed, swept scale). The loop stops at the first
+    (the candidates differ only in seed at a fixed, swept scale). The loop stops at the first
     candidate that clears every gating gate (`PASS_PENDING_HUMAN`) or after 1 + `cap` attempts
     (`FAILED`, cap exhausted), exactly as the critic would.
 
@@ -386,7 +387,7 @@ async def _call_tool(
 
 
 def _scored_rows() -> dict[str, list[dict[str, Any]]]:
-    """Recorded N9 candidates at each style's selected scale, per style, in seed order."""
+    """Recorded candidates at each style's selected scale, per style, in seed order."""
     df = pl.read_csv(SCORED_PATH)
     out: dict[str, list[dict[str, Any]]] = {}
     for style_id, path in ALL_SELECTED.items():
@@ -401,7 +402,7 @@ def _row_for(rows: list[dict[str, Any]], seed: int) -> dict[str, Any]:
 
 
 def _image_path(style_id: str, seed: int) -> str:
-    """Path of the N9 candidate of `style_id` with `seed`, at the same scale as the shipped one."""
+    """Path of the recorded candidate of `style_id` with `seed`, at the same scale as the shipped one."""
     shipped = ALL_SELECTED[style_id]
     return (shipped.parent / re.sub(r"seed\d+", f"seed{seed}", shipped.name)).as_posix()
 
@@ -528,7 +529,7 @@ async def run_demo() -> str:
             "(its only allowed tool). The design brief itself is a human design decision recorded "
             "in code (`nss.generate.concept_generation.CHANGES`: concrete, visually checkable changes "
             "with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** "
-            "from that table and the N9 prompt builder (`natural_prompt`), not recomputed.\n"
+            "from that table and the prompt builder (`natural_prompt`), not recomputed.\n"
         )
         for style_id in ALL_SELECTED:
             _profile, _profile_call = await call(
@@ -561,11 +562,11 @@ async def run_demo() -> str:
         sections.append(
             "\n## Step 4 -- orchestrator delegates to `concept-designer` (once per style)\n\n"
             "**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is "
-            "`generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per "
+            "`generate_concept` (SDXL + IP-Adapter, GPU). The generation run already produced 8 seeds (42-49) per "
             "style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded "
             "in `reports/tables/candidates_scored.csv` with sidecar JSONs. The candidates below "
             "are those recorded images; the run makes no claim to have generated anything. "
-            "Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; "
+            "Note that the 8 seeds were generated as a batch, not in reaction to critic rejections; "
             "Step 5 replays the critic loop over them in seed order.\n"
         )
         for style_id, rows in scored.items():
@@ -609,7 +610,7 @@ async def run_demo() -> str:
                     f"candidates beyond it that clear every gating gate: {beyond_text}. The "
                     f"shipped image is seed {shipped['seed']}; on its recorded row {verdict_text}."
                     + (
-                        " (N9 selected best-of-8, so it went past the cap.)"
+                        " (best-of-8 selection, so it went past the cap.)"
                         if not shipped_failed
                         else ""
                     )
@@ -639,14 +640,9 @@ async def run_demo() -> str:
             (DRESS, _shipped_seed(DRESS), "the retry that was shipped", True),
             (SWEATER, 44, "REJECTED candidate (third attempt of the sweater replay)", False),
             (SWEATER, _shipped_seed(SWEATER), "shipped", False),
-            (TOP, _shipped_seed(TOP), "shipped (recorded verdict FAIL)", False),
+            (TOP, _shipped_seed(TOP), "shipped (best of the seeds that clear every check)", False),
             (SUMMER, _shipped_seed(SUMMER), "shipped (recorded verdict FAIL)", False),
-            (
-                TOP,
-                47,
-                "DISCREPANCY CHECK: a recorded candidate that clears every gating gate",
-                False,
-            ),
+            (TOP, 42, "REJECTED candidate (the first pick for the white top)", False),
         ]
         for style_id, seed, note, full_json in plan:
             changes, _prompt = _brief_lines(style_id)
@@ -697,7 +693,7 @@ async def run_demo() -> str:
         # --- Step 7: closed loop ---
         sections.append(
             "\n## Step 7 -- orchestrator delegates the closed loop to `forecaster`\n\n"
-            "`forecast_concept` (added to `agents/forecaster.md`'s allowlist in U5; it was in no "
+            "`forecast_concept` (now in `agents/forecaster.md`'s allowlist; it was in no "
             "agent's allowlist before) matches each shipped image to the nearest real catalogue "
             "style by CLIP + DINOv2 retrieval and looks up that style's forecast. **Prototype:** "
             "near-ties dominate, so the top-5 and the intended style's position are reported, and "
@@ -767,31 +763,16 @@ async def run_demo() -> str:
             "gate and are forwarded for the human check** (which is recorded above, not "
             "re-performed). The others are reported with their failing gates.\n"
         )
-        top_live = live_results[(TOP, 47)]
-        if top_live["automated_gates_pass"]:
-            sections.append(
-                "\n**Unresolved discrepancy, flagged rather than absorbed.** The white top is "
-                "reported as failing by mechanism (integrity floor and Gate 3), and the shipped "
-                f"image (seed {_shipped_seed(TOP)}) does fail both. But the recorded candidate "
-                "seed 47 (and 48) at the same scale clears every gating gate on "
-                "`candidates_scored.csv`, and the live `score_concept` call above confirms it "
-                "for seed 47. `final_selection_figures.SELECTED` pins seed 42 for the white top, so "
-                "the written selection rule (passes every automatic gate first) does not "
-                "produce the shipped image. Whether seed 47 passes the human check has not been "
-                "looked at by a person in this run. The owner of the write-up should decide "
-                "whether the white top's failure is a property of the style or of seed choice.\n"
-            )
 
     header = (
-        "# Agent Run Transcript -- next-season-styles (task U5)\n\n"
-        "> **Current.** Re-run in U5 against the CURRENT gates: Gate 1 (within-style p90), Gate 1b "
+        "# Agent run transcript -- next-season-styles\n\n"
+        "> **Current.** Recorded against the current quality checks: Gate 1 (within-style p90), Gate 1b "
         "(closest reference, clone-validated), the GLOBAL integrity floor (per-style floor "
         "advisory), Gate 2 (SmolVLM gates, Florence-2 advisory), Gate 3 (briefed changes visible) "
         "and the human visual check, on the current final concepts (beige melange sweater, red "
-        "dress, white jersey top, summer orange bikini top). It replaces the D4 transcript, whose "
-        "banner said the agent layer still ran the old margin-band scoring: that was true of "
-        "`score_concept` and `agents/critic.md` until this change, and both were updated in the "
-        "same PR (the tool now runs the shipped gates; see the commit log).\n>\n"
+        "dress, white jersey top, summer orange bikini top). An earlier recording of this run "
+        "predates these checks: at that point `score_concept` and `agents/critic.md` still used "
+        "the old margin-band scoring. Both now run the shipped checks.\n>\n"
         "> **What is live and what is replayed.** LIVE (real MCP tool calls over stdio, CPU only, "
         f"{len(live_calls)} calls): "
         + ", ".join(sorted(set(live_calls)))
@@ -806,7 +787,7 @@ async def run_demo() -> str:
         "and Florence-2 ran on CPU.\n"
         "- MCP client: the official `mcp` Python SDK `ClientSession`. Every tool call is checked "
         "against the calling agent's allowlist parsed from `agents/<agent>.md` before it is sent.\n"
-        "- The rejected candidate images are N9 outputs under `data/generated/n9/`, which is not "
+        "- The rejected candidate images are generation outputs under `data/generated/n9/`, which is not "
         "in git: the live rejection calls are reproducible only with the local data tree; the "
         "shipped images are committed in `reports/concepts/`.\n"
     )

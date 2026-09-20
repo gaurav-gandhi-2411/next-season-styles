@@ -1,15 +1,16 @@
-"""Build the exemplar-image manifest for task A7's diversity-constrained final-three styles.
+"""Build the exemplar-image manifest for the diversity-constrained final-three styles.
 
-`reports/tables/top_styles_final_three.csv` (A7's output) replaces the original top-3 winners
-with: T1 rank-1 (by absolute `predicted_intensity`) + T2 ranks 1-2 (emerging winners, by
-`growth_ratio`). Where a final-three style_key is IDENTICAL to a style_key already exemplar'd in
-`reports/tables/exemplar_images.csv` (Phase 2's `winner_rank_*` rows), the selection (top-8
+`reports/tables/top_styles_final_three.csv` (the diversity-constrained reselection's output)
+replaces the original top-3 winners with: incumbent rank-1 (by absolute `predicted_intensity`) +
+emerging ranks 1-2 (emerging winners, by `growth_ratio`). Where a final-three style_key is
+IDENTICAL to a style_key already exemplar'd in
+`reports/tables/exemplar_images.csv` (the earlier `winner_rank_*` rows), the selection (top-8
 best-selling constituent articles in the trailing 26 weeks) and fetched images are necessarily
 identical too -- same style_key, same transaction history, same fetcher -- so those rows are
 carried forward rather than re-selected/re-fetched. Any final-three style not already present is
 selected and fetched fresh, using the exact same logic as `nss.data.select_exemplars`.
 
-The Phase 2 control-style rows are carried forward unchanged (no new control is chosen).
+The earlier control-style rows are carried forward unchanged (no new control is chosen).
 
 Writes `reports/tables/exemplar_images_final_three.csv` with the same schema as
 `exemplar_images.csv`, but `role` values are `final_rank_1`/`final_rank_2`/`final_rank_3`
@@ -58,11 +59,12 @@ EXISTING_WINNER_ROLE_PREFIX = "winner_rank_"
 def select_final_three_targets(
     final_three: pl.DataFrame,
 ) -> list[tuple[str, str, dict[str, str]]]:
-    """Determine the ordered (new_role, style_key, style_key_values) targets from A7's table.
+    """Determine the ordered (new_role, style_key, style_key_values) targets from the
+    reselection table.
 
-    Ordering matches A7's stated selection: `final_rank_1` is the sole `T1_incumbent` row (T1
-    rank-1 by absolute predicted intensity); `final_rank_2`/`final_rank_3` are the two
-    `T2_emerging` rows in descending `growth_ratio` order (T2 ranks 1-2, emerging winners).
+    Ordering matches the stated selection: `final_rank_1` is the sole `T1_incumbent` row
+    (incumbent rank-1 by absolute predicted intensity); `final_rank_2`/`final_rank_3` are the two
+    `T2_emerging` rows in descending `growth_ratio` order (emerging ranks 1-2, emerging winners).
 
     Args:
         final_three: `top_styles_final_three.csv`, loaded with `source_table`, `style_key`,
@@ -98,15 +100,15 @@ def select_final_three_targets(
 
 
 def find_reusable_rows(existing_manifest: pl.DataFrame, style_key: str) -> pl.DataFrame | None:
-    """Find already-fetched Phase 2 `winner_rank_*` rows for an identical style_key, if any.
+    """Find already-fetched `winner_rank_*` rows for an identical style_key, if any.
 
     Args:
-        existing_manifest: Phase 2's `exemplar_images.csv`, loaded.
+        existing_manifest: The earlier `exemplar_images.csv`, loaded.
         style_key: The final-three style's composite style_key to look up.
 
     Returns:
         The matching rows (role, style_key, article_id, units_sold_last_26w, local_image_path,
-        fetch_success), or `None` if this style_key was not already fetched as a Phase 2 winner.
+        fetch_success), or `None` if this style_key was not already fetched as a winner.
     """
     matches = existing_manifest.filter(
         (pl.col("style_key") == style_key)
@@ -116,7 +118,7 @@ def find_reusable_rows(existing_manifest: pl.DataFrame, style_key: str) -> pl.Da
 
 
 def carry_forward_rows(reused: pl.DataFrame, new_role: str) -> list[dict[str, object]]:
-    """Re-role a reused Phase 2 winner's rows for the final-three manifest, values unchanged.
+    """Re-role a reused winner's rows for the final-three manifest, values unchanged.
 
     Args:
         reused: The matching rows returned by `find_reusable_rows`.
@@ -135,10 +137,10 @@ def carry_forward_rows(reused: pl.DataFrame, new_role: str) -> list[dict[str, ob
 
 
 def main() -> None:
-    """CLI entry point: build `exemplar_images_final_three.csv` from A7's final-three table.
+    """CLI entry point: build `exemplar_images_final_three.csv` from the final-three table.
 
-    Reuses Phase 2's exemplar rows for any final-three style_key that's identical to an
-    already-fetched winner; selects + fetches fresh for the rest; carries the Phase 2 control
+    Reuses the earlier exemplar rows for any final-three style_key that's identical to an
+    already-fetched winner; selects + fetches fresh for the rest; carries the earlier control
     style forward unchanged.
     """
     parser = argparse.ArgumentParser(description=__doc__)
@@ -160,7 +162,7 @@ def main() -> None:
     for new_role, style_key, style_values in targets:
         reused = find_reusable_rows(existing_manifest, style_key)
         if reused is not None:
-            print(f"{new_role}: {style_key} -- REUSED from Phase 2 ({reused.height} rows)")
+            print(f"{new_role}: {style_key} -- REUSED from earlier ({reused.height} rows)")
             all_manifest_rows.extend(carry_forward_rows(reused, new_role))
         else:
             print(f"{new_role}: {style_key} -- fresh selection + fetch")

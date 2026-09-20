@@ -6,8 +6,7 @@ setup:
 	uv sync
 
 # Download the H&M dataset from Kaggle. Script does not exist yet
-# (Phase 1, later step) — target is wired now so `make data` is the single
-# entry point once it lands.
+# — target is wired now so `make data` is the single entry point once it lands.
 data:
 	uv run python scripts/download_data.py
 
@@ -40,14 +39,14 @@ train:
 # AW2020 (origin 2020-09-21), apply the top-3/ranks-4-10 selection rule + local SHAP, and write
 # reports/tables/top_styles.csv, top_styles_markdown_excluded.csv, top_styles_by_season.csv.
 # PYTHONHASHSEED=0 pinned defensively alongside the pl.Enum determinism fix (see
-# nss.features.model_features DETERMINISM (A5 FOLLOW-UP) docstring) -- removes Python-level
+# nss.features.model_features DETERMINISM docstring) -- removes Python-level
 # hash-order nondeterminism as a possible contributor, though the confirmed root cause of the
 # cross-process prediction jitter was polars' pl.Categorical dictionary construction, not
 # PYTHONHASHSEED.
 forecast:
 	PYTHONHASHSEED=0 uv run python -m nss.models.final_forecast
 
-# Diversity-constrained reselection (T1 incumbent / T2 emerging winners, final three, and a
+# Diversity-constrained reselection (incumbent and emerging winners, final three, and a
 # diversity-constrained seasonal bonus v2), built on top of `forecast`'s trained model + ranking.
 # Writes reports/tables/top_styles_incumbent.csv, top_styles_emerging.csv,
 # top_styles_final_three.csv, top_styles_by_season_v2.csv. See `forecast` target for the
@@ -57,33 +56,33 @@ forecast-diversity:
 
 # Select 8 best-selling constituent article images per top-3 winning style + 1 random control
 # style (seed=42), fetch them on-demand (no bulk download), and write
-# reports/tables/exemplar_images.csv for Phase 3 (novelty scoring).
+# reports/tables/exemplar_images.csv for the novelty scoring step.
 exemplars:
 	uv run python -m nss.data.select_exemplars
 
-# ip_adapter_scale novelty/fidelity sweep (task C3, supersedes B4): 24 local_sdxl generations
+# ip_adapter_scale novelty/fidelity sweep: 24 local_sdxl generations
 # (scales 0.2-0.9 x 3 seeds) for one winning style, freed-VRAM margin scoring (CLIP + DINOv2)
-# against its real reference images and the C2 control pool, and
+# against its real reference images and the control pool, and
 # reports/figures/novelty_fidelity_sweep.png + novelty_fidelity_sweep_images.png. GPU required.
 sweep:
 	uv run python -m nss.generate.scale_sweep
 
-# Render the Track D agent-delegation architecture diagram (orchestrator + 5 sub-agents, critic
+# Render the agent-delegation architecture diagram (orchestrator + 5 sub-agents, critic
 # retry loop) to reports/figures/agent_architecture.png. matplotlib-only, no GPU/data required.
 agent-diagram:
 	uv run python -m nss.viz.agent_architecture
 
 # Compose the final deliverable figures (reports/figures/FINAL_concepts.png +
-# reports/figures/evidence_chain.png) from E5's corrected concepts + full E2-gate retry-history
+# reports/figures/evidence_chain.png) from the corrected concepts + full gate retry-history
 # evidence. Pure image composition, no GPU/generation/scoring required.
 deliverables:
 	uv run python -m nss.generate.final_deliverables
 
-# End-to-end, non-interactive reproduction (task D3): panel -> features -> forecast -> top-3 ->
+# End-to-end, non-interactive reproduction: panel -> features -> forecast -> top-3 ->
 # briefs -> generate -> score -> hero image, in one command, via scripts/run_pipeline.py. GPU
 # required (local_sdxl generation). Generates only 1 seed/style by default (see that script's
 # docstring SCOPING-DOWN) and writes generate/score/hero output to reports/pipeline_run/
-# (isolated from the real C6-C8 deliverables) -- never re-run this expecting it to reproduce C6's
+# (isolated from the real deliverables) -- never re-run this expecting it to reproduce the
 # exact 4-seed selection. Same PYTHONHASHSEED=0 rationale as `forecast`/`forecast-diversity`.
 pipeline:
 	PYTHONHASHSEED=0 uv run python scripts/run_pipeline.py

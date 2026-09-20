@@ -1,7 +1,7 @@
 """Select best-selling exemplar article images for the top-3 winning styles + one control style.
 
-Phase 3 (novelty scoring, out of scope here) needs a small, curated set of real product images:
-8 best-selling constituent articles for each of the top-3 winning styles from
+The later novelty-scoring stage (out of scope here) needs a small, curated set of real product
+images: 8 best-selling constituent articles for each of the top-3 winning styles from
 `reports/tables/top_styles.csv`, plus 8 for one randomly-chosen non-winning "control" style (not
 even ranks 4-10). "Best-selling" is units sold (transaction row count, same convention as
 `nss.features.style_panel`'s `units` column) within the most recent `LOOKBACK_WEEKS` of the panel's

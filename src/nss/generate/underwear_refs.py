@@ -1,13 +1,13 @@
-"""Pattern-conformity screen for the underwear style's reference set (task H3).
+"""Pattern-conformity screen for the underwear style's reference set.
 
 DEFECT: the style's `graphical_appearance_name` is "Solid" but that is a colour-family tag, not a
-fabric-texture one -- most articles carrying it are lace-constructed, and the F3 screen checked
-FRAMING only, so IP-Adapter reproduced lace regardless of the negative prompt.
+fabric-texture one -- most articles carrying it are lace-constructed, and the earlier framing screen
+checked FRAMING only, so IP-Adapter reproduced lace regardless of the negative prompt.
 
 FIX: select only articles whose `detail_desc` contains no pattern/texture vocabulary (lace, mesh,
 floral, embroidery, print, ...). A "lace trim" article is excluded too: strict screen, because a
 lace trim at the top edge is exactly the texture IP-Adapter copies. The screen is on the
-catalogue's own text; the survivors are then visually inspected before use (see the H3 report).
+catalogue's own text; the survivors are then visually inspected before use.
 Best-selling first (last-26-weeks units), because `backends.py` conditions on `references[0]` only.
 
 Usage:
@@ -82,7 +82,7 @@ def main() -> None:
     out.write_csv(MANIFEST_PATH)
     print(out.select("article_id", "prod_name", "units_all_time", "fetch_success"))
     if out.filter(pl.col("fetch_success")).height < MIN_SOLID_REFERENCES:
-        print("FEWER THAN 3 solid references available -- catalogue fact, stop (task H3).")
+        print("FEWER THAN 3 solid references available -- catalogue fact, stop.")
 
 
 if __name__ == "__main__":

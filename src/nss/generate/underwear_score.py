@@ -1,7 +1,8 @@
-"""Score H3's regenerated underwear candidates under H1's Gate 1 and H2's judge checklist.
+"""Score the regenerated underwear candidates under the within-style Gate 1 and the revised judge
+checklist.
 
-Gate 1 benchmark = p90 (task J2; H1 used the median) of within-style pairwise similarity of the
-H3 verified solid references (4 articles -> only 6 pairs per space: a noisy benchmark, stated in
+Gate 1 benchmark = p90 (an earlier version used the median) of within-style pairwise similarity of
+the verified solid references (4 articles -> only 6 pairs per space: a noisy benchmark, stated in
 the report). Visual QC verdicts below come from reading all four images
 (`reports/figures/`-independent, recorded here so the selection is auditable).
 
@@ -27,7 +28,7 @@ from nss.generate.within_style_benchmark import (
 )
 
 OUT_PATH = Path("reports/tables/underwear_scored.csv")
-# From reading every generated image (task H3 step: visual inspection of ALL candidates).
+# From reading every generated image (visual inspection of ALL candidates).
 VISUAL_QC: dict[int, str] = {
     42: "reject: malformed halter/cut-out garment, not a brief",
     43: "keep: clean solid red brief, black piping, no lace/floral/mesh",
@@ -37,12 +38,12 @@ VISUAL_QC: dict[int, str] = {
 
 
 def image_path(seed: int) -> Path:
-    """Path H3 generation wrote for `seed` (matches `generate_candidates_for_style`'s slug)."""
+    """Path the generation wrote for `seed` (matches `generate_candidates_for_style`'s slug)."""
     return OUTPUT_DIR / f"ladieswear_underwear-bottom_under--nightwear_red_solid_seed{seed}.png"
 
 
 def main(rejudge: bool = True) -> None:
-    """Score the 4 candidates: Gate 1 (new benchmark), judge panel (H2 checklist), visual QC.
+    """Score the 4 candidates: Gate 1 (new benchmark), judge panel (revised checklist), visual QC.
 
     `rejudge=False` re-derives Gate 1 only and reads the persisted judge scores
     (`judge_rescore.csv`) instead of calling any judge -- used when only the threshold changed.

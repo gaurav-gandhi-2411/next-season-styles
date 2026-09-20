@@ -5,7 +5,7 @@ process (via `subprocess.run([sys.executable, __file__])`) by
 `tests/test_determinism_cross_process.py`, twice, so the two runs cannot share any in-process
 state (Rust-internal hasher seeds, `PYTHONHASHSEED`, or anything else that is fixed once per
 process but varies between processes) -- exactly the scenario the original bug report described
-(see `nss.features.model_features` DETERMINISM (A5 FOLLOW-UP) docstring section).
+(see `nss.features.model_features` DETERMINISM docstring section).
 
 Builds a small deterministic synthetic panel, runs the real `build_model_frame` -> `train_lightgbm`
 -> `predict_lightgbm` pipeline (the same functions `nss.models.final_forecast` uses), and prints

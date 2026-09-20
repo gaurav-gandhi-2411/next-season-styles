@@ -243,7 +243,7 @@ def test_combine_judges_no_judges_available_returns_zero_and_zero() -> None:
 
 
 def test_qc_verdict_overall_pass_requires_both_copy_check_and_fidelity() -> None:
-    """overall_pass (task E2) is copy_check_pass AND fidelity_pass -- a fidelity-passing,
+    """overall_pass is copy_check_pass AND fidelity_pass -- a fidelity-passing,
     DINOv2-copy-check-failing concept still fails overall. `margin_band_pass` (the OLD two-sided
     band) is still computed/reported but does NOT affect `overall_pass`."""
     margin = {"clip_margin": 0.05, "clip_in_band": True, "dino_margin": 0.7, "dino_in_band": False}
@@ -294,7 +294,7 @@ def test_qc_verdict_overall_pass_can_differ_from_margin_band_pass() -> None:
 
 
 # ---------------------------------------------------------------------------
-# copy_anchor_threshold / copy_check / copy_check_pass -- task E2's Gate 1
+# copy_anchor_threshold / copy_check / copy_check_pass -- Gate 1
 # ---------------------------------------------------------------------------
 
 
@@ -470,7 +470,7 @@ def test_choose_next_retry_value_raises_when_exhausted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# copy_check_pass active_metrics -- task F1's metric-dropping mechanism
+# copy_check_pass active_metrics -- the metric-dropping mechanism
 # ---------------------------------------------------------------------------
 
 
@@ -511,7 +511,7 @@ def test_copy_check_pass_rejects_unknown_metric_name() -> None:
 
 
 # ---------------------------------------------------------------------------
-# judge_fidelity_threshold / per_judge_fidelity_pass / fidelity_pass_from_per_judge -- task F2
+# judge_fidelity_threshold / per_judge_fidelity_pass / fidelity_pass_from_per_judge
 # ---------------------------------------------------------------------------
 
 

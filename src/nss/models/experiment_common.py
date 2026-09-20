@@ -1,4 +1,4 @@
-"""Shared plumbing for Track U (U3 retune, U4 train-and-decide).
+"""Shared plumbing for the buyer-mix/price experiments (embargoed retune, train-and-decide).
 
 Both stages reuse the embargoed protocol of `backtest_embargo_check` unchanged (12 shared test
 origins = `origins[INITIAL_POOL_SIZE:]`, training origins `o <= t - 16 weeks`, `train_lightgbm` /
@@ -52,7 +52,7 @@ def build_control_frame(panel: pl.DataFrame, origin_weeks: list) -> pl.DataFrame
 
 
 def build_treatment_frame(control_frame: pl.DataFrame, panel: pl.DataFrame) -> pl.DataFrame:
-    """Control features + U1 customer features + U2 price features (additive, order-preserving)."""
+    """Control features + customer features + price features (additive, order-preserving)."""
     customer = pl.read_parquet(CUSTOMER_FEATURES_PATH)
     return add_price_features(add_customer_features(control_frame, customer), panel)
 

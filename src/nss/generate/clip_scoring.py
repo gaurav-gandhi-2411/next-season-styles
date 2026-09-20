@@ -1,4 +1,4 @@
-"""CLIP-based scoring of generated concept images against real reference images (task B3).
+"""CLIP-based scoring of generated concept images against real reference images.
 
 Scores a generated concept image's CLIP cosine similarity against (a) its target style's real
 reference images and (b) an unrelated "control" style's real images, then combines the two into

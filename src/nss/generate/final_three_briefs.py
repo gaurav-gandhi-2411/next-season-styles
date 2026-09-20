@@ -1,4 +1,4 @@
-"""Design briefs for the re-selected final three, with concrete, token-safe change clauses (M3).
+"""Design briefs for the re-selected final three, with concrete, token-safe change clauses.
 
 WHY: the earlier final prompts were attribute-only ("T-shirt, jersey basic construction, black
 solid."). `prompt_budget.fit_prompt_to_token_budget` drops novelty clauses FIRST, and the long

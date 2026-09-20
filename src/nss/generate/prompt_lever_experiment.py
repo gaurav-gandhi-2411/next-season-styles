@@ -1,11 +1,12 @@
-"""Run the N1 lever experiments on one style and save every image with its config in the name.
+"""Run the lever experiments on one style and save every image with its config in the name.
 
 Config tokens: ``<mode>:<scale>[~w<weight>]`` where mode is single|concat|mean and scale is a float
 or ``style_only@<s>`` / ``style_layout@<s>``; ``~w1.5`` upweights the change clauses with compel.
 Example: ``concat:0.25``  ``mean:style_only@1.0``  ``concat:0.35~w1.4``.
 
 Usage:
-    uv run python -m nss.generate.prompt_lever_experiment <style-keyword> <seeds,comma> <cfg> [<cfg> ...]
+    uv run python -m nss.generate.prompt_lever_experiment <style-keyword> <seeds,comma> <cfg> \
+        [<cfg> ...]
 """
 
 from __future__ import annotations

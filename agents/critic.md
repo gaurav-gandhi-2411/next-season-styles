@@ -13,7 +13,7 @@ check. Every gate below except the human check runs inside one `score_concept` c
    real nearest-sibling similarity. It is validated by an exact-clone control that must FAIL; if a
    clone passes, the gate is UNVALIDATED and cannot pass anything (fail-closed).
 3. **Integrity floor, GLOBAL (gates)**: the closest real reference (DINOv2) must be at least the
-   p10 of real nearest-sibling similarity pooled over every style (`integrity_global`, task R2).
+   p10 of real nearest-sibling similarity pooled over every style (`integrity_global`).
    The per-style floor is reported beside it as ADVISORY and never gates.
 4. **Gate 2, attribute fidelity (local judges)**: a blind local VLM reads the picture and its
    answers are scored against the style's VISIBLE attributes (non-visual catch-alls such as "Other

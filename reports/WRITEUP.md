@@ -1,4 +1,4 @@
-# next-season-styles — Write-up
+# Forecasting next season's winning styles, and designing for them
 
 ## 1. What a "style" is
 
@@ -65,11 +65,15 @@ fewer rows, which cannot be told apart from "more data", and a 5-origin subset p
 
 Sources: `covid_two_model_comparison.csv`.
 
-## 6. Generation: what went wrong and what I changed
+## 6. Generation: nothing usable at first, and what was actually wrong
 
-I did not trust the similarity checks until I tested them. Leave-one-out showed a median threshold
-rejected 66% of 61 genuine reference articles (21 passed), while a 90th-percentile limit passed all
-61; an exact copy can pass Gate 1 but fails Gate 1b in every style.
+At first the generation step produced nothing usable, and I could not yet trust the checks that
+would say so. Gate 1 checks that a concept is not too close to its references on average, Gate 1b
+that it is not a near-copy of any single one, Gate 2 that it reads as the right product type,
+colour and pattern, and Gate 3 that the changes I briefed are visible. I tested the similarity
+checks with controls first. Leave-one-out showed a median threshold rejected 66% of 61 genuine
+reference articles (21 passed), while a 90th-percentile limit passed all 61; an exact copy can
+pass Gate 1 but fails Gate 1b in every style.
 
 **I diagnosed the root cause wrongly twice before I measured it.** Two rounds of four seeds per
 style produced no briefed design change. I first blamed conditioning on a single reference; testing
@@ -79,7 +83,7 @@ because my attribute-first prompt ("Sweater, knitwear construction, beige melang
 let texture words dominate. What worked was a plain sentence naming the garment and its two
 changes, given to both text encoders: a funnel neck and brown rib appeared even from one reference
 at scale 0.25–0.35, and weighting the change clauses at 1.5 restored the brown accents at 0.45 (2
-of 2, against 0 of 2). Prompt structure mattered first, references second. Shipped: that sentence on
+of 2, against 0 of 2). Prompt structure mattered first, references second. Final setup: that sentence on
 both encoders, 8 concatenated references, weight 1.5, per-style scale 0.35 (from a 0.15–0.45 sweep;
 0.6–0.7 removes the changes).
 
@@ -94,15 +98,15 @@ near-identical style it becomes a similarity check (0.922 for the white top). Ca
 over 154 real photos in 8 styles (0.779), it passes 9 of 9 known-good and catches 4 of 5 known-bad
 and 2 of 3 malformed, missing one sheer mesh (closest reference 0.811). Coherence is not a property
 of one style, so the global floor decides and the per-style floor is advisory. That corrected my
-framing, not a verdict: the white top (0.733) is below both.
+framing, not a verdict: the white top's first pick (0.733) was below both.
 
 **Judges and references.** With Groq's daily limit and Gemini's free quota spent, the panel is two
 local models calibrated on 26 controls: SmolVLM-500M (gap 0.338) and Florence-2-base (0.373). Gemini
 calibrates too (gap 0.522) but ran out of its 20 daily requests, so whether it agrees with
 SmolVLM's "original" pattern call on the bikini is unresolved. Florence-2 is advisory: its
 agreement with the API readers (kappa 0.36–0.48) is too low to carry a verdict, against 0.68 for
-SmolVLM with Groq. That turns the white top's Gate 2 from fail to pass, though its overall verdict
-stays fail. I also widened the reference base from 4–6 to 17 (sweater), 25 (dress) and 19 (white
+SmolVLM with Groq. That turned the white top's first pick from a Gate 2 fail into a pass, though its overall
+verdict stayed fail. I also widened the reference base from 4–6 to 17 (sweater), 25 (dress) and 19 (white
 top; only 20 such articles exist), added a border check after a fabric close-up got through the
 small judge, and regenerated the sweater. Confidence intervals on the DINOv2 limits shrank 2.5–4.4
 times.
@@ -115,12 +119,17 @@ An orchestrator delegates to five sub-agents (see `agent_architecture.png`) and 
 
 Rebuilding the demonstration exposed two defects, fixed without changing any threshold.
 `score_concept` had no integrity floor or Gate 3 and relied on a spent API key, so it could pass a
-concept the shipped scoring fails; `forecast_concept` had no forecast-origin argument and scored
-the summer bikini against the autumn table (rank 894 of 1,980 instead of 118 of 3,000).
+concept the final scoring fails; `forecast_concept` had no forecast-origin argument and scored the
+summer bikini against the autumn table (rank 894 of 1,980 instead of 118 of 3,000).
 
 ## 8. Results
 
-**Choosing the styles: the model surfaces candidates, a person judges them.** Before looking at output I fixed the rules: three styles from the emerging table (guards applied), no intimates or garments you cannot identify in a flat photo, no shared colour or product type. Red underwear (ranked first) was skipped for category and a sweater (fourth) for a product-type collision. That leaves the beige melange sweater (predicted 17.8, growth 1.59), the red dress (11.0, 1.41) and the white jersey top (13.9, 1.17).
+**Choosing the styles: the model surfaces candidates, a person judges them.** Before looking at
+output I fixed the rules: three styles from the emerging table (guards applied), no intimates or
+garments you cannot identify in a flat photo, no shared colour or product type. Red underwear
+(ranked first) was skipped for category and a sweater (fourth) for a product-type collision. That
+leaves the beige melange sweater (predicted 17.8, growth 1.59), the red dress (11.0, 1.41) and the
+white jersey top (13.9, 1.17).
 
 **Final concepts**, best of 8 seeds. Gate 2 needs both judges; "human" means every briefed change is
 visible.
@@ -129,10 +138,10 @@ visible.
 |---|---|---|---|---|---|---|---|
 | Sweater | pass | pass | pass | pass | pass | yes | Orange Solid (Divided): 7.9, rank 461, low |
 | Dress | pass | pass | pass | pass | pass | yes | Red Dresses Ladies: 11.0, rank 282, high |
-| White top | pass | pass | **fail** (0.733 < 0.779; per-style 0.922 fails too) | pass (Florence advisory: fail) | fail (YN) | mostly (narrow cuffs) | Divided Jersey Fancy: 6.4, rank 651, medium |
+| White top | pass | pass | pass (0.828 ≥ 0.779; per-style 0.922 not met) | pass (Florence advisory: fail) | pass (YY) | yes | Blouses White (Ladieswear): 4.3, rank 1088, low |
 | Bikini top (summer) | pass | pass | pass | fail (SmolVLM 0.28) | pass | yes | Orange All-over: 37.9, rank 118 of 3,000, medium |
 
-Two of four pass every automatic check. **The white top fails the integrity floor and Gate 3, by mechanism, not luck:** its 19 real articles are near-identical, so the per-style floor sits at 0.922 (global 0.779); a design that adds a neckline and sleeves falls to 0.733, below both, and raising the scale to 0.6–0.7 passes the per-style floor (0.937) only by deleting the changes (Gate 3 YN/NN). I did not loosen the check. The bikini's Gate 2 failure is SmolVLM answering "original" for the pattern.
+Three of four concepts pass every automatic check. The white top is the case I first got wrong. I had kept seed 42, which fails the integrity floor and Gate 3, and explained that as the style's near-identical assortment (19 real articles, per-style floor 0.922, global floor 0.779) making a visible design change impossible. That was too strong: 2 of its 8 seeds cleared every check, and my own selection rule (clear every check, then most briefed changes visible, then highest fidelity) picks seed 47, whose briefed changes I confirmed by eye. The tight assortment does matter: only 3 of 8 seeds showed both briefed changes (Gate 3), against 8 of 8 for the sweater and the dress, and the chosen seed still misses the per-style floor (closest reference 0.828 against 0.922) while clearing the global one. Yield is low everywhere at this scale: seeds clearing every check were 1 of 8 for the sweater, 2 for the white top, 4 for the dress and 0 for the summer bikini top, whose Gate 2 failure is SmolVLM answering "original" for the pattern. A visible change is harder to land in a tight assortment, not impossible, and I did not loosen any check.
 
 **The closed loop, rebuilt as retrieval (still a prototype).** My first version had a small vision
 model caption the picture and mapped the words to a style; on 40 real photos it named the exact
@@ -153,42 +162,41 @@ On the 40 photos (chance 0.05%) retrieval gets product type right 82.5% of the t
 and colour 52.5% against 70%, which is worse. The exact-style gain is not established: retrieval
 alone was right on 11 photos and the baseline alone on 5 (McNemar p = 0.21), so it keeps the
 prototype label. Confidence carries signal: on the one-per-style set the exact style is first 45%
-of the time at high confidence, 21% at medium and 10% at low. Two of the four concepts map to a
-different style than under the 415-style index: the sweater to an orange sibling 0.006 more similar
-than its intended style, which is third, and the white top to a neighbouring Divided style, its
-intended style outside the top five.
+of the time at high confidence, 21% at medium and 10% at low. Two of the four concepts do not
+map to their intended style: the sweater to an orange sibling 0.006 more similar than its
+intended style, which is third, and the white top to a neighbouring Blouses style, its intended
+style fifth and 0.007 behind.
 
 **Seasonal view.** With the same rules and a summer model trained under a 13-week embargo, I pick an
-orange all-over-pattern bikini top, predicted at 37.88 and realised at 37.94 (computed
-independently). That is one data point: across 127 emerging candidates the median absolute error is
-6.0 units (correlation 0.82), so the 0.06 gap is luck.
+orange all-over-pattern bikini top, predicted at 37.88 and realised at 37.94. That is one data
+point: across 127 emerging candidates the median absolute error is 6.0 units (correlation 0.82), so
+the 0.06 gap is luck.
 
 Sources: `final_selection.csv`, `final_three_selection_log.csv`, `retrieval_validation.csv`.
 
 ## 9. What did not work, and what I could not verify
 
 **Neighbourhood features.** I tested whether a style's cohort is rising: 15 causal features over
-three sibling groups, under the same embargoed protocol and frozen hyperparameters, with an
-adoption rule fixed beforehand (the paired top-20 interval must exclude zero). The model uses them
-(15.9% of total mean |SHAP|), but they gave no out-of-sample gain: Hit@3-in-top20 0.528 to 0.611
-(+0.083, CI [−0.083, +0.250]), and precision@10 fell 0.033 (CI [−0.050, −0.017]). I kept the
-simpler model.
+three sibling groups, under the same embargoed protocol, with an adoption rule fixed beforehand
+(the paired top-20 interval must exclude zero). The model uses them (15.9% of total mean |SHAP|),
+but they gave no out-of-sample gain: Hit@3-in-top20 0.528 to 0.611 (+0.083, CI [−0.083, +0.250]),
+and precision@10 fell 0.033 (CI [−0.050, −0.017]). I kept the simpler model.
 
 **Buyer-mix and price features.** I built 36 features from the customer table (buyer age, club and
 newsletter mix, repeat buyers, postal-code spread, each with slopes) and 6 price-elasticity
 features. Under the same protocol they made ranking worse: Hit@3-in-top20 0.528 to 0.333 (CI
 [−0.306, −0.139]) and NDCG@10 down 0.046 (CI [−0.064, −0.020]). In-sample the model leans on them
-(25.1% of mean |SHAP| for buyer features, 2.1% for price), but mainly as a size proxy, since
-distinct postal codes scale with volume. My hypothesis that a broadening buyer base predicts
-sustained growth came out mixed: 7 of 10 features agreed in SHAP after I fixed a sign I had coded
-backwards, one short of the 8 I had required. Club status and newsletter frequency come from a
-single end-of-data snapshot, so they are not verifiably causal; they sit in the rejected model, so
-nothing shipped depends on them.
+(25.1% of mean |SHAP| for buyer features, 2.1% for price), but mainly as a size proxy: distinct
+postal codes scale with volume. My hypothesis that a broadening buyer base predicts sustained
+growth came out mixed: 7 of 10 features agreed in SHAP after I fixed a sign I had coded backwards,
+one short of the 8 I had required. Club status and newsletter frequency come from a single
+end-of-data snapshot, so they are not verifiably causal; they sit in the rejected model, so
+nothing in the final model depends on them.
 
 **Hyperparameters.** The original grid was chosen under the leaky protocol, so I re-ran it under
 the embargo, selecting on rolling origins only. It picked 15 leaves, learning rate 0.10 and 100
 trees rather than my 63, 0.05 and 200, but the gain is 0.65% in validation error, no more than the
-spread across the whole grid, so I kept the shipped configuration. Three validation origins have
+spread across the whole grid, so I kept the final configuration. Three validation origins have
 label windows that overlap the first test origin's forecast period; no test-origin feature,
 prediction or metric entered selection.
 

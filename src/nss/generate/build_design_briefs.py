@@ -1,9 +1,9 @@
-"""C5: adapt the final three styles' persisted data onto the `style-brief` skill's generic
+"""Adapt the final three styles' persisted data onto the `style-brief` skill's generic
 input schema, run the skill, and write `reports/tables/design_briefs.json`.
 
 HARD CONSTRAINT: modelling is FROZEN. Every value this module consumes (attributes, `predicted_
 intensity`, `growth_ratio`, SHAP drivers, `dominant_mechanism`, exemplar image paths) is already
-persisted on disk by earlier tasks (`nss.models.diversity_forecast`,
+persisted on disk by earlier modules (`nss.models.diversity_forecast`,
 `nss.models.final_three_shap_verdict`, `nss.data.select_final_three_exemplars`) -- nothing here
 retrains a model, recomputes SHAP, or re-runs inference. This module is pure read-schema-adapt-
 write glue.

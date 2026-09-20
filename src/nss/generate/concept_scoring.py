@@ -1,4 +1,4 @@
-"""Score every N9 candidate through Gates 1, 1b, 2, 3 and the integrity check (task N9).
+"""Score every candidate through Gates 1, 1b, 2, 3 and the integrity check.
 
 Per image:
 - GATE 1 / 1b: CLIP and DINOv2 similarity to the widened screened reference base, against that
@@ -49,13 +49,13 @@ from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
 
 OUT = Path("reports/tables/candidates_scored.csv")
-# Panel rule (task P3). Gemini's key is invalid (401) and Groq's daily token budget is spent, so the
+# Panel rule. Gemini's key is invalid (401) and Groq's daily token budget is spent, so the
 # panel is the two local judges. Florence-2's agreement with the API judges on binarised attribute
 # calls is too low to carry a verdict (kappa 0.36-0.48; `judge_panel_kappa.csv`) while SmolVLM's is
 # 0.68 with Groq, so Florence-2 is ADVISORY (reported, never gating) and SmolVLM gates Gate 2. This
 # was decided on measured agreement, not to pass any concept, and it changes one verdict (the white
 # top's Gate 2: fail -> pass; its overall verdict stays FAIL on Gates 3 and integrity).
-# Integrity (task R2): the GLOBAL floor gates (garment coherence is a global property: p10 of real
+# Integrity: the GLOBAL floor gates (garment coherence is a global property: p10 of real
 # nearest-sibling similarity pooled over every style, `integrity_global`); the per-style floor is
 # reported as advisory (`integrity_style_pass`). Per-style is structurally a similarity gate in
 # near-identical styles (the white top's 19 near-duplicate articles put its floor at 0.922), and it
@@ -121,7 +121,7 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
     local_vlm.load(backend)
     for row in rows:
         path = Path(row["image_path"])
-        # A caller scoring an image outside the N9 tree (the MCP `score_concept` tool) has no
+        # A caller scoring an image outside the candidate tree (the MCP `score_concept` tool) has no
         # sidecar: it passes the briefed changes in the row instead.
         changes = row.get("changes")
         if changes is None:

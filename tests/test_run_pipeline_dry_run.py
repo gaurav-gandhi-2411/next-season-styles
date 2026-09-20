@@ -1,6 +1,6 @@
-"""Tests for `scripts/run_pipeline.py --dry-run` (task K4): pure wiring/safety logic only.
+"""Tests for `scripts/run_pipeline.py --dry-run`: pure wiring/safety logic only.
 
-The real end-to-end dry run is exercised by running the script itself (see the K4 report); these
+The real end-to-end dry run is exercised by running the script itself; these
 tests pin the properties that keep it safe to hand to a reviewer -- it can only write to a scratch
 root outside `data/` and `reports/`, never rebuilds the panel, and builds candidates from the
 committed concept images instead of calling SDXL.

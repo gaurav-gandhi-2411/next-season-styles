@@ -1,8 +1,8 @@
-"""VLM-judge checklist fix, recomputed from stored per-attribute scores (task H2).
+"""VLM-judge checklist fix, recomputed from stored per-attribute scores.
 
-Why a re-judge at all: the brief says to recompute from stored per-attribute scores and NOT re-call
-the judges -- but E5's/F5's tables persisted only each judge's MEAN (no `scores_json`), and F5's
-11/12 candidates had no judge score at all (Gemini/Groq quota exhausted that day). The
+Why a re-judge at all: the aim was to recompute from stored per-attribute scores and NOT re-call
+the judges -- but the earlier tables persisted only each judge's MEAN (no `scores_json`), and 11/12
+of the earlier candidates had no judge score at all (Gemini/Groq quota exhausted that day). The
 per-attribute scores existed only for `vlm_calibration_results.csv` (recomputed here, no calls). For
 candidates, each image is judged ONCE with the legacy 4-attribute checklist, per-attribute scores
 persisted to `data/generated/judge_cache.jsonl`, and both the old (4-attribute) and new
@@ -48,7 +48,7 @@ def mean_over(scores: dict[str, float], dims: Sequence[str]) -> float:
 def recompute_calibration(
     path: Path = CALIBRATION_RESULTS_PATH,
 ) -> tuple[pl.DataFrame, dict[str, float], dict[str, float]]:
-    """Recompute calibration means + per-judge Gate-2 thresholds under the H2 checklist.
+    """Recompute calibration means + per-judge Gate-2 thresholds under the revised checklist.
 
     Pure recomputation from the persisted `scores_json` -- no judge calls.
 
@@ -164,7 +164,7 @@ def build_rescore_table(
             row: dict[str, Any] = {
                 "style_id": rec["style_id"],
                 "seed": rec["seed"],
-                "image_path": rec["image_path"],  # distinguishes F5 vs H3 images of one seed
+                "image_path": rec["image_path"],  # distinguishes generation rounds of one seed
                 "judge": judge,
                 "available": res["available"],
                 "scores_json": json.dumps(res["scores"]) if res["scores"] else None,
@@ -195,7 +195,7 @@ def build_rescore_table(
 
 
 def main() -> None:
-    """H2: recompute calibration thresholds, judge F5's 12 candidates once, write before/after."""
+    """Recompute thresholds, judge the 12 earlier candidates once, write before/after."""
     calib, old_t, new_t = recompute_calibration()
     calib.write_csv(CALIBRATION_H2_PATH)
     print(f"Gate-2 thresholds before (4 attr): {old_t}\nGate-2 thresholds after (3 attr):  {new_t}")

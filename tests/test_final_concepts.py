@@ -84,7 +84,7 @@ def test_strengthen_underwear_prompts_is_idempotent() -> None:
 
 
 def _full_brief(**overrides: object) -> dict[str, object]:
-    """A realistic, fully-populated `design_briefs.json` entry (task F4's `build_generation_spec`
+    """A realistic, fully-populated `design_briefs.json` entry (`build_generation_spec`
     reads `silhouette`/`fabric_and_hand`/`colour_direction`/`detail_and_graphic_treatment`/
     `change`/`negative_prompt` -- every `REQUIRED_BRIEF_KEYS` field, per
     `skills/style-brief/generate_brief.py`)."""
@@ -111,7 +111,7 @@ def test_build_generation_spec_strengthens_only_underwear_style() -> None:
 
 
 def test_build_generation_spec_strengthens_underwear_style() -> None:
-    """The underwear style is now triggered GENERICALLY off attribute values (task F4), not a
+    """The underwear style is now triggered GENERICALLY off attribute values, not a
     hardcoded `style_id` equality check -- `UNDERWEAR_STYLE_KEY` still exercises it."""
     prompt, negative_prompt = build_generation_spec(
         UNDERWEAR_STYLE_KEY,
@@ -130,7 +130,7 @@ def test_build_generation_spec_strengthens_underwear_style() -> None:
 def test_build_generation_spec_generic_underwear_trigger_matches_any_matching_style_id() -> None:
     """A DIFFERENT style_id with the same underwear/intimates attribute profile also gets the
     framing requirement -- proving the trigger is attribute-value-keyed, not
-    `UNDERWEAR_STYLE_KEY`-string-keyed (task F4's core ask: this must survive a future retraining
+    `UNDERWEAR_STYLE_KEY`-string-keyed (this must survive a future retraining
     run selecting a different underwear/intimates style)."""
     prompt, negative_prompt = build_generation_spec(
         "Ladieswear || Underwear top || Under-, Nightwear || Black || Solid", _full_brief()
@@ -151,9 +151,9 @@ def test_build_generation_spec_keeps_prompt_and_negative_prompt_within_token_bud
 
 
 def test_n9_briefs_and_negative_prompts_fit_the_token_budget() -> None:
-    """Real-data regression test (task N9): every final style's N9 brief yields a negative prompt
+    """Real-data regression test: every final style's brief yields a negative prompt
     inside SDXL's 77-token budget (the rule table layered on the style's own extras once went
-    6 tokens over mid-GPU-run). The N9 positive prompt is a natural sentence encoded WITHOUT
+    6 tokens over mid-GPU-run). The positive prompt is a natural sentence encoded WITHOUT
     truncation by compel, so it has no 77-token limit and is checked for content instead."""
     from nss.generate import concept_generation, final_registry
 
@@ -168,7 +168,7 @@ def test_n9_briefs_and_negative_prompts_fit_the_token_budget() -> None:
 
 def test_build_generation_spec_solid_style_gets_pattern_exclusion_terms() -> None:
     """A Solid-pattern style's negative_prompt excludes floral/lace/pattern/print/embroidery
-    (task F4 rule table -- the real defect a Solid style drifting into a floral-lace pattern)."""
+    (rule table -- the real defect of a Solid style drifting into a floral-lace pattern)."""
     _prompt, negative_prompt = build_generation_spec(
         "Ladieswear || T-shirt || Jersey Basic || Black || Solid", _full_brief()
     )
@@ -178,7 +178,7 @@ def test_build_generation_spec_solid_style_gets_pattern_exclusion_terms() -> Non
 
 def test_build_generation_spec_knitwear_style_gets_close_up_exclusion_terms() -> None:
     """A Knitwear/Sweater style's negative_prompt excludes close-up/fabric-swatch framing terms
-    (task F4 rule table, generalizing E5's one-off Sweater-only hand fix)."""
+    (rule table, generalizing the earlier one-off Sweater-only hand fix)."""
     _prompt, negative_prompt = build_generation_spec(
         "Ladieswear || Sweater || Knitwear || Beige || Melange", _full_brief()
     )
@@ -187,7 +187,7 @@ def test_build_generation_spec_knitwear_style_gets_close_up_exclusion_terms() ->
 
 
 def test_build_generation_spec_prefers_applied_changes_over_generic_change_axes() -> None:
-    """When a brief carries `applied_changes` (task E5's concrete, per-style novelty), the
+    """When a brief carries `applied_changes` (concrete, per-style novelty), the
     assembled prompt uses that concrete text instead of the generic `change` axis descriptions.
     Uses a deliberately SHORT descriptive fixture -- a verbose one can legitimately consume the
     entire token budget on its own and correctly drop every novelty clause too (budget-fitting
@@ -208,7 +208,7 @@ def test_build_generation_spec_prefers_applied_changes_over_generic_change_axes(
 
 
 def test_build_prompt_2_returns_short_attribute_only_clause() -> None:
-    """`build_prompt_2` (task F4: SDXL's second text encoder) returns the same short mandatory
+    """`build_prompt_2` (SDXL's second text encoder) returns the same short mandatory
     clause `build_generation_spec` treats as never-dropped, well within the token budget alone."""
     text = build_prompt_2("Ladieswear || T-shirt || Jersey Basic || Black || Solid")
     assert text == "T-shirt, jersey basic construction, black solid."
@@ -259,7 +259,8 @@ def test_select_best_candidate_prefers_in_band_clip_margin() -> None:
 
 def test_select_best_candidate_falls_back_to_closest_to_band_when_none_in_band() -> None:
     """When no candidate is CLIP in-band, the one numerically closest to the band wins -- selection
-    is never blocked by a strict DINOv2 requirement (C3's finding: DINOv2 may never be in-band)."""
+    is never blocked by a strict DINOv2 requirement (the sweep's finding: DINOv2 may never be
+    in-band)."""
     candidates = [
         {"seed": 42, "clip_margin": 0.20, "dino_margin": 0.70, "image_path": "a.png"},
         {"seed": 43, "clip_margin": 0.11, "dino_margin": 0.75, "image_path": "b.png"},
@@ -329,7 +330,7 @@ def test_generate_gemini_candidate_returns_none_on_quota_exhausted_api_error(
     tmp_path: Path,
 ) -> None:
     """A Gemini `APIError` (e.g. 429 RESOURCE_EXHAUSTED quota) is caught and converted to a None
-    return, not raised -- one style's quota failure must not crash the rest of C6's Gemini
+    return, not raised -- one style's quota failure must not crash the rest of the Gemini
     appendix."""
     from google.genai import errors as genai_errors
 
@@ -391,7 +392,7 @@ def test_load_final_three_references_groups_by_style_and_skips_fetch_failures(
 
 def test_generate_gemini_candidate_returns_none_on_missing_api_key(tmp_path: Path) -> None:
     """A missing-GEMINI_API_KEY RuntimeError is caught and converted to a None return, not raised
-    -- this sub-task must not block the rest of C6."""
+    -- this sub-task must not block the rest of the pipeline."""
     with patch.object(
         final_concepts.backends,
         "generate_concept",

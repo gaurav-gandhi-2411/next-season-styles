@@ -30,7 +30,8 @@ def _row(
 
 def test_dominant_mechanism_persistence_wins_when_lag_1_exceeds_seasonal() -> None:
     """lag_1 (0.75) vs. the largest seasonal term fourier_sin_1 (0.10) -- lag_1 must win, and the
-    verdict text must name both values (hand-computed from the T1 style's real saved SHAP row)."""
+    verdict text must name both values (hand-computed from the incumbent style's real saved SHAP
+    row)."""
     final_three = pl.DataFrame(
         [
             _row(
@@ -114,10 +115,10 @@ def test_dominant_mechanism_neither_when_lag_1_and_seasonal_both_absent() -> Non
 
 
 def test_dominant_mechanism_persistence_wins_but_a_third_feature_is_the_true_top_driver() -> None:
-    """Hand-computed from the real T2-sweater style row: lag_1 (0.1771) beats the largest seasonal
-    term fourier_sin_1 (0.0595), but n_active_articles_level (0.2696) is the actual top-1 driver --
-    the verdict must say persistence wins the lag_1-vs-seasonal comparison AND separately name
-    n_active_articles_level as the true overall top driver, not silently drop it."""
+    """Hand-computed from the real emerging-sweater style row: lag_1 (0.1771) beats the largest
+    seasonal term fourier_sin_1 (0.0595), but n_active_articles_level (0.2696) is the actual top-1
+    driver -- the verdict must say persistence wins the lag_1-vs-seasonal comparison AND separately
+    name n_active_articles_level as the true overall top driver, not silently drop it."""
     final_three = pl.DataFrame(
         [
             _row(

@@ -1,6 +1,6 @@
-"""Tests for `nss.generate.negative_prompt_rules` (task F4).
+"""Tests for `nss.generate.negative_prompt_rules`.
 
-Synthetic style-attribute combos, per the task's own verification requirement -- these predicates
+Synthetic style-attribute combos: these predicates
 and the rule table must generalize to ANY future style with a matching attribute profile, not just
 this project's 3 currently-selected styles.
 """
@@ -50,7 +50,7 @@ def test_is_knitwear_or_sweater_matches_either_attribute() -> None:
 
 
 def test_apply_negative_prompt_rules_solid_style_excludes_pattern_terms() -> None:
-    """Task F4's real finding: a Solid style drifted into a floral-lace pattern because nothing
+    """A real finding: a Solid style drifted into a floral-lace pattern because nothing
     excluded pattern/print language -- the rule must add exactly that."""
     negative = apply_negative_prompt_rules(_BASE_NEGATIVE, _attrs(pattern_or_finish="Solid"))
     for term in ("floral", "lace", "pattern", "print", "embroidery"):
@@ -66,8 +66,8 @@ def test_apply_negative_prompt_rules_underwear_style_excludes_human_terms() -> N
 
 
 def test_apply_negative_prompt_rules_knitwear_style_excludes_close_up_terms() -> None:
-    """Task F4's real finding: a Sweater style's candidates were degenerate fabric-texture
-    close-ups; E5 hand-fixed this for ONE style only -- the rule must generalize to any Knitwear
+    """A real finding: a Sweater style's candidates were degenerate fabric-texture
+    close-ups; this was hand-fixed for ONE style only -- the rule must generalize to any Knitwear
     style, not just that specific style_key."""
     negative = apply_negative_prompt_rules(_BASE_NEGATIVE, _attrs(construction_group="Knitwear"))
     for term in ("close-up", "macro", "fabric swatch", "texture detail", "cropped", "zoomed"):

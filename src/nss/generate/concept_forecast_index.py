@@ -1,4 +1,4 @@
-"""Image-retrieval index of real catalogue photos per style (Q2: the closed loop as retrieval).
+"""Image-retrieval index of real catalogue photos per style (the closed loop as retrieval).
 
 The free-text route (VLM caption -> parse -> style_key) asked a small captioner to reproduce H&M's
 internal taxonomy from a photo and reached 12.5% exact-style accuracy (SmolVLM) / 2.5% (Florence-2)
@@ -26,7 +26,7 @@ local H&M image tree (`image_tree()`: env `NSS_HM_IMAGE_TREE`, else a sibling pr
 READ-ONLY, never copied or written to), at most `PER_STYLE_CAP` (8) photos per style, first in
 scan order (`data/images`, then the tree by folder and file name: deterministic). Photos a caller
 lists in `require` are always kept even beyond the cap (leave-one-out queries must be index photos).
-With the tree, every forecast style has photos (S session: 1,980/1,980 autumn, 3,000/3,000 summer
+With the tree, every forecast style has photos (1,980/1,980 autumn, 3,000/3,000 summer
 styles); without it the index is whatever is on disk, and uncovered styles are reported.
 Photos flagged non-full-garment in `exemplar_images_screened.csv` (texture crops) are excluded.
 Articles listed in `exclude_articles` (the validation photos) are dropped from every style BEFORE

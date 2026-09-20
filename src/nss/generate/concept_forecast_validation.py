@@ -1,12 +1,12 @@
-"""Validate the closed loop's style retrieval on REAL catalogue photos (tasks N8, Q2).
+"""Validate the closed loop's style retrieval on REAL catalogue photos.
 
-The 40 evaluation photos are exactly the ones the N8 free-text baseline was scored on: the 40
-`style_key`s in the committed N8 per-image file `concept_forecast_validation.csv`, each with its
-lowest-`article_id` photo (N8's rule). All 40 were usable in N8, so the comparison is like-for-like.
-The N8 draw code (`table.join(...).sample(n=40, seed=42)`) is NOT re-run: re-running it today
-reproduces only 3 of the 40 styles (the join's row order is not stable across polars versions /
-runs), so the file, not the seed, is the source of truth. Photos not already in `data/images` are
-fetched into the scratch folder `data/images_q2_eval/`.
+The 40 evaluation photos are exactly the ones the free-text baseline was scored on: the 40
+`style_key`s in the committed per-image file `concept_forecast_validation.csv`, each with its
+lowest-`article_id` photo (the baseline's rule). All 40 were usable in the baseline, so the
+comparison is like-for-like. The baseline's draw code (`table.join(...).sample(n=40, seed=42)`) is
+NOT re-run: re-running it today reproduces only 3 of the 40 styles (the join's row order is not
+stable across polars versions / runs), so the file, not the seed, is the source of truth. Photos not
+already in `data/images` are fetched into the scratch folder `data/images_q2_eval/`.
 
 METHOD (`concept_forecast_index`): nearest style by cosine similarity to the mean embedding of that
 style's real photos. Headline configuration, fixed before any number was computed: the AVERAGE of
@@ -36,16 +36,17 @@ the deployment-coverage condition can only measure coverage, not retrieval quali
 - `loo_deployment_index` (SUPPLEMENTARY, larger n, added when the gallery fetch was rate-limited by
   Kaggle): every index photo of a style with >= 2 index photos is a query against an index whose
   own-style prototype excludes it (leave-one-out); these are real photos of catalogue styles, but
-  they are not the 40 N8 photos, and near-duplicate articles within a style make it optimistic.
+  they are not the 40 baseline photos, and near-duplicate articles within a style make it
+  optimistic.
 
 Reported per configuration: top-1 / top-5 / top-10 style accuracy; product-type-alone and
 colour-alone accuracy of the top-1 style; coverage; and, for the headline configuration, accuracy
 by confidence label (calibration). Top-5 is the fair headline (styles are near-ties by
-construction); top-1 is reported too. Baseline: the N8 free-text route, 12.5% exact style
+construction); top-1 is reported too. Baseline: the free-text route, 12.5% exact style
 (SmolVLM), 2.5% (Florence-2) (`reports/tables/concept_forecast_validation.csv`, untouched).
 
-Output: `reports/tables/retrieval_validation_partial_index.csv` (`condition` = `deployment_coverage` |
-`gallery_covers_eval` | `loo_deployment_index`; `row_type` = `photo` | `summary_*`;
+Output: `reports/tables/retrieval_validation_partial_index.csv` (`condition` = `deployment_coverage`
+| `gallery_covers_eval` | `loo_deployment_index`; `row_type` = `photo` | `summary_*`;
 `config` = `clip` | `dino` | `avg`; summary rows have `style_key` = `ALL`).
 
 Usage:
@@ -73,10 +74,10 @@ GALLERY_PER_STYLE = 2
 
 
 def _sample_reps() -> pl.DataFrame:
-    """The 40 (style_key, article_id) validation photos of the N8 baseline; nothing is fetched.
+    """The 40 (style_key, article_id) validation photos of the baseline; nothing is fetched.
 
-    Styles come from the committed N8 per-image file; each style's photo is its lowest
-    `article_id` (N8's deterministic representative-article rule).
+    Styles come from the committed per-image file; each style's photo is its lowest
+    `article_id` (the baseline's deterministic representative-article rule).
     """
     styles = pl.read_csv(N8_VALIDATION)["style_key"].unique().sort().to_list()
     articles = cfi.load_article_styles()
@@ -96,7 +97,7 @@ def sampled_article_ids() -> list[int]:
 
 
 def sample_images() -> pl.DataFrame:
-    """The N8 evaluation photo (lowest article id) of each of the 40 styles, fetched if missing.
+    """The baseline photo (lowest article id) of each of the 40 styles, fetched if missing.
 
     Photos already in `data/images` are reused as they are; missing ones are fetched into the
     scratch folder `EVAL_FETCH_DIR` (never into the shared `data/images`). Returns the usable
@@ -330,12 +331,12 @@ def main() -> None:
 
 
 def main_full() -> None:
-    """Full-catalogue validation (S1): the whole local image tree, <= `PER_STYLE_CAP` photos per
+    """Full-catalogue validation: the whole local image tree, <= `PER_STYLE_CAP` photos per
     style, over the 1,980 forecast styles; writes `FULL_OUT` and leaves the 415-style file alone.
 
     Conditions (declared before any number was computed):
-    - `full_index_40`: the SAME 40 N8 photos, every one dropped from the index before any style
-      mean is formed (leave-one-out by exclusion), candidates = all 1,980 forecast styles;
+    - `full_index_40`: the SAME 40 baseline photos, every one dropped from the index before any
+      style mean is formed (leave-one-out by exclusion), candidates = all 1,980 forecast styles;
     - `loo_full_index_159`: the SAME 159 photos as the 415-style leave-one-out, now against the
       full index (each photo's own style prototype is recomputed without it);
     - `loo_full_index_1style1photo` (supplementary, larger n): one query per style (its first

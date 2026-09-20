@@ -1,5 +1,5 @@
-"""C4 verification: read-only SHAP-driver + commercial-scale report for the final three styles
-(`reports/tables/top_styles_final_three.csv`, Phase 2.5's A7 diversity-constrained reselection).
+"""Read-only SHAP-driver + commercial-scale report for the final three styles
+(`reports/tables/top_styles_final_three.csv`, the diversity-constrained reselection).
 
 READ-ONLY, NO MODEL CHANGES: every value this module reports (top-5 SHAP drivers, `predicted_
 intensity`) is already persisted in `top_styles_final_three.csv` by `nss.models.diversity_forecast`
@@ -12,25 +12,24 @@ against the largest-magnitude SHAP value among `SEASONAL_FEATURES` (`fourier_sin
 cos_1`, `fourier_sin_2`, `fourier_cos_2`, `lag_52`), restricted to whichever of those actually
 appear in that style's saved top-5. If neither `lag_1` nor any seasonal feature appears in the
 top-5 at all, or if the single largest-magnitude driver overall is neither, the verdict says so
-plainly rather than forcing a seasonal-vs-persistence answer where the data doesn't support one --
-see module docstring of the C4 task instructions this implements.
+plainly rather than forcing a seasonal-vs-persistence answer where the data doesn't support one.
 
 RANK AMONG ALL GUARD-PASSING STYLES: exactly derivable for a T1_incumbent-sourced row ONLY, by a
 pure code-logic argument (no data needed beyond `source_table` and `rank`==1): `nss.models.
 diversity_forecast.select_t1_incumbent` sorts every guard-passing style descending by `predicted_
 intensity`, then diversity-walks top-down, skipping only rows whose `DIVERSITY_KEY_COLS` pair
-collides with an ALREADY-KEPT row. The walk's first kept row (T1 rank 1) is, by construction,
+collides with an ALREADY-KEPT row. The walk's first kept row (incumbent rank 1) is, by construction,
 the single highest-`predicted_intensity` row in the entire guard-passing population -- nothing has
 been kept yet when it's considered, so it can never be skipped. `T2_emerging` rows are ranked by
 `growth_ratio`, not `predicted_intensity`, so no such proof applies to them; their exact rank would
 require the full guard-passing population's `predicted_intensity` ranking, which is not persisted
 anywhere on disk (`top_styles.csv`/`top_styles_incumbent.csv` are each only a top-10 slice, and
-`top_styles.csv` additionally predates the A5 determinism fix -- see that commit -- so it reflects
+`top_styles.csv` additionally predates the determinism fix -- see that commit -- so it reflects
 a DIFFERENT, non-reproducible model realization and cannot be validly combined with this run's
 numbers). Computing it exactly would require re-deriving `build_ranking_frame`, which needs a
 trained model; no trained model artifact is persisted to disk, so doing so would mean retraining --
-out of scope under this task's HARD CONSTRAINT (modelling frozen). This module instead reports the
-provable BOUND for T2 rows (>= the guard-passing population median, per `nss.models.
+out of scope here (modelling is frozen). This module instead reports the
+provable BOUND for emerging rows (>= the guard-passing population median, per `nss.models.
 diversity_forecast.t2_absolute_intensity_floor`'s eligibility rule) and states the gap explicitly
 rather than silently omitting it or retraining to fill it in.
 """
@@ -133,7 +132,7 @@ def _dominant_mechanism(drivers: list[tuple[str, float]]) -> str:
 
 
 def build_verdict_table(final_three: pl.DataFrame) -> pl.DataFrame:
-    """Build the C4 verdict table from `top_styles_final_three.csv`'s already-saved columns.
+    """Build the verdict table from `top_styles_final_three.csv`'s already-saved columns.
 
     Args:
         final_three: `top_styles_final_three.csv` read as-is (must have `style_key`,

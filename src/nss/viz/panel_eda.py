@@ -238,7 +238,7 @@ def build_intensity_comparison_table(
     intensity, shrunk intensity), each annotated with its rank in every list it appears in
     (null if absent from a given list), its underlying metric values, and its lifetime mean
     `price_index` (excluding null/early-life weeks -- see `mean_price_index_by_style`). Sorted by
-    rank in the raw-intensity list first (the table's primary framing per the task spec), so the
+    rank in the raw-intensity list first (the table's primary framing), so the
     raw-intensity top-20 -- the leaderboard the price_index annotation is meant to interrogate --
     reads top-to-bottom in rank order.
 

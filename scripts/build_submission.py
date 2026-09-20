@@ -1,5 +1,5 @@
 # ruff: noqa: E501  -- long lines are the bundle README template text
-"""Assemble and verify the reviewer bundle `reports/SUBMISSION/` (task K9).
+"""Assemble and verify the reviewer bundle `reports/SUBMISSION/`.
 
 Copies exactly the files the reviewer receives from their source-of-truth locations (so the bundle
 can never drift from the repo), writes the bundle README, then verifies every file: images decode,

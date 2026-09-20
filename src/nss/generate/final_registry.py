@@ -1,6 +1,6 @@
-"""The final three style ids, their order and plain names -- single source of truth (tasks M2/N6).
+"""The final three style ids, their order and plain names -- single source of truth.
 
-The final three come from `nss.models.reselect_final_three` (task N6: all three from the emerging
+The final three come from `nss.models.reselect_final_three` (all three from the emerging
 table, category and visual-ambiguity exclusions, no shared colour or product type): the beige
 melange sweater, the red dress and the white jersey top. Order is the emerging-table growth rank.
 Every figure, table and page builder imports these instead of restating style keys.

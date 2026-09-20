@@ -1,10 +1,10 @@
-"""Local SDXL + IP-Adapter feasibility smoke test (task B1).
+"""Local SDXL + IP-Adapter feasibility smoke test.
 
 Hard gate, not reusable infrastructure: proves that `stabilityai/stable-diffusion-xl-base-1.0`
 plus IP-Adapter (`h94/IP-Adapter`, `sdxl_models/ip-adapter-plus_sdxl_vit-h`) can generate a single
 1024x1024 image on an RTX 3070 (8 GB VRAM) within budget (peak VRAM <= ~7.5 GB, generation time
 <= 90s excluding one-time model load). Deliberately minimal -- the backend-agnostic generation
-interface (B2) and everything built on top of it are separate, later tasks. FLUX is explicitly out
+interface and everything built on top of it are separate modules. FLUX is explicitly out
 of scope for this hardware (will not fit in 8 GB).
 
 Usage:
@@ -43,7 +43,7 @@ SEED = 42  # hardcoded per project determinism convention
 IMAGES_DIR = Path("data/images")
 OUTPUT_DIR = Path("data/generated")
 
-# Gate thresholds from the B1 task spec -- exceeding either is a hard stop, not a soft target.
+# Gate thresholds -- exceeding either is a hard stop, not a soft target.
 MAX_PEAK_VRAM_GB = 7.5
 MAX_GENERATION_SECONDS = 90.0
 
@@ -92,7 +92,7 @@ def pick_reference_image(images_dir: Path, explicit_path: Path | None) -> Path:
 
     Args:
         images_dir: Directory to search for a fallback image (any file already on disk from the
-            Phase 2 exemplar fetch -- which one is used doesn't matter for this smoke test).
+            exemplar fetch -- which one is used doesn't matter for this smoke test).
         explicit_path: If given, use this path instead of searching `images_dir`.
 
     Returns:
@@ -145,7 +145,7 @@ def run_generation(
 
 
 def main() -> None:
-    """Run the B1 smoke test: load the pipeline, generate one image, measure VRAM/time, report."""
+    """Run the smoke test: load the pipeline, generate one image, measure VRAM/time, report."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prompt", default=DEFAULT_PROMPT)
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS)
@@ -157,7 +157,7 @@ def main() -> None:
         raise RuntimeError(
             "torch.cuda.is_available() is False -- this smoke test requires a CUDA-enabled torch "
             "build and a visible GPU; refusing to run a CPU-only SDXL pass (would be misleadingly "
-            "slow and would not measure what the B1 gate cares about)."
+            "slow and would not measure what this gate cares about)."
         )
 
     reference_image_path = pick_reference_image(IMAGES_DIR, args.reference_image)

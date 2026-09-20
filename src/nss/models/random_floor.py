@@ -1,6 +1,6 @@
 """Random-permutation floor: the "no signal at all" baseline every real method must beat.
 
-WHY A RANDOM FLOOR (see PLAN / backtest_v2 report): the earlier claim "LightGBM wins decisively on
+WHY A RANDOM FLOOR (see PLAN / backtest_v2): the earlier claim "LightGBM wins decisively on
 NDCG@10" was never checked against a random-guessing floor. A metric that scores well in absolute
 terms can still be indistinguishable from chance once you know its floor -- NDCG@10 in particular
 is NOT 0 for a random ranking (a random top-10 out of ~3,000 mostly-similar-magnitude styles can

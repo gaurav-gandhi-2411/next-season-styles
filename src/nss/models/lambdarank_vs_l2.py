@@ -1,6 +1,6 @@
-"""Task G2 output artifact: the full before/after comparison table, `lambdarank` vs the existing
+"""The full before/after comparison table, `lambdarank` vs the existing
 L2 `lightgbm` model, in the same broader context `backtest_v2.py` already established for L2 (the
-random floor, the 4 causal baselines) plus the G1 causal persistence oracle -- all scored on the
+random floor, the 4 causal baselines) plus the causal persistence oracle -- all scored on the
 SAME 12 walk-forward test origins, via the EXISTING harness (`nss.models.backtest`/`nss.models.
 metrics`), nothing new built.
 
@@ -26,17 +26,18 @@ TRUNCATION LEVEL SELECTION), so a WORSE full-distribution Spearman rho alongside
 metric (Precision@3) is the expected signature of that trade-off working as intended, not a
 contradiction.
 
-OUTPUT SCHEMA (`reports/tables/lambdarank_vs_l2_comparison.csv`): one row per `(method, split, metric)` --
-`method` in `{lambdarank, lightgbm, seasonal_naive, ewma_persistence, parent_category_mean,
-global_mean, random_floor, persistence_oracle}`, `split` in `{pooled, covid, non_covid}`, `metric`
-in `nss.models.metrics.METRIC_KEYS`. Columns: `n_origins`, `mean`, `ci_low`, `ci_high` (that
-method/split/metric's own block-bootstrapped value), plus `diff_vs_lightgbm_mean`/`diff_vs_lightgbm
-_ci_low`/`diff_vs_lightgbm_ci_high` -- POPULATED ONLY for `method == "lambdarank"` rows (the
-paired, block-bootstrapped `lambdarank - lightgbm` per-origin difference, reusing `nss.models.
-backtest.block_bootstrap_ci` on the diff series directly, the identical statistical machinery
-`backtest_v2.paired_diff_table` uses) -- `null` for every other method's rows (a paired diff vs.
-itself, or vs. a method this task was not asked to diff, is not computed rather than filled with a
-value that would misleadingly suggest it was).
+OUTPUT SCHEMA (`reports/tables/lambdarank_vs_l2_comparison.csv`): one row per `(method, split,
+metric)` -- `method` in `{lambdarank, lightgbm, seasonal_naive, ewma_persistence,
+parent_category_mean, global_mean, random_floor, persistence_oracle}`, `split` in `{pooled, covid,
+non_covid}`, `metric` in `nss.models.metrics.METRIC_KEYS`. Columns: `n_origins`, `mean`, `ci_low`,
+`ci_high` (that method/split/metric's own block-bootstrapped value), plus
+`diff_vs_lightgbm_mean`/`diff_vs_lightgbm_ci_low`/`diff_vs_lightgbm_ci_high` -- POPULATED ONLY
+for
+`method == "lambdarank"` rows (the paired, block-bootstrapped `lambdarank - lightgbm` per-origin
+difference, reusing `nss.models.backtest.block_bootstrap_ci` on the diff series directly, the
+identical statistical machinery `backtest_v2.paired_diff_table` uses) -- `null` for every other
+method's rows (a paired diff vs. itself, or vs. a method not chosen for a diff, is not computed
+rather than filled with a value that would misleadingly suggest it was).
 """
 
 from __future__ import annotations
@@ -205,7 +206,7 @@ def build_g2_comparison(panel: pl.DataFrame) -> pl.DataFrame:
 
 
 def main() -> None:
-    """CLI entry point: build the G2 comparison table, write it to `DEFAULT_OUT_PATH`."""
+    """CLI entry point: build the comparison table, write it to `DEFAULT_OUT_PATH`."""
     panel = pl.read_parquet(DEFAULT_PANEL_PATH)
     comparison = build_g2_comparison(panel)
 

@@ -1,6 +1,6 @@
-"""Generation with the N1 winning configuration, for the N6 final three (task N9).
+"""Generation with the winning lever configuration, for the final three.
 
-WINNING CONFIG (from the N1 lever experiments, `reports/tables/prompt_lever_summary.md` /
+WINNING CONFIG (from the lever experiments, `reports/tables/prompt_lever_summary.md` /
 `nss.generate.levers`):
 
 1. NATURAL-LANGUAGE PROMPT ON BOTH TEXT ENCODERS. The earlier attribute-first prompt
@@ -15,7 +15,8 @@ WINNING CONFIG (from the N1 lever experiments, `reports/tables/prompt_lever_summ
 4. PER-STYLE IP-ADAPTER SCALE chosen by a sweep, not a global 0.45.
 
 Usage:
-    uv run python -m nss.generate.concept_generation generate <style-keyword> <scales,csv> <seeds,csv>
+    uv run python -m nss.generate.concept_generation generate <style-keyword> \
+        <scales,csv> <seeds,csv>
 """
 
 from __future__ import annotations
@@ -83,7 +84,7 @@ def natural_prompt(style_id: str, changes: list[str], weight: float | None) -> s
 
 
 def brief_for(style_id: str) -> dict[str, Any]:
-    """A minimal brief in `design_briefs.json`'s shape (negative prompt via the F4 rule table)."""
+    """A minimal brief in `design_briefs.json`'s shape (negative prompt via the rule table)."""
     spec = CHANGES[style_id]
     return {
         "style_id": style_id,

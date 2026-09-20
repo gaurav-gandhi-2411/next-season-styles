@@ -1,4 +1,4 @@
-"""Reference-conditioning levers for SDXL + IP-Adapter Plus (task N1).
+"""Reference-conditioning levers for SDXL + IP-Adapter Plus.
 
 ROOT CAUSE this module addresses: generation conditioned on `references[0]` alone through
 IP-Adapter, whose image tokens dominate the text prompt. Two rounds x 4 seeds x 3 styles gave zero

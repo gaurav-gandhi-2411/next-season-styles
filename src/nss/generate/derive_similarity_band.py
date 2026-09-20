@@ -1,11 +1,12 @@
-"""Empirically derive the CLIP cosine-similarity "in-band" thresholds used by `is_in_band` (B3).
+"""Empirically derive the CLIP cosine-similarity "in-band" thresholds used by `is_in_band`.
 
-Uses every real, successfully-fetched exemplar image across the two manifests written by Phase 2
-(`reports/tables/exemplar_images.csv`) and A8 (`reports/tables/exemplar_images_final_three.csv`),
-combined and de-duplicated by `article_id` -- `final_rank_1`'s style_key is identical to
-`winner_rank_1`'s (see `nss.data.select_final_three_exemplars`'s docstring), so the union gives
-~6 distinct styles (3 original T1 winners + 2 new T2 emerging winners + 1 control) instead of
-just the 4 either manifest has alone.
+Uses every real, successfully-fetched exemplar image across the two manifests written by the
+exemplar selection (`reports/tables/exemplar_images.csv`) and the final-three fetch
+(`reports/tables/exemplar_images_final_three.csv`), combined and de-duplicated by `article_id` --
+`final_rank_1`'s style_key is identical to `winner_rank_1`'s (see
+`nss.data.select_final_three_exemplars`'s docstring), so the union gives ~6 distinct styles (3
+original winners + 2 new emerging winners + 1 control) instead of just the 4 either manifest has
+alone.
 
 For every pair of images belonging to the SAME style_key, we compute CLIP cosine similarity --
 that is the "within-style" distribution: how similar real images of one style are to each other.
@@ -70,7 +71,7 @@ def load_exemplar_manifest(paths: tuple[Path, ...] = EXEMPLAR_MANIFEST_PATHS) ->
     row), and building similarity distributions from a missing file is not possible.
 
     Args:
-        paths: Manifest CSV paths to combine (Phase 2 + A8 by default).
+        paths: Manifest CSV paths to combine (the exemplar and final-three manifests by default).
 
     Returns:
         De-duplicated frame with columns `style_key`, `article_id`, `local_image_path`, sorted by

@@ -1,4 +1,4 @@
-"""Buyer-mix features from `customers.csv`: who is buying a style, and is that base broadening? (U1)
+"""Buyer-mix features from `customers.csv`: who is buying a style, and is that base broadening?
 
 Every feature in `nss.features.model_features` derives from a style's sales history. These describe
 the PEOPLE behind those sales, aggregated per style-week, with trailing windows only.

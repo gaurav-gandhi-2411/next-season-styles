@@ -1,23 +1,23 @@
-"""Build the final deliverable figures from F5's real, current, already-generated evidence.
+"""Build the final deliverable figures from the real, already-generated evidence.
 
 Pure image composition -- no GPU, no generation, no scoring. Consumes artifacts already on disk:
-`reports/tables/design_briefs.json` (C5, updated by E5 with `applied_changes`),
-`reports/tables/exemplar_images_final_three.csv` (A8, real catalogue reference images),
-`reports/tables/final_concepts_v3.csv` (F5's full scored history under the F1-F4-corrected gate/
+`reports/tables/design_briefs.json` (updated with `applied_changes`),
+`reports/tables/exemplar_images_final_three.csv` (real catalogue reference images),
+`reports/tables/final_concepts_v3.csv` (the full scored history under the corrected gate/
 prompt/reference pipeline: 4 seeds x 3 styles = 12 candidates, real CLIP/DINOv2 margins against the
-F1-corrected Gate 1 copy-anchor check and F2's per-judge-calibrated Gate 2 VLM fidelity thresholds,
+corrected Gate 1 copy-anchor check and the per-judge-calibrated Gate 2 VLM fidelity thresholds,
 plus the visual-QC-overridden final selection per style), and
-`reports/tables/margin_anchors_clip.csv`/`..._dinov2.csv` (C2's original two-sided real-space band,
+`reports/tables/margin_anchors_clip.csv`/`..._dinov2.csv` (the original two-sided real-space band,
 shown in `evidence_chain.png` as a diagnostic only -- see that figure's docstring).
 
-SUPERSEDES task E8's `final_concepts_v2.csv`-based version of this module (see git history) -- F1
-(anchor-contamination fix), F2 (per-judge Gate-2 thresholds), F3 (screened full-garment references),
-F4 (77-token prompt-budget fix) and F5 (the final generation run itself) all postdate E8, so the
+SUPERSEDES the earlier `final_concepts_v2.csv`-based version of this module (see git history) --
+the anchor-contamination fix, per-judge Gate-2 thresholds, screened full-garment references, the
+77-token prompt-budget fix and the final generation run itself all postdate it, so the
 deliverable figures must be rebuilt from the new artifact, not patched around the old one.
 
-HONEST RESULT, NOT SUPPRESSED: F5 found 0 of the 12 generated candidates -- and so 0 of the 3
-winning styles -- pass BOTH gates (Gate 1: F1-corrected sign-safe copy-anchor check on CLIP+DINOv2;
-Gate 2: F2's per-judge-calibrated VLM attribute fidelity) within the fixed 4-seed budget
+HONEST RESULT, NOT SUPPRESSED: the final generation run found 0 of the 12 generated candidates --
+and so 0 of the 3 winning styles -- pass BOTH gates (Gate 1: corrected sign-safe copy-anchor check
+on CLIP+DINOv2; Gate 2: per-judge-calibrated VLM attribute fidelity) within the fixed 4-seed budget
 (`final_concepts_v3.csv`'s `selection_passed` column is `False` for all 3 `is_selected` rows).
 Judge availability was severely constrained this run (Gemini's free-tier quota exhausted for the
 entire run, Groq's shared TPD budget exhausted after its first call) -- only 1 of 12 candidates
@@ -65,7 +65,7 @@ EVIDENCE_OUT_PATH = Path("reports/figures/evidence_chain.png")
 ATTRIBUTE_FIDELITY_THRESHOLD = 0.75  # must match concept_qc_pipeline.ATTRIBUTE_FIDELITY_THRESHOLD.
 
 # Display order and names for both figures: the single source of truth is `final_registry`
-# (the M2 re-selection: black T-shirt, beige sweater, red dress).
+# (the re-selection: black T-shirt, beige sweater, red dress).
 STYLE_ORDER: tuple[str, ...] = final_registry.STYLE_ORDER
 STYLE_DISPLAY_NAMES: dict[str, str] = final_registry.DISPLAY_NAMES
 
@@ -83,7 +83,7 @@ _PRESERVE_PREFIXES: dict[str, str] = {
 
 
 def load_final_concepts_v3(path: Path = FINAL_CONCEPTS_V3_PATH) -> pl.DataFrame:
-    """Load `final_concepts_v3.csv` (F5's full scored history + visual-QC-applied selection).
+    """Load `final_concepts_v3.csv` (the full scored history + visual-QC-applied selection).
 
     Args:
         path: Path to `final_concepts_v3.csv`.
@@ -113,7 +113,7 @@ def display_name(style_id: str) -> str:
 
 
 def select_final_row(df: pl.DataFrame, style_id: str) -> dict[str, Any]:
-    """Return the F5-selected (`is_selected == True`) row for one style.
+    """Return the selected (`is_selected == True`) row for one style.
 
     Selection itself (including the manual visual-QC veto) already happened upstream in
     `nss.generate.final_concepts_v2.apply_visual_qc_and_rewrite` -- this module only reads the
@@ -213,7 +213,7 @@ class PanelData:
 def build_panel_data(
     df: pl.DataFrame, briefs: dict[str, dict[str, Any]], style_id: str
 ) -> PanelData:
-    """Assemble one style's `PanelData`: F5-selected row + brief-derived rationale.
+    """Assemble one style's `PanelData`: selected row + brief-derived rationale.
 
     Args:
         df: Output of `load_final_concepts_v3`.
@@ -238,7 +238,7 @@ def build_panel_data(
 def build_hero_figure(panels: list[PanelData]) -> plt.Figure:
     """Build the `FINAL_concepts.png` hero figure: one clean panel per winning style.
 
-    Each panel shows the F5-selected generated concept image (`select_final_row`), captioned with
+    Each panel shows the selected generated concept image (`select_final_row`), captioned with
     the style's human-readable name and a one-line design rationale naming the concrete changes
     actually applied. This is deliberately a clean fashion deliverable, NOT a QC dashboard -- no
     pass/fail stamps, no QC badges, no scores anywhere on this image. The full, honest QC trace
@@ -371,15 +371,15 @@ def build_margin_text(
 ) -> str:
     """Readable multi-line block of one concept's real margins vs. BOTH anchor systems.
 
-    Shows the concept's real CLIP/DINOv2 margins against (1) the E2 Gate-1 sign-safe copy-anchor
+    Shows the concept's real CLIP/DINOv2 margins against (1) the Gate 1 sign-safe copy-anchor
     threshold -- the LIVE gate this concept was actually selected/rejected against -- and (2), as a
-    diagnostic only, the OLD two-sided real-space band from C2, which no longer gates selection.
+    diagnostic only, the OLD two-sided real-space band, which no longer gates selection.
     Both are clearly labeled so a reviewer never confuses the two.
 
     Args:
-        row: One `final_concepts_v3.csv` row (the F5-selected candidate for a style).
-        real_space_clip_band: `(lower, upper)` C2 real-space CLIP band (diagnostic only).
-        real_space_dino_band: `(lower, upper)` C2 real-space DINOv2 band (diagnostic only).
+        row: One `final_concepts_v3.csv` row (the selected candidate for a style).
+        real_space_clip_band: `(lower, upper)` real-space CLIP band (diagnostic only).
+        real_space_dino_band: `(lower, upper)` real-space DINOv2 band (diagnostic only).
 
     Returns:
         A newline-joined text block with real numbers, never just a checkmark/x.
@@ -414,7 +414,7 @@ def build_judge_scores_text(row: dict[str, Any]) -> str:
     hiding the resulting single-judge (Groq-only) limitation.
 
     Args:
-        row: One `final_concepts_v3.csv` row (the F5-selected candidate for a style).
+        row: One `final_concepts_v3.csv` row (the selected candidate for a style).
 
     Returns:
         A newline-joined text block: each judge's availability/score, consensus fidelity, and the
@@ -467,8 +467,8 @@ def build_evidence_chain_figure(
     images for that style, (2) the design brief's silhouette/colour/preserve/applied-changes
     excerpt as readable text (what was kept vs. changed), (3) the SAME generated concept image
     selected for the hero figure (`select_final_row`), (4) the concept's real CLIP/DINOv2 margins
-    against BOTH the live E2 Gate-1 copy-anchor threshold and, as a labeled diagnostic only, the
-    old C2 two-sided real-space band, (5) the real, printed Gate-2 per-judge attribute-fidelity
+    against BOTH the live Gate 1 copy-anchor threshold and, as a labeled diagnostic only, the
+    old two-sided real-space band, (5) the real, printed Gate-2 per-judge attribute-fidelity
     scores, explicitly noting when Gemini was unavailable (quota exhaustion) this round, plus the
     final overall/style QC verdict. Lets a reviewer trace, end to end, exactly how each winning
     style's real reference photos and design brief led to its generated concept, and see the real
@@ -478,8 +478,8 @@ def build_evidence_chain_figure(
         panels: One `PanelData` per winning style, in display order.
         references: Output of `nss.generate.final_concepts.load_final_three_references`.
         briefs: Output of `nss.generate.final_concepts.load_design_briefs`.
-        real_space_clip_band: `(lower, upper)` C2 real-space CLIP band (diagnostic only).
-        real_space_dino_band: `(lower, upper)` C2 real-space DINOv2 band (diagnostic only).
+        real_space_clip_band: `(lower, upper)` real-space CLIP band (diagnostic only).
+        real_space_dino_band: `(lower, upper)` real-space DINOv2 band (diagnostic only).
 
     Returns:
         The constructed `Figure`, ready to save.
@@ -575,7 +575,7 @@ def main(
     hero_out_path: Path = HERO_OUT_PATH,
     evidence_out_path: Path = EVIDENCE_OUT_PATH,
 ) -> tuple[Path, Path]:
-    """Run the full pipeline: load F5's selected candidates, build + save both figures.
+    """Run the full pipeline: load the selected candidates, build + save both figures.
 
     Args:
         final_concepts_v3_path: Path to `final_concepts_v3.csv`.

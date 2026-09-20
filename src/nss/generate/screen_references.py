@@ -1,19 +1,19 @@
-"""Screen candidate IP-Adapter reference images by framing (task F3): full-garment product shot
+"""Screen candidate IP-Adapter reference images by framing: full-garment product shot
 vs. texture-crop/close-up, via blind VLM classification.
 
-WHY THIS EXISTS (task F3 -- explicitly NOT deferred again, see task report): task E5 found every
-Sweater candidate generated that run was a degenerate fabric-texture close-up and traced the
-mechanism to `nss.generate.backends`'s DOCUMENTED single-IP-Adapter-reference limit (that module's
-docstring note 1): `diffusers`' `prepare_ip_adapter_image_embeds` requires exactly one image per
-*loaded* IP-Adapter, so `_generate_local_sdxl` only ever conditions on `reference_images[0]` --
-confirmed again here by reading `backends.py` directly, not re-derived. E5 reported this as "out of
-scope" because building multi-reference IP-Adapter support (one adapter per reference image) is a
-real architecture change, correctly out of scope for a QC-gate task.
+WHY THIS EXISTS: an earlier generation run found every Sweater candidate was a degenerate
+fabric-texture close-up and traced the mechanism to `nss.generate.backends`'s DOCUMENTED
+single-IP-Adapter-reference limit (that module's docstring note 1): `diffusers`'
+`prepare_ip_adapter_image_embeds` requires exactly one image per *loaded* IP-Adapter, so
+`_generate_local_sdxl` only ever conditions on `reference_images[0]` -- confirmed again here by
+reading `backends.py` directly, not re-derived. That run reported this as "out of scope" because
+building multi-reference IP-Adapter support (one adapter per reference image) is a real architecture
+change, correctly out of scope for a QC-gate change.
 
-ROOT CAUSE IS NOT MISSING DATA (confirmed, not assumed): task A8 fetched 8 candidate reference
-images per final-three style (`reports/tables/exemplar_images_final_three.csv`, `final_rank_*`
-rows) -- 23/24 fetched successfully (one T-shirt article, `0610776002`, failed fetch and is
-correctly excluded downstream). The bug is in ORDERING: `nss.generate.final_concepts.
+ROOT CAUSE IS NOT MISSING DATA (confirmed, not assumed): the exemplar fetch got 8 candidate
+reference images per final-three style (`reports/tables/exemplar_images_final_three.csv`,
+`final_rank_*` rows) -- 23/24 fetched successfully (one T-shirt article, `0610776002`, failed fetch
+and is correctly excluded downstream). The bug is in ORDERING: `nss.generate.final_concepts.
 load_final_three_references` (via `nss.generate.derive_similarity_band.group_by_style`) sorts each
 style's candidate paths by `Path.sort()`, i.e. lexicographically by
 `data/images/<article_id>.jpg` -- a sort key with NO relationship to framing quality. For the
@@ -21,9 +21,9 @@ Sweater style that arbitrary sort put article `0673677023` (H&M's own texture-de
 for that article) at index 0, which is exactly the image `_generate_local_sdxl` conditions on.
 
 THE FIX (architectural limitation accepted, ordering/selection bug fixed): since multi-reference
-IP-Adapter conditioning is out of scope (same call E5 made, upheld here), this module makes
+IP-Adapter conditioning is out of scope (the same call as before, upheld here), this module makes
 `reference_images[0]` the BEST available image instead of an arbitrary one, for EVERY final style
-(not just the Sweater, per this task's explicit instruction) --
+(not just the Sweater) --
 
 1. Classify every candidate reference image, blind, as `"full_garment"` or `"texture_crop"` via
    both project VLM judges (Gemini always attempted, Groq if reachable -- same
@@ -42,18 +42,18 @@ IP-Adapter conditioning is out of scope (same call E5 made, upheld here), this m
    catalogue is genuinely exhausted (`exhausted=True` in the returned summary -- a real finding,
    reported, never silently padded).
 
-CANONICAL SOURCE, POST-SCREENING (documented, per task instruction): this module writes a NEW file,
+CANONICAL SOURCE, POST-SCREENING (documented): this module writes a NEW file,
 `reports/tables/exemplar_images_screened.csv` -- it does NOT overwrite `exemplar_images_final_three.
-csv` (A8's fetch-provenance manifest stays exactly as A8 wrote it; this module's output is a
+csv` (the fetch-provenance manifest stays exactly as it was written; this module's output is a
 DERIVED, VLM-screening-provenance manifest layered on top, so both the original fetch record and
 the screening decision are independently auditable). `nss.generate.final_concepts_v2.main` and
-`scripts/run_pipeline.py`'s `generate`/`score` stages (the CURRENTLY ACTIVE generation pipeline,
-task E8) were repointed from `final_concepts.load_final_three_references` to this module's
-`load_screened_references` -- see those modules' diffs. `nss.generate.final_concepts.main` (C6, a
+`scripts/run_pipeline.py`'s `generate`/`score` stages (the CURRENTLY ACTIVE generation pipeline)
+were repointed from `final_concepts.load_final_three_references` to this module's
+`load_screened_references` -- see those modules. `nss.generate.final_concepts.main` (a
 historical/superseded artifact per `final_concepts_v2.py`'s own docstring) and
-`nss.generate.concept_qc_pipeline.main` (C7/E2, same "superseded" status) are deliberately left
+`nss.generate.concept_qc_pipeline.main` (same "superseded" status) are deliberately left
 reading the UNSCREENED manifest -- they are not part of the active pipeline and rewriting a
-superseded module's data source is out of this task's scope.
+superseded module's data source is out of scope here.
 
 Usage:
     uv run python -m nss.generate.screen_references
@@ -93,7 +93,7 @@ FRAMING_LABELS = (FRAMING_FULL_GARMENT, FRAMING_TEXTURE_CROP)
 
 # Trigger a fetch-more round if fewer than this many full-garment images survive screening; keep
 # fetching (up to MAX_FETCH_ROUNDS) until at least TARGET_FULL_GARMENT_REFERENCES survive. Per
-# task F3 instruction verbatim: "<3 survive" triggers, ">=4" is the target.
+# Specified thresholds: "<3 survive" triggers, ">=4" is the target.
 MIN_SURVIVING_BEFORE_FETCH = 3
 TARGET_FULL_GARMENT_REFERENCES = 4
 FETCH_BATCH_SIZE = 8  # matches nss.data.select_exemplars.N_EXEMPLARS_PER_STYLE
@@ -185,7 +185,7 @@ def classify_framing_gemini(image_path: Path, api_key: str | None = None) -> dic
     Any failure (missing key, network error, malformed response) is caught and converted to an
     `available=False` result rather than raised -- same "one judge's failure must not block
     screening" convention as `skills/concept-qc/run_qc.py`'s `run_judge` (this is a screening
-    filter, not the E2 fail-loud generation path).
+    filter, not the fail-loud generation path).
 
     Args:
         image_path: The candidate reference image to classify.
@@ -367,7 +367,7 @@ def screen_candidates(
         groq_detail: Detail string from that same check.
         classify_fn: `(image_path, groq_available, groq_detail) -> classification dict`.
         newly_fetched: Tags every row with whether these candidates came from a fetch-more round
-            (vs. A8's original top-8 fetch) -- purely provenance, never affects screening.
+            (vs. the original top-8 fetch) -- purely provenance, never affects screening.
 
     Returns:
         One dict per candidate: `style_id`, `article_id`, `units_sold_last_26w`, `newly_fetched`,
@@ -412,7 +412,7 @@ def ensure_min_full_garment_references(
     A no-op (0 fetch rounds) if `screened` already has `>= min_before_fetch` full-garment
     survivors. Otherwise, re-ranks this style's constituent articles by units sold with a
     progressively larger `n` (reusing `select_top_selling_articles` verbatim -- same ranking logic
-    A8 used for the original top-8), fetches only the NEW article_ids beyond
+    the original top-8 fetch used), fetches only the NEW article_ids beyond
     `already_tried_article_ids`, screens them, and repeats until `target_after_fetch` survivors
     are reached or `max_fetch_rounds` is exhausted. `fetch_fn`/`classify_fn` are injected so this
     is fully unit-testable with fakes (no real network/API calls).
@@ -533,7 +533,7 @@ def load_screened_references(path: Path = SCREENED_MANIFEST_PATH) -> dict[str, l
                 "style's catalogue genuinely lacks a usable full-garment reference image, or "
                 "screening was left incomplete by a VLM-provider quota exhaustion (check for "
                 "'no judge available' rows via `retry_inconclusive_candidates` before concluding "
-                "a genuine shortfall -- see the F3 task report for this style's finding)"
+                "a genuine shortfall -- see the screening report for this style's finding)"
             )
         grouped[style_id] = [Path(p) for p in style_df["image_path"].to_list()]
     return grouped
@@ -548,7 +548,7 @@ def retry_inconclusive_candidates(
 ) -> pl.DataFrame:
     """Re-classify already-screened rows that were INCONCLUSIVE (no judge reachable) last run,
     without fetching any new candidate images -- a cheap, targeted retry for exactly the shared
-    VLM-provider-quota-exhaustion finding documented in the F3 task report (Gemini's free-tier
+    VLM-provider-quota-exhaustion finding documented in the screening report (Gemini's free-tier
     daily cap and Groq's TPD budget were both exhausted mid-run, largely by
     `ensure_min_full_garment_references`'s own aggressive over-fetching once a style fell short).
 
@@ -593,10 +593,10 @@ def retry_inconclusive_candidates(
 
 
 def main() -> None:
-    """Run the full F3 screening pipeline over the current final-three styles' candidate
+    """Run the full screening pipeline over the current final-three styles' candidate
     reference images: screen -> fetch-more-if-needed -> write `exemplar_images_screened.csv`.
 
-    VLM-PROVIDER QUOTA IS A REAL, RECURRING CONSTRAINT (see the F3 task report): both Gemini's
+    VLM-PROVIDER QUOTA IS A REAL, RECURRING CONSTRAINT (see the screening report): both Gemini's
     free-tier daily request cap and Groq's shared TPD token budget can be exhausted mid-run --
     especially once `ensure_min_full_garment_references` triggers a fetch-more round, which can
     add dozens of new candidates to classify. A style whose printed summary says `SHORTFALL` at

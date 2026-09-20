@@ -1,4 +1,4 @@
-"""Tests for `nss.generate.concept_qc_pipeline` (task C7).
+"""Tests for `nss.generate.concept_qc_pipeline`.
 
 No real API/GPU calls anywhere in this module -- `judge_panel_fn`/`margin_fn`/`generate_fn` are
 always fakes injected into `run_qc_with_retries`, and `parse_style_attributes`/
@@ -298,7 +298,7 @@ def test_summarize_calibration_fails_on_insufficient_separation() -> None:
 
 def test_summarize_calibration_is_generic_across_arbitrary_judge_names() -> None:
     """`summarize_calibration` groups purely by whatever `judge_name` values appear in `df` -- not
-    hardcoded to `"gemini"`/`"groq"` -- so swapping in a third/different-provider judge (task E6's
+    hardcoded to `"gemini"`/`"groq"` -- so swapping in a third/different-provider judge (the
     motivating scenario: replacing a dead judge with a differently-named live one) needs zero
     changes to this function."""
     df = pl.DataFrame(
@@ -346,12 +346,12 @@ def test_summarize_calibration_never_available_fails_without_crashing() -> None:
 
 
 # ---------------------------------------------------------------------------
-# load_copy_anchors_gen -- task E1 anchors, per-style, never pooled
+# load_copy_anchors_gen -- generated-space anchors, per-style, never pooled
 # ---------------------------------------------------------------------------
 
 
 def test_load_copy_anchors_gen_excludes_pooled_and_keys_by_style() -> None:
-    """The real `margin_anchors_generated_space.csv` (task E1) -- excludes ALL_STYLES_POOLED,
+    """The real `margin_anchors_generated_space.csv` -- excludes ALL_STYLES_POOLED,
     keeps one {clip, dinov2} pair per style, and the Sweater's real CLIP anchor is negative."""
     anchors = load_copy_anchors_gen()
     assert "ALL_STYLES_POOLED" not in anchors
@@ -361,7 +361,7 @@ def test_load_copy_anchors_gen_excludes_pooled_and_keys_by_style() -> None:
         "Ladieswear || Sweater || Knitwear || Beige || Melange",
     }
     sweater = anchors["Ladieswear || Sweater || Knitwear || Beige || Melange"]
-    assert sweater["clip"] < 0.0  # the real negative-anchor edge case this task is built around
+    assert sweater["clip"] < 0.0  # the real negative-anchor edge case this module is built around
     assert sweater["dinov2"] > 0.0
     tshirt = anchors["Ladieswear || T-shirt || Jersey Basic || Black || Solid"]
     assert tshirt["clip"] == pytest.approx(0.13587470962887718)
@@ -401,13 +401,13 @@ def test_rescore_attempt_copy_check_fail_blocks_overall_even_if_fidelity_passed(
 
 
 # ---------------------------------------------------------------------------
-# rescore_results_csv -- against the 9 REAL, already-logged C7 attempts (task E2 part 3)
+# rescore_results_csv -- against the 9 REAL, already-logged attempts
 # ---------------------------------------------------------------------------
 
 
 def test_rescore_results_csv_against_real_9_logged_attempts(tmp_path: Path) -> None:
-    """Re-scores the real `concept_qc_results.csv` (9 logged C7 attempts) under the new gate --
-    hand-verified numbers (see the task report): 0/9 pass; the T-shirt's 3 attempts fail Gate 1
+    """Re-scores the real `concept_qc_results.csv` (9 logged attempts) under the new gate --
+    hand-verified numbers: 0/9 pass; the T-shirt's 3 attempts fail Gate 1
     (copy-check), the Underwear bottom's attempts 0-1 pass Gate 1 but fail Gate 2 (fidelity), its
     attempt 2 fails both, and every Sweater attempt fails both."""
     output_path = tmp_path / "rescored.csv"
@@ -433,12 +433,12 @@ def test_rescore_results_csv_against_real_9_logged_attempts(tmp_path: Path) -> N
 
 
 # ---------------------------------------------------------------------------
-# rescore_attempt_under_new_gate -- active_metrics (task F1)
+# rescore_attempt_under_new_gate -- active_metrics
 # ---------------------------------------------------------------------------
 
 
 def test_rescore_attempt_under_new_gate_active_metrics_default_unchanged() -> None:
-    """Default `active_metrics` (both) reproduces task E2's original behavior exactly."""
+    """Default `active_metrics` (both) reproduces the original behavior exactly."""
     result = rescore_attempt_under_new_gate(
         clip_margin=0.5,  # not below its 0.09 threshold
         dino_margin=0.2,  # below its 0.45 threshold
@@ -450,7 +450,7 @@ def test_rescore_attempt_under_new_gate_active_metrics_default_unchanged() -> No
 
 
 def test_rescore_attempt_under_new_gate_active_metrics_drops_clip() -> None:
-    """Dropping CLIP (task F1's metric-dropping mechanism) -- the SAME margins that failed above
+    """Dropping CLIP (the metric-dropping mechanism) -- the SAME margins that failed above
     now pass, since only DINOv2 is gated on."""
     result = rescore_attempt_under_new_gate(
         clip_margin=0.5,
@@ -465,7 +465,7 @@ def test_rescore_attempt_under_new_gate_active_metrics_drops_clip() -> None:
 
 
 # ---------------------------------------------------------------------------
-# compute_fidelity_thresholds -- task F2
+# compute_fidelity_thresholds
 # ---------------------------------------------------------------------------
 
 
@@ -497,7 +497,7 @@ def test_compute_fidelity_thresholds_custom_fraction() -> None:
 
 
 # ---------------------------------------------------------------------------
-# rescore_final_concepts_v2_under_f1_f2 -- tasks F1 + F2, applied to E5's 24 candidates
+# rescore_final_concepts_v2_under_f1_f2 -- both corrections, applied to the 24 candidates
 # ---------------------------------------------------------------------------
 
 
@@ -555,7 +555,7 @@ def test_rescore_final_concepts_v2_drops_clip_and_applies_per_judge_thresholds(
     assert output_path.exists()
     row = result.row(0, named=True)
     assert row["copy_check_pass_original"] is False  # CLIP-and-DINOv2 AND fails (original gate)
-    assert row["copy_check_pass_f1_corrected"] is True  # DINOv2-only passes (task F1)
+    assert row["copy_check_pass_f1_corrected"] is True  # DINOv2-only passes (corrected metric set)
     assert row["fidelity_pass_f2_corrected"] is True  # both judges clear their own threshold
     assert row["overall_pass_f1_f2_corrected"] is True
 

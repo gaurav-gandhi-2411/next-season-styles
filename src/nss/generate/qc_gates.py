@@ -7,11 +7,12 @@ Gate 1b  nearest reference: the closest single reference must be <= the p90 of t
          check that passes a clone is broken and is reported UNVALIDATED, never as a pass).
 Integrity  GLOBAL floor (gates, `integrity_global`): the closest real reference (DINOv2) must be at
          least the p10 of real nearest-sibling similarity pooled over every style. The per-style
-         floor (`gate3.integrity_floor`) is reported beside it as ADVISORY (task R2).
+         floor (`gate3.integrity_floor`) is reported beside it as ADVISORY.
 Gate 2   attribute fidelity of a blind local-judge read of the picture against the style's VISIBLE
          attributes (`nss.generate.fidelity`), each judge against its own calibrated threshold.
-         SmolVLM GATES; Florence-2 is ADVISORY (reported, never gating) -- `concept_scoring.GATING_JUDGES`
-         / `ADVISORY_JUDGES`, the same panel rule that scored the final concepts (task P3).
+         SmolVLM GATES; Florence-2 is ADVISORY (reported, never gating) --
+         `concept_scoring.GATING_JUDGES` / `ADVISORY_JUDGES`, the same panel rule that scored the
+         final concepts.
 Gate 3   are the briefed changes visible? One yes/no question per change to the gating local judge;
          a strict majority must be present. Needs the briefed changes (see `briefed_changes`).
 Human    a mandatory visual check. It is never automated: the automatic gates passed visibly
@@ -19,11 +20,11 @@ Human    a mandatory visual check. It is never automated: the automatic gates pa
 
 Gates 2 and 3 load a local VLM (`include_fidelity=True`; no network, no API quota). This supersedes
 the earlier Groq single-reading Gate 2 (Groq's key/quota was spent; a single reading varied by
-about +/-0.21) and the pre-N9 verdict that had no integrity floor and no Gate 3.
+about +/-0.21) and the earlier verdict that had no integrity floor and no Gate 3.
 
 Everything reuses the functions that scored the final concepts (`within_style_benchmark`,
-`gate1b_nearest_reference`, `integrity_global`, `gate3`, `concept_scoring`); no threshold is re-derived
-here and none was changed.
+`gate1b_nearest_reference`, `integrity_global`, `gate3`, `concept_scoring`); no threshold is
+re-derived here and none was changed.
 """
 
 from __future__ import annotations
@@ -47,11 +48,11 @@ HUMAN_CHECK_NOTE = (
 def reference_paths_for_style(style_key: str) -> list[Path]:
     """The screened full-garment references the gates are calibrated on, best-selling first.
 
-    Underwear uses H3's verified plain-solid references (the screened set is the lace one H3
-    replaced). Every other style uses `concept_generation.load_refs()` -- the SAME widened base the final
-    concepts were scored on (autumn/winter screened manifest plus the summer style's widened one),
-    so this tool and `concept_scoring` gate against identical references. The pre-N9 summer manifest is
-    kept only as a fallback.
+    Underwear uses the verified plain-solid references (the screened set is the lace one they
+    replaced). Every other style uses `concept_generation.load_refs()` -- the SAME widened base the
+    final concepts were scored on (autumn/winter screened manifest plus the summer style's widened
+    one), so this tool and `concept_scoring` gate against identical references. The earlier summer
+    manifest is kept only as a fallback.
 
     Raises:
         ValueError: no screened references exist for `style_key` (the gates are undefined without
@@ -88,9 +89,9 @@ GATE_NAMES = ("gate1", "gate1b", "integrity", "gate2", "gate3")
 def briefed_changes(style_key: str, concept: Path) -> list[str]:
     """The design changes the concept was briefed with, for Gate 3.
 
-    Order: the N9 sidecar next to the image (`<image>.json`, key `changes`), else the final
-    concepts' registry (`concept_generation.CHANGES`). Empty if neither knows: Gate 3 is then NOT RUN
-    (never a pass), because "are the briefed changes visible" is undefined without the brief.
+    Order: the sidecar next to the image (`<image>.json`, key `changes`), else the final
+    concepts' registry (`concept_generation.CHANGES`). Empty if neither knows: Gate 3 is then NOT
+    RUN (never a pass), because "are the briefed changes visible" is undefined without the brief.
     """
     sidecar = concept.with_suffix(".json")
     if sidecar.exists():
@@ -126,8 +127,9 @@ def _local_panel(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Gate 2 and Gate 3 from the local judge panel, via the code that scored the final concepts.
 
-    Runs `concept_scoring.judge_rows` for every gating and advisory judge, then `concept_scoring.apply_panel_rule`
-    (SmolVLM gates, Florence-2 is advisory). Returns `(gate2, gate3)` result dicts.
+    Runs `concept_scoring.judge_rows` for every gating and advisory judge, then
+    `concept_scoring.apply_panel_rule` (SmolVLM gates, Florence-2 is advisory). Returns
+    `(gate2, gate3)` result dicts.
     """
     from nss.generate import concept_scoring
 

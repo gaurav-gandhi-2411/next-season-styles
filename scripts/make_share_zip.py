@@ -1,4 +1,4 @@
-"""Build a shareable zip of the repo (task L4): tracked files only, denylist enforced, no secrets.
+"""Build a shareable zip of the repo: tracked files only, denylist enforced, no secrets.
 
 Takes `git ls-files` (so `.env`, `vertex-sa.json`, `data/`, `.venv`, caches and other ignored files
 are never candidates), then passes every file through `nss.share_safety.assert_shareable`

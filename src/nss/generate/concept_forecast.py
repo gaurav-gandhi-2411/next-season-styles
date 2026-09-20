@@ -1,4 +1,4 @@
-"""Closed loop: score a generated concept through the same forecaster (tasks N8, Q2).
+"""Closed loop: score a generated concept through the same forecaster.
 
 generated image -> embed (CLIP ViT-L/14 + DINOv2) -> nearest catalogue STYLE by cosine similarity
 to the mean embedding of that style's real photos (`concept_forecast_index`) -> look up the frozen
@@ -12,8 +12,8 @@ components that already exist (the frozen forecaster's full ranking
 forecast to sell?" -- a statement about the ARCHETYPE the image reads as, not a demand forecast for
 the new design (nothing here tests demand for the design itself).
 
-Q2 REBUILD: the N8 route (VLM free-text attributes -> parse -> style_key, kept below as
-`forecast_concept_freetext` for the record and its tests) reached 12.5% exact-style accuracy
+RETRIEVAL REBUILD: the free-text route (VLM free-text attributes -> parse -> style_key, kept below
+as `forecast_concept_freetext` for the record and its tests) reached 12.5% exact-style accuracy
 (SmolVLM) / 2.5% (Florence-2) on 40 real catalogue photos: it asked a small captioner to reproduce
 H&M's internal taxonomy (garment group, department) from pixels. `forecast_concept` now uses image
 retrieval. The headline configuration (average of the CLIP and DINOv2 cosine similarities), the
@@ -22,7 +22,7 @@ validation protocol are documented in `concept_forecast_index` and `concept_fore
 Styles are near-ties by construction, so the top-5 list is returned alongside the top-1 style.
 
 FREE-TEXT MAPPING (legacy): the five style-key attributes are not all visible. `garment_group`
-("Jersey Basic", "Knitwear") is an internal merchandising label with no visual referent (task H2),
+("Jersey Basic", "Knitwear") is an internal merchandising label with no visual referent,
 and `index_group` (department) is not in the picture either, so they are not asked of the judges;
 among catalogue styles matching (product type, colour, pattern) the one with the most active
 articles (the dominant variant) is taken. Matching backs off in order: exact -> pattern relaxed ->
@@ -143,9 +143,10 @@ class ConceptForecast:
     confidence: str
     normalised: dict[str, dict[str, str | None]]
     unavailable: dict[str, str] = field(default_factory=dict)
-    # Q2 retrieval fields (defaults keep every pre-Q2 caller working). `top5` is a best-first list
-    # of {"style_key", "similarity", "forecast", "rank"}; `similarity` is the top-1 averaged cosine;
-    # `margin` is top-1 minus the 6th-ranked averaged similarity (drives the confidence label).
+    # Retrieval fields (defaults keep every pre-retrieval caller working). `top5` is a best-first
+    # list of {"style_key", "similarity", "forecast", "rank"}; `similarity` is the top-1 averaged
+    # cosine; `margin` is top-1 minus the 6th-ranked averaged similarity (drives the confidence
+    # label).
     top5: list[dict[str, object]] = field(default_factory=list)
     similarity: float = 0.0
     margin: float = 0.0
@@ -300,7 +301,7 @@ def forecast_concept_freetext(
     extractors: Mapping[str, Extractor],
     table: pl.DataFrame | None = None,
 ) -> ConceptForecast:
-    """LEGACY (N8, superseded by retrieval): run every judge on `image`, map free-text attributes
+    """LEGACY (superseded by retrieval): run every judge on `image`, map free-text attributes
     to a style_key, look up the forecast. Kept for the record of the 12.5% baseline.
 
     Raises `ValueError` if no catalogue style can be matched at all (never fabricates a forecast).

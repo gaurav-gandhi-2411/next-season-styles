@@ -166,8 +166,8 @@ def test_train_and_predict_lightgbm_smoke() -> None:
 
 
 def test_train_lightgbm_is_bit_identical_across_repeated_runs() -> None:
-    """See module docstring DETERMINISM (A5): `random_state` alone was observed NOT to make
-    repeated training runs bit-identical. `LGBM_DETERMINISM_PARAMS` (`deterministic=True`,
+    """See module docstring DETERMINISM (WITHIN-PROCESS): `random_state` alone was observed NOT to
+    make repeated training runs bit-identical. `LGBM_DETERMINISM_PARAMS` (`deterministic=True`,
     `force_row_wise=True`, `num_threads=1`, plus explicit `bagging_seed`/`feature_fraction_seed`/
     `data_random_seed`) must make two trains on the SAME data produce EXACTLY the same predictions,
     not merely close ones -- `np.array_equal`, not `np.allclose`."""

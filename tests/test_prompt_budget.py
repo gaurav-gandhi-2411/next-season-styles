@@ -1,4 +1,4 @@
-"""Tests for `nss.generate.prompt_budget` (task F4).
+"""Tests for `nss.generate.prompt_budget`.
 
 Uses the REAL SDXL/CLIP tokenizer (`CLIPTokenizer.from_pretrained`, network/cache access, same as
 the rest of this project's real-tokenizer checks) -- no mocked token counts, so these tests are
@@ -28,7 +28,7 @@ def test_count_clip_tokens_empty_string_is_just_the_special_tokens() -> None:
 
 def test_count_clip_tokens_longer_text_exceeds_budget() -> None:
     """A verbose, real project-shaped prompt (mirrors the old unfixed `rendered_prompt` template)
-    measurably exceeds SDXL's 77-token budget -- this is the exact real defect task F4 fixes,
+    measurably exceeds SDXL's 77-token budget -- this is the exact real defect this module fixes,
     reproduced here as a regression guard."""
     verbose_prompt = (
         "T-shirt, jersey basic construction. Silhouette: relaxed, straight-body silhouette with a "
@@ -62,7 +62,7 @@ def test_fit_prompt_to_token_budget_keeps_everything_when_already_under_budget()
 
 def test_fit_prompt_to_token_budget_drops_novelty_before_descriptive() -> None:
     """When over budget, novelty clauses are dropped FIRST (from the end), before any descriptive
-    clause -- the exact opposite priority of task E5's original defect (which lost novelty while
+    clause -- the exact opposite priority of the original defect (which lost novelty while
     keeping less important content)."""
     mandatory = "T-shirt, jersey basic construction, black solid."
     novelty = [
@@ -99,7 +99,7 @@ def test_fit_prompt_to_token_budget_never_drops_mandatory_clause() -> None:
 
 def test_fit_prompt_to_token_budget_raises_when_mandatory_clause_alone_exceeds_budget() -> None:
     """A mandatory clause that alone exceeds budget cannot be fixed by dropping other clauses --
-    fails loudly rather than silently truncating (never the E5 defect's failure mode)."""
+    fails loudly rather than silently truncating (never the original defect's failure mode)."""
     import pytest
 
     too_long_mandatory = "word " * 100
@@ -108,7 +108,7 @@ def test_fit_prompt_to_token_budget_raises_when_mandatory_clause_alone_exceeds_b
 
 
 def test_fit_prompt_to_token_budget_real_tshirt_style_fits_after_fix() -> None:
-    """Real project data (task F4's fix applied to the T-shirt style's actual clauses, pre-fix
+    """Real project data (the fix applied to the T-shirt style's actual clauses, pre-fix
     values measured 175/196 tokens unfitted) now fits within budget end to end."""
     attribute_clause = "T-shirt, jersey basic construction, black solid."
     novelty_clauses = [

@@ -1,5 +1,5 @@
 # ruff: noqa: E501  -- long f-string labels are figure text, not logic
-"""`reports/figures/seasonal_comparison.png` (task K8c): autumn/winter 2020 vs summer, side by side.
+"""`reports/figures/seasonal_comparison.png`: autumn/winter 2020 vs summer, side by side.
 
 Left: the autumn/winter rank-1 concept (the black jersey T-shirt from the 21 Sep 2020 forecast).
 Right: the Summer rank-1 concept, from the SAME pipeline at the same settings, seeded by the

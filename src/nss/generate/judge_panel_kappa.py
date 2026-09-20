@@ -1,6 +1,6 @@
-"""Per-judge scores, panel median and pairwise Cohen's kappa for the judge panel (task N4).
+"""Per-judge scores, panel median and pairwise Cohen's kappa for the judge panel.
 
-The API judges (Groq, Gemini) are quota-limited and, in this session, unavailable (Gemini returns
+The API judges (Groq, Gemini) are quota-limited and, in this run, unavailable (Gemini returns
 401, Groq's daily token budget is spent), so their readings are taken from the logs already on disk
 (`vlm_calibration_results.csv`, `judge_cache.jsonl`, `judge_repeat_*.jsonl`); the local judges are
 run afresh on the SAME images against the SAME ground-truth style, so every pair is compared on

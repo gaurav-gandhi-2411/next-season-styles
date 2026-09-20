@@ -1,13 +1,13 @@
-"""Margin-based novelty scoring primitive, embedding-space-agnostic (task C2).
+"""Margin-based novelty scoring primitive, embedding-space-agnostic.
 
-Replaces B3's absolute-cosine "in-band" approach (`nss.generate.clip_scoring.is_in_band` +
-`nss.generate.derive_similarity_band`). B3's band `[0.8906, 0.9401]` was derived from
+Replaces the earlier absolute-cosine "in-band" approach (`nss.generate.clip_scoring.is_in_band` +
+`nss.generate.derive_similarity_band`). The earlier band `[0.8906, 0.9401]` was derived from
 catalogue-photo-vs-catalogue-photo pairs (within/across *real* styles) but applied to
 generated-image-vs-catalogue-photo pairs -- a different distribution. Across-style catalogue
 photos already share H&M's flat-lay, white-background product-photography conventions, which
 inflates raw cosine similarity between genuinely unrelated styles (measured mean 0.799 across
-styles in the CLIP space that fed B3's band) -- an absolute cosine threshold calibrated on that
-inflated floor is not a trustworthy novelty signal for a generated image, whose photographic
+styles in the CLIP space that fed the earlier band) -- an absolute cosine threshold calibrated on
+that inflated floor is not a trustworthy novelty signal for a generated image, whose photographic
 style may differ from catalogue conventions in ways that have nothing to do with style relatedness.
 
 MARGIN construction: for a query embedding (generated concept OR, for anchor derivation, a
@@ -21,13 +21,14 @@ shared photographic conventions raises BOTH terms roughly equally (the query is 
 product photo"-like to its own style and to the control pool on that axis alone), so it mostly
 cancels in the subtraction. What survives is the incremental similarity attributable to genuine
 style relatedness. See `nss.generate.derive_margin_band` for how the margin distribution is used
-to derive the actual `[lower, upper]` in-band thresholds (the B3-equivalent band, now margin-based).
+to derive the actual `[lower, upper]` in-band thresholds (the equivalent of the earlier band, now
+margin-based).
 
 Embedding-space agnostic by design: `margin()` operates on already-computed embedding vectors, not
 image paths -- the caller supplies embeddings from whichever model (CLIP via
 `nss.generate.clip_scoring.embed_image`, DINOv2 via `nss.generate.dino_scoring.embed_image`, or any
 future embedder producing L2-normalizable vectors). This lets the same margin math be reused
-verbatim for both embedding spaces required by task C2, rather than duplicating it per model.
+verbatim for both embedding spaces, rather than duplicating it per model.
 """
 
 from __future__ import annotations

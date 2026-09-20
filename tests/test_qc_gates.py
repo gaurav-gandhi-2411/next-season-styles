@@ -1,4 +1,4 @@
-"""Unit tests for the shipped-gate verdict logic behind the MCP `score_concept` tool (task U5).
+"""Unit tests for the shipped-gate verdict logic behind the MCP `score_concept` tool.
 
 Models and image embeddings are never loaded: only the pure verdict/brief-resolution logic and the
 wiring of `concept_scoring.judge_rows` are exercised. The gates' thresholds are not touched here.
@@ -66,7 +66,7 @@ def test_briefed_changes_prefers_sidecar_then_registry(tmp_path: Path) -> None:
 
 
 def test_judge_rows_uses_row_changes_without_a_sidecar(tmp_path: Path) -> None:
-    """Scoring an image outside the N9 tree: `changes` in the row replaces the missing sidecar."""
+    """Scoring an image outside the candidate tree: row `changes` replace the missing sidecar."""
     image = tmp_path / "c.png"
     image.write_bytes(b"x")
     row: dict[str, Any] = {
@@ -95,7 +95,7 @@ def test_judge_rows_uses_row_changes_without_a_sidecar(tmp_path: Path) -> None:
 
 
 def test_apply_panel_rule_smolvlm_gates_florence_advises() -> None:
-    """Panel rule (P3): a Florence-2 Gate-2 fail is advisory and does not fail Gate 2."""
+    """Panel rule: a Florence-2 Gate-2 fail is advisory and does not fail Gate 2."""
     row: dict[str, Any] = {
         "floor_max_sim": 0.9,
         "integrity_floor_pass": True,

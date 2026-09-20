@@ -1,4 +1,4 @@
-"""Price-elasticity and full-price-demand features, computed strictly causally from the panel (U2).
+"""Price-elasticity and full-price-demand features, computed strictly causally from the panel.
 
 `model_features` already carries `price_index_level` (the origin row's own `price_index`) and
 `price_index_trend_13w` (its 13-week 2-point slope). Those two are NOT duplicated here; this module

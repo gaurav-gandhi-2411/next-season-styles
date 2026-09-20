@@ -1,4 +1,4 @@
-"""Calibrate a local VLM judge exactly as Groq and Gemini were (task N4).
+"""Calibrate a local VLM judge exactly as Groq and Gemini were.
 
 Same procedure as `concept_qc_pipeline.run_calibration` / `summarize_calibration`:
 

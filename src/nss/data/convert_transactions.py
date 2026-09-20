@@ -1,6 +1,6 @@
 """Convert the raw H&M `transactions_train.csv` to Parquet, partitioned by year-month.
 
-One-off conversion utility for Phase 1 data acquisition. Reads the raw CSV (written by the
+One-off conversion utility for the initial data acquisition. Reads the raw CSV (written by the
 Kaggle download step) and writes a Hive-style partitioned Parquet dataset keyed on `year_month`
 (derived from `t_dat`) so downstream panel-building code can prune by date range cheaply.
 """

@@ -20,12 +20,12 @@ from nss.mcp_server import (
     score_concept,
 )
 
-KNOWN_STYLE_KEY = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"  # T1 rank 1
+KNOWN_STYLE_KEY = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"  # incumbent rank 1
 UNKNOWN_STYLE_KEY = "Menswear || Bogus Type || Bogus Group || Purple || Dotted"
 
 
 def test_mcp_server_registers_all_8_tools() -> None:
-    """Exactly the 7 brief tools plus the N8 closed-loop `forecast_concept`."""
+    """Exactly the 7 brief tools plus the closed-loop `forecast_concept`."""
     tool_names = {t.name for t in mcp_server.mcp._tool_manager.list_tools()}
     assert tool_names == {
         "query_transactions",
@@ -278,7 +278,7 @@ def test_generate_concept_wraps_backend_and_converts_paths() -> None:
     assert result == ["data/generated/local_sdxl/seed42_00.png"]
 
 
-# --- score_concept: the shipped gates (task L1); qc_gates is mocked -- no model load ---
+# --- score_concept: the shipped gates; qc_gates is mocked -- no model load ---
 
 
 def test_score_concept_delegates_to_qc_gates_with_flag() -> None:
@@ -350,7 +350,7 @@ def test_compose_final_sheet_mismatched_lengths_raises() -> None:
 
 
 def test_forecast_concept_tool_returns_retrieval_fields(tmp_path: Path) -> None:
-    """The Q2 retrieval tool keeps the old return keys and adds top5/similarity/margin."""
+    """The retrieval tool keeps the old return keys and adds top5/similarity/margin."""
     from nss.generate.concept_forecast import ConceptForecast
 
     image = tmp_path / "concept.png"

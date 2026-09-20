@@ -1,4 +1,4 @@
-"""Old vs new Gate 1 / Gate 1b thresholds on the widened reference base, with bootstrap CIs (N5).
+"""Old vs new Gate 1 / Gate 1b thresholds on the widened reference base, with bootstrap CIs.
 
 The p90 thresholds were computed from 4-8 real articles per style, so each was essentially one real
 pair. This recomputes them on the widened base and quantifies how much the sampling uncertainty

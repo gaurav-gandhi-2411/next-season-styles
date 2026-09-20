@@ -1,4 +1,4 @@
-"""Tests for `nss.generate.final_concepts_v2` (task E5).
+"""Tests for `nss.generate.final_concepts_v2`.
 
 No real GPU/API calls anywhere in this module -- `generate_fn`/`score_fn` are always fakes
 injected into `run_style_with_retries`, and `select_final_candidate`/`write_results_table` are
@@ -312,14 +312,14 @@ def test_write_results_table_flags_the_selected_row(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# select_final_candidate -- visual-QC disqualified_seeds veto (task E5 step 6)
+# select_final_candidate -- visual-QC disqualified_seeds veto
 # ---------------------------------------------------------------------------
 
 
 def test_select_final_candidate_disqualified_seed_never_selected_even_with_best_score() -> None:
     """A manually vetoed seed (e.g. a candidate visually confirmed to show a human model) is
     excluded from selection no matter how good its automated scores are -- the same convention as
-    C6's `final_concepts.select_best_candidate` `disqualified_seeds`."""
+    `final_concepts.select_best_candidate`'s `disqualified_seeds`."""
     candidates = [
         _scored(46, overall_pass=True, mean_attribute_fidelity=0.99),  # best score, but vetoed
         _scored(45, overall_pass=True, mean_attribute_fidelity=0.80),
@@ -343,8 +343,8 @@ def test_select_final_candidate_disqualified_applies_to_fallback_pool_too() -> N
 
 
 def test_select_final_candidate_all_disqualified_falls_back_to_full_pool_not_a_crash() -> None:
-    """Unlike C6's veto (which raises when every candidate is disqualified), E5's veto degrades
-    gracefully to the full pool and flags `all_disqualified=True` -- task E5 requires reporting a
+    """Unlike the `final_concepts` veto (which raises when every candidate is disqualified), this
+    veto degrades gracefully to the full pool and flags `all_disqualified=True` -- reporting a
     genuine failure with mechanism, never crashing the pipeline, when an entire style's candidates
     all fail visual inspection (e.g. this run's Sweater style)."""
     candidates = [
@@ -426,27 +426,27 @@ def test_apply_visual_qc_and_rewrite_is_idempotent(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Task F5 constants -- exactly 4 seeds/style (12 candidates total), own output paths
+# Final-run constants -- exactly 4 seeds/style (12 candidates total), own output paths
 # ---------------------------------------------------------------------------
 
 
 def test_f5_retry_seed_rounds_is_empty() -> None:
-    """F5's task brief specifies exactly 12 candidates (4 seeds x 3 styles) and instructs reporting
-    a genuine gate failure rather than retrying with fresh seeds -- a regression here would mean
-    F5 silently started generating more than the specified 12 candidates."""
+    """The final run uses exactly 12 candidates (4 seeds x 3 styles) and reports a genuine gate
+    failure rather than retrying with fresh seeds -- a regression here would mean the final
+    run silently started generating more than 12 candidates."""
     assert F5_RETRY_SEED_ROUNDS == ()
 
 
 def test_f5_output_paths_are_isolated_from_e5s() -> None:
-    """F5 must never overwrite E5's `final_concepts_v2.csv`/`data/generated/final_concepts_v2/`
-    deliverable -- both stay independently auditable (mirrors `screen_references.py`'s CANONICAL
-    SOURCE convention)."""
+    """The final run must never overwrite `main()`'s `final_concepts_v2.csv`/
+    `data/generated/final_concepts_v2/` deliverable -- both stay independently auditable (mirrors
+    `screen_references.py`'s CANONICAL SOURCE convention)."""
     assert F5_OUTPUT_TABLE_PATH != OUTPUT_TABLE_PATH
     assert F5_OUTPUT_DIR != OUTPUT_DIR
 
 
 # ---------------------------------------------------------------------------
-# rescore_f5_judges -- fakes only, no real API calls (task F5's judge-quota-exhaustion retry)
+# rescore_f5_judges -- fakes only, no real API calls (judge-quota-exhaustion retry)
 # ---------------------------------------------------------------------------
 
 
@@ -531,7 +531,7 @@ def test_rescore_f5_judges_refreshes_judge_columns_without_touching_copy_check(
 def test_rescore_f5_judges_never_re_queries_a_row_that_already_has_a_real_score(
     tmp_path: Path,
 ) -> None:
-    """Regression test for the real defect task F5 found and fixed before committing: a row that
+    """Regression test for a real defect found and fixed before committing: a row that
     ALREADY has `n_contributing_judges > 0` (a genuine judge score from a prior run) must be left
     byte-identical, never re-queried and silently overwritten by a fresh (possibly failed) attempt.
     """

@@ -1,7 +1,7 @@
-"""Leave-one-out control for Gate 1 (task J1/J2): how often does a REAL article pass the gate?
+"""Leave-one-out control for Gate 1: how often does a REAL article pass the gate?
 
-WHY: Gate 1's H1 threshold was the MEDIAN pairwise similarity between real distinct articles of a
-style. A median means roughly half of genuinely new real products fail by construction -- a coin
+WHY: Gate 1's earlier threshold was the MEDIAN pairwise similarity between real distinct articles of
+a style. A median means roughly half of genuinely new real products fail by construction -- a coin
 flip, not a copy detector. This control measures that directly instead of arguing it: each real
 reference article is scored against the OTHER references of its own style through the EXACT code
 path used for generated candidates (`concept_similarity` for the statistic,

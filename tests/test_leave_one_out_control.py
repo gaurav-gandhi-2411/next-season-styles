@@ -22,7 +22,7 @@ def test_benchmark_statistics_hand_values() -> None:
 
 
 def test_median_rule_fails_half_of_real_articles_p90_fails_none() -> None:
-    """J1 in miniature: LOO means 0.467/0.787/0.787/0.467 vs median 0.7, p90 0.88."""
+    """Miniature control: LOO means 0.467/0.787/0.787/0.467 vs median 0.7, p90 0.88."""
     median = loo_rows("s", EMBS, "median")
     p90 = loo_rows("s", EMBS, "p90")
     assert [r["joint_pass_full"] for r in median] == [True, False, False, True]

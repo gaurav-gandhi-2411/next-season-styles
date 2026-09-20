@@ -51,8 +51,8 @@ Supporting (non-deciding) evidence:
   share was expected to trend up, not down) -- it does NOT corroborate the resolved mapping and is
   noted here for honesty rather than cherry-picked. It is treated as non-decisive: the effect size
   is an order of magnitude smaller than the trough signal, plausible confounds exist (e.g. physical
-  store count / footprint changes over 2018-2020 unrelated to online penetration), and the task's
-  own framing treats this signal as supporting, not sole-deciding.
+  store count / footprint changes over 2018-2020 unrelated to online penetration), and this
+  signal is treated as supporting, not sole-deciding.
 - Mean transaction price: channel 1 mean=0.02292, median=0.01863 (n=9,408,462); channel 2
   mean=0.02989, median=0.02541 (n=22,379,862) (prices are the Kaggle dataset's normalized units,
   not currency). Channel 2 (resolved: online) has a ~30% higher mean price. Not diagnostic on its
@@ -256,7 +256,7 @@ def build_style_week_panel(
     ]
     # `group_by` (above) does not guarantee output row order -- explicit sort so `panel`'s row
     # order is deterministic across process runs (see nss.features.model_features's DETERMINISM
-    # (A5 FOLLOW-UP) docstring section for why row-order determinism matters downstream).
+    # (CROSS-PROCESS) docstring section for why row-order determinism matters downstream).
     panel = panel.sort([*STYLE_KEY_COLS, "week_start"]).select(column_order)
 
     panel_df, lifetime_df = pl.collect_all([panel, lifetime], engine="streaming")

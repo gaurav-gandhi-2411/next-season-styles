@@ -4,13 +4,13 @@ Not collected by pytest (filename does not match `test_*.py`). Invoked as a genu
 process (via `subprocess.run([sys.executable, __file__])`) by
 `tests/test_lambdarank_determinism_cross_process.py`, twice, so the two runs cannot share any
 in-process state -- the exact same rationale as
-`tests/_cross_process_determinism_worker.py` (the L2 model's own worker), applied to
+`tests/_cross_process_determinism_worker.py` (the LightGBM model's own worker), applied to
 `nss.models.lambdarank_model`'s `train_lambdarank`/`predict_lambdarank` pipeline instead.
 
-Deliberately does NOT set `PYTHONHASHSEED` itself, for the same reason the L2 worker doesn't (see
-that module's docstring): each invocation gets whatever the OS's default (randomized) hash seed is,
-matching the real-world "just rerun the script" scenario, and the strongest test of the `pl.Enum`
-fix this determinism guarantee ultimately rests on.
+Deliberately does NOT set `PYTHONHASHSEED` itself, for the same reason the LightGBM worker
+doesn't (see that module's docstring): each invocation gets whatever the OS's default
+(randomized) hash seed is, matching the real-world "just rerun the script" scenario, and the
+strongest test of the `pl.Enum` fix this determinism guarantee ultimately rests on.
 """
 
 from __future__ import annotations
@@ -52,8 +52,9 @@ def _weeks(n: int, start: date = _WEEK0) -> list[date]:
 
 def _synthetic_panel(n_weeks: int = _N_WEEKS) -> pl.DataFrame:
     """8 styles spanning several distinct category values per STYLE_KEY_COLS column -- identical
-    fixture to `tests/_cross_process_determinism_worker.py`'s (the L2 worker's) own fixture, so a
-    category-code collision across runs is equally likely to be caught here if it exists."""
+    fixture to `tests/_cross_process_determinism_worker.py`'s (the LightGBM worker's) own
+    fixture, so a category-code collision across runs is equally likely to be caught here if it
+    exists."""
     weeks = _weeks(n_weeks)
     first_seen = weeks[0]
     last_seen = weeks[-1]
@@ -96,8 +97,8 @@ def _synthetic_panel(n_weeks: int = _N_WEEKS) -> pl.DataFrame:
 
 def main() -> None:
     """Train + predict on the synthetic panel; print every (style_key, origin_week, prediction)
-    row, in output order, as a JSON list -- see the L2 worker's own `main()` docstring for why this
-    is deliberately a list (not a dict) and deliberately order-sensitive."""
+    row, in output order, as a JSON list -- see the LightGBM worker's own `main()` docstring for
+    why this is deliberately a list (not a dict) and deliberately order-sensitive."""
     panel = _synthetic_panel()
     origins = generate_origin_schedule(panel)
     origin_weeks = [o.origin_week for o in origins]

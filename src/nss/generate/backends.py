@@ -1,11 +1,11 @@
-"""Backend-agnostic concept-image generation interface (task B2).
+"""Backend-agnostic concept-image generation interface.
 
 `generate_concept()` dispatches to one of two generation backends behind a single signature, so
-downstream code (the B3/B4 generation + evaluation sweeps) never branches on which backend
+downstream code (the generation + evaluation sweeps) never branches on which backend
 produced an image:
 
 - ``"local_sdxl"``: SDXL + IP-Adapter Plus running locally on-GPU. Reuses the exact configuration
-  the B1 smoke test (`nss.generate.local_sdxl_smoketest`) proved viable on an RTX 3070 (8 GB VRAM):
+  the smoke test (`nss.generate.local_sdxl_smoketest`) proved viable on an RTX 3070 (8 GB VRAM):
   fp16 weights, `enable_model_cpu_offload()`, the ViT-H `image_encoder_folder` fix, and VAE-level
   slicing/tiling instead of `enable_attention_slicing()` (the latter crashes IP-Adapter -- see that
   module's docstring for the mechanism).
@@ -17,10 +17,10 @@ API-shape notes (verified against the installed package sources, not assumed):
 1. IP-Adapter multi-reference handling: `diffusers==0.40.0`'s
    `StableDiffusionXLPipeline.prepare_ip_adapter_image_embeds` requires
    ``len(ip_adapter_image) == len(unet.encoder_hid_proj.image_projection_layers)`` -- i.e. exactly
-   one image per *loaded* IP-Adapter, not one embedding averaged/pooled across images. Since B2
-   loads a single IP-Adapter, only the first `reference_images` entry is usable per call; passing
-   more than one would need to `load_ip_adapter()` with one adapter per reference image, which is
-   out of scope here. Documented, not silently ignored -- see `_generate_local_sdxl`.
+   one image per *loaded* IP-Adapter, not one embedding averaged/pooled across images. Since this
+   module loads a single IP-Adapter, only the first `reference_images` entry is usable per call;
+   passing more than one would need to `load_ip_adapter()` with one adapter per reference image,
+   which is out of scope here. Documented, not silently ignored -- see `_generate_local_sdxl`.
 2. `google-genai==2.24.0`'s content transformers (`_transformers.t_part`) accept a `PIL.Image.Image`
    directly inside a `contents=[...]` list (auto-converted to an inline-data `Part`), so reference
    images are passed as ``[prompt_text, *PIL_images]`` -- no manual base64/Part wrapping needed.
@@ -57,11 +57,11 @@ SUPPORTED_BACKENDS = (LOCAL_SDXL, GEMINI)
 GEMINI_MODEL_ID = "gemini-2.5-flash-image"
 
 OUTPUT_ROOT = Path("data/generated")
-IMAGE_SIZE = 1024  # SDXL native resolution; matches the B1 smoke test
-LOCAL_SDXL_STEPS = 30  # matches DEFAULT_STEPS in the B1 smoke test
+IMAGE_SIZE = 1024  # SDXL native resolution; matches the smoke test
+LOCAL_SDXL_STEPS = 30  # matches DEFAULT_STEPS in the smoke test
 
 # Loading SDXL + IP-Adapter takes tens of seconds; cache the pipeline across repeated
-# generate_concept() calls in the same process (e.g. a B4 parameter sweep) instead of reloading it
+# generate_concept() calls in the same process (e.g. a parameter sweep) instead of reloading it
 # every call. Keyed by backend name purely so the pattern extends cleanly if a second local backend
 # is ever added -- only "local_sdxl" populates it today.
 _PIPELINE_CACHE: dict[str, Any] = {}
@@ -72,7 +72,7 @@ def _local_sdxl_pipeline() -> Any:
 
     Returns:
         A `diffusers.StableDiffusionXLPipeline` with IP-Adapter Plus attached, fp16 weights, CPU
-        offload, and VAE slicing/tiling enabled -- the exact B1-smoke-test-proven configuration.
+        offload, and VAE slicing/tiling enabled -- the exact smoke-test-proven configuration.
 
     Raises:
         RuntimeError: if no CUDA GPU is visible (this backend has not been validated on CPU and
@@ -104,7 +104,7 @@ def _local_sdxl_pipeline() -> Any:
     )
     pipe.enable_model_cpu_offload()
     # NOT enable_attention_slicing() -- crashes IP-Adapter's tuple encoder_hidden_states. See the
-    # B1 smoke test's `load_pipeline()` docstring for the full mechanism.
+    # the smoke test's `load_pipeline()` docstring for the full mechanism.
     pipe.vae.enable_slicing()
     pipe.vae.enable_tiling()
 
@@ -138,9 +138,9 @@ def _generate_local_sdxl(
             conditioning). `None` (the default) leaves diffusers' own default of no negative
             conditioning -- behavior-identical to callers written before this parameter existed.
         prompt_2: Optional text prompt for SDXL's SECOND text encoder (OpenCLIP ViT-bigG,
-            `StableDiffusionXLPipeline`'s native `prompt_2` argument -- task F4). `None` (the
+            `StableDiffusionXLPipeline`'s native `prompt_2` argument). `None` (the
             default) leaves diffusers' own default, which reuses `prompt` for both encoders --
-            behavior-identical to callers written before this parameter existed. Task F4's
+            behavior-identical to callers written before this parameter existed. The
             intended use: a short, concise attribute-only clause (see
             `nss.generate.final_concepts.build_prompt_2`) so the style's defining attributes
             survive on encoder 2 even if encoder 1's longer `prompt` were ever truncated for any
@@ -158,7 +158,7 @@ def _generate_local_sdxl(
         pipe.set_ip_adapter_scale(ip_adapter_scale)
 
     reference_image = Image.open(reference_images[0]).convert("RGB")
-    # cpu offload keeps the generator on cpu, matching the B1 smoke test.
+    # cpu offload keeps the generator on cpu, matching the smoke test.
     generator = torch.Generator(device="cpu").manual_seed(seed)
 
     start = time.perf_counter()
@@ -314,8 +314,8 @@ def generate_concept(
             the SDXL pipeline's own `negative_prompt` argument). Must be `None` for `"gemini"`
             (raises `ValueError` otherwise) -- Gemini's image API has no negative-prompt
             equivalent, same fail-loud convention as `ip_adapter_scale` above.
-        prompt_2: Optional text prompt for SDXL's SECOND text encoder, `"local_sdxl"` only (task
-            F4 -- see `_generate_local_sdxl`'s docstring). Must be `None` for `"gemini"` (raises
+        prompt_2: Optional text prompt for SDXL's SECOND text encoder, `"local_sdxl"` only (see
+            `_generate_local_sdxl`'s docstring). Must be `None` for `"gemini"` (raises
             `ValueError` otherwise) -- Gemini's image API has no second-encoder equivalent, same
             fail-loud convention as `ip_adapter_scale`/`negative_prompt` above.
         negative_prompt_2: Optional negative prompt for encoder 2, `"local_sdxl"` only. Must be

@@ -1,4 +1,4 @@
-"""Single, non-interactive, end-to-end reproduction script (task D3): panel -> features ->
+"""Single, non-interactive, end-to-end reproduction script: panel -> features ->
 forecast -> top-3 -> briefs -> generate -> score -> hero image.
 
 Runs the full chain with NO agent runtime required, from one command:
@@ -13,41 +13,43 @@ selection, or generation logic.
 HARD CONSTRAINT ("modelling is frozen"): no hyperparameter, feature, or target definition is
 touched here. This project has no persisted model artifact -- every prediction happens via a
 fresh `.fit()` call with the SAME frozen hyperparameters/data/code, confirmed bit-identical across
-processes by task D3a (`tests/test_determinism_cross_process.py`). Calling
+processes (`tests/test_determinism_cross_process.py`). Calling
 `nss.models.final_forecast.train_final_model` from this script is therefore normal pipeline
 execution, not retraining in the forbidden sense.
 
 STAGE-OUTPUT ISOLATION (load-bearing, read before changing default paths): the `panel`,
 `features`, `forecast`, and `briefs` stages are fully DETERMINISTIC given the frozen model/config
-(see D3a) -- they default to writing straight into the REAL `reports/tables/` location, which
-safely just reproduces the already-committed artifacts bit-for-bit. The `generate`, `score`, and
-`hero` stages are NOT wire-compatible with the real E5/E8 deliverables, because this script
-deliberately generates only 1-2 seeds per style, round-0 only, no retry rounds (see SCOPING-DOWN
-below) instead of E5's full adaptive up-to-8-seed retry sweep -- a genuinely different
+(see the cross-process determinism test) -- they default to writing straight into the REAL
+`reports/tables/` location, which safely just reproduces the already-committed artifacts
+bit-for-bit. The `generate`, `score`, and `hero` stages are NOT wire-compatible with the real
+final deliverables, because this script deliberately generates only 1-2 seeds per style,
+round-0 only, no retry rounds (see SCOPING-DOWN
+below) instead of the full adaptive up-to-8-seed retry sweep -- a genuinely different
 (lower-fidelity) selection could result. Those three stages therefore ALWAYS write to an isolated
 `--pipeline-out-dir` (default `reports/pipeline_run/`, gitignored) and NEVER touch
 `reports/tables/final_concepts_v2.csv`, or `reports/figures/FINAL_concepts.png` /
-`evidence_chain.png` -- those remain the authoritative, unmodified E5/E8 deliverables (the same
+`evidence_chain.png` -- those remain the authoritative, unmodified deliverables (the same
 holds for the older, superseded `reports/tables/final_concepts.csv` /
 `reports/tables/concept_qc_results.csv` -- this script has never written to those and still
 doesn't).
 
-RECONNECTED TO THE CURRENT PIPELINE (task, post-E8): the `generate`/`score` stages call
-`nss.generate.final_concepts_v2` -- E5's adaptive per-style retry-loop module with the corrected
-E2 Gate-1 copy-check, `ip_adapter_scale=0.45`, and the fixed (<=77-token, truncation-safe)
+CURRENT PIPELINE: the `generate`/`score` stages call
+`nss.generate.final_concepts_v2` -- the adaptive per-style retry-loop module with the corrected
+Gate-1 copy-check, `ip_adapter_scale=0.45`, and the fixed (<=77-token, truncation-safe)
 prompts -- reusing its own `score_candidate`/`select_final_candidate`/`write_results_table`/
-`apply_visual_qc_and_rewrite` primitives verbatim, NOT the superseded C6/C7
+`apply_visual_qc_and_rewrite` primitives verbatim, NOT the superseded
 `nss.generate.final_concepts.select_best_candidate` (old two-sided real-space band) /
-`nss.generate.concept_qc_pipeline.run_qc_with_retries` (old QC gate) path this script used before.
+`nss.generate.concept_qc_pipeline.run_qc_with_retries` (old QC gate) path an earlier version of
+this script used.
 The `hero` stage calls `nss.generate.final_deliverables.main(final_concepts_v2_path=..., ...)`,
-E8's current signature. `generate`/`score` also load reference images via
-`nss.generate.screen_references.load_screened_references` (task F3), not
+the current signature. `generate`/`score` also load reference images via
+`nss.generate.screen_references.load_screened_references`, not
 `final_concepts.load_final_three_references` -- see that module's docstring for why.
 
-SCOPING-DOWN (documented, not silently done): task D3's purpose is proving the WIRING between
-already-tested stages works end-to-end from one command, not re-deriving E5's full adaptive
+SCOPING-DOWN (documented, not silently done): this script's purpose is proving the WIRING between
+already-tested stages works end-to-end from one command, not re-deriving the full adaptive
 retry-sweep selection. `--n-seeds` (default 1, max 2) controls how many of
-`final_concepts_v2.INITIAL_SEEDS` (E5's own round-0 seed set, unchanged in value from C6's
+`final_concepts_v2.INITIAL_SEEDS` (the round-0 seed set, unchanged in value from
 `final_concepts.SEEDS`) are generated per style, round-0 only -- this script never runs a retry
 round, since 1-2 seeds is enough to prove the wiring (see `run_score_stage`). The operating point
 (`ip_adapter_scale=0.45`) and the full-gate selection rule itself are reused verbatim from
@@ -63,14 +65,14 @@ already-handled cases inside `nss.generate.concept_qc_pipeline`/`skills/concept-
 degrades to "Groq unavailable" with a printed note rather than failing the whole script -- the
 margin-band scoring (CLIP + DINOv2, no external API) always runs.
 
-`--tables-out-dir` exists ONLY for the task D3 step-3 cross-process forecast-determinism re-check
+`--tables-out-dir` exists ONLY for the cross-process forecast-determinism re-check
 (two separate process runs, each pointed at its own scratch directory, diffed against each other)
 -- combining it with `--stop-after` beyond `forecast` is refused at startup, because the
 `briefs`/`generate`/`score`/`hero` stages call functions that read `design_briefs.json` /
 exemplar-reference paths from their REAL `reports/tables/` defaults regardless of this flag.
 
 BRIEFS-STAGE GUARD (load-bearing, see `is_curated_design_briefs`/`run_briefs_stage`): the real,
-committed `design_briefs.json` has been hand-refined (tasks C5/E5) with an `applied_changes` field
+committed `design_briefs.json` has been hand-refined with an `applied_changes` field
 per style and SDXL-77-CLIP-token-safe prompts -- neither of which the naive
 `build_design_briefs.build_all_design_briefs()` rebuild reproduces. So the `briefs` stage reuses an
 existing curated file untouched by default instead of silently overwriting it with a worse rebuild
@@ -89,7 +91,7 @@ Usage:
     uv run --no-sync python scripts/run_pipeline.py --dry-run             # no GPU, no VLM judges,
                                                                            # scratch-only writes
 
-DRY-RUN MODE (`--dry-run`, task K4 -- for reviewers without a GPU): exercises the wiring of EVERY
+DRY-RUN MODE (`--dry-run`, for reviewers without a GPU): exercises the wiring of EVERY
 stage (panel -> features -> forecast -> briefs -> generate -> score -> hero) but writes ONLY under
 a scratch directory (default `<tempdir>/nss_dry_run`, override with `--scratch-dir`) and never
 touches `data/` or `reports/`. Differences from the full run, all deliberate and printed:
@@ -157,7 +159,7 @@ DEFAULT_IMAGES_DIR = Path("data/images")
 DEFAULT_PIPELINE_OUT_DIR = Path("reports/pipeline_run")
 DEFAULT_GENERATED_IMAGES_DIR = Path("data/generated/pipeline_run")
 
-# --- Dry-run mode (task K4) ---------------------------------------------------------------------
+# --- Dry-run mode ---------------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # The three final concepts, committed so a reviewer without a GPU (or without data/generated/) can
 # still run every stage: style order matches `final_deliverables.STYLE_ORDER` (sweater, dress,
@@ -360,7 +362,7 @@ def run_features_stage(panel: pl.DataFrame, forecast_origin: date) -> pl.DataFra
     return frame
 
 
-# --- Stage 3+4: forecast (T1/T2 diversity tables) + top-3 (final three) ------------------------
+# --- Stage 3+4: forecast (incumbent/emerging diversity tables) + top-3 (final three) ----------
 
 
 @dataclass(frozen=True)
@@ -373,8 +375,8 @@ class ForecastStageResult:
 
 
 def run_forecast_stage(panel: pl.DataFrame, tables_out_dir: Path) -> ForecastStageResult:
-    """Train the frozen final model, then run the diversity-constrained T1/T2 + final-three
-    selection, writing all three CSVs to `tables_out_dir`.
+    """Train the frozen final model, then run the diversity-constrained incumbent/emerging +
+    final-three selection, writing all three CSVs to `tables_out_dir`.
 
     Reuses `nss.models.final_forecast.train_final_model` / `build_ranking_frame` /
     `build_forecast_frame` / `compute_local_shap_drivers` and
@@ -448,8 +450,8 @@ def run_exemplars_stage(
     Args:
         final_three_path: Path to THIS run's `top_styles_final_three.csv`.
         manifest_out_path: Destination for the exemplar-image manifest.
-        images_dir: Local image cache directory (shared with Phase 2 -- real, on-disk images are
-            content-addressed by article_id, safe to reuse across runs).
+        images_dir: Local image cache directory (shared with the exemplar step -- real, on-disk
+            images are content-addressed by article_id, safe to reuse across runs).
 
     Returns:
         `manifest_out_path`.
@@ -465,7 +467,7 @@ def run_exemplars_stage(
         reused = sfte.find_reusable_rows(existing_manifest, style_key)
         if reused is not None:
             print(
-                f"[exemplars] {new_role}: {style_key} -- REUSED from Phase 2 ({reused.height} rows)"
+                f"[exemplars] {new_role}: {style_key} -- REUSED from earlier ({reused.height} rows)"
             )
             all_rows.extend(sfte.carry_forward_rows(reused, new_role))
         else:
@@ -514,10 +516,10 @@ EXPECTED_N_DESIGN_BRIEFS = 3
 
 
 def is_curated_design_briefs(path: Path) -> bool:
-    """Whether `path` holds a real, hand-refined `design_briefs.json` (tasks C5/E5), not a stub.
+    """Whether `path` holds a real, hand-refined `design_briefs.json`, not a stub.
 
     "Real, refined" means: valid JSON, a list of exactly `EXPECTED_N_DESIGN_BRIEFS` (3) entries,
-    each with a non-empty `style_id` AND a non-empty `applied_changes` list -- the field E5 added
+    each with a non-empty `style_id` AND a non-empty `applied_changes` list -- the field added
     by hand that the naive `build_all_design_briefs()` rebuild does NOT reproduce (see module
     docstring). A missing, empty, malformed, or stub file returns `False`, which is the correct
     "genuinely clean state" signal for the from-scratch rebuild fallback in `run_briefs_stage`.
@@ -554,7 +556,7 @@ def run_briefs_stage(
     (pure function) -- no brief-generation/classification logic is reimplemented here.
 
     GUARD (do not remove without re-reading the module docstring's design_briefs.json note): the
-    real, committed `design_briefs.json` has been hand-refined across tasks C5/E5 -- it carries an
+    real, committed `design_briefs.json` has been hand-refined -- it carries an
     `applied_changes` field (used by the hero/evidence-chain figures; its absence is a `hero`-stage
     `KeyError`) and SDXL-77-CLIP-token-safe prompts, NEITHER of which the naive
     `build_all_design_briefs()` rebuild reproduces. So unless `force_briefs=True`, an existing
@@ -611,10 +613,10 @@ def seeds_for_style(style_id: str, n_seeds: int) -> tuple[int, ...]:
     """The `n_seeds` seeds to generate for one style's round-0 batch (scoping-down -- see module
     docstring).
 
-    Reuses `nss.generate.final_concepts_v2.INITIAL_SEEDS` (E5's own round-0 seed set, unchanged in
-    value from C6's `final_concepts.SEEDS`) rather than inventing new seeds, so any candidate this
-    script generates is directly comparable to E5's own round-0 results. Any seed
-    `final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS` records for `style_id` (E5's own
+    Reuses `nss.generate.final_concepts_v2.INITIAL_SEEDS` (the round-0 seed set, unchanged in
+    value from `final_concepts.SEEDS`) rather than inventing new seeds, so any candidate this
+    script generates is directly comparable to the full pipeline's round-0 results. Any seed
+    `final_concepts_v2.VISUAL_QC_DISQUALIFIED_SEEDS` records for `style_id` (the
     manually-confirmed visual-QC veto list) is skipped -- at `n_seeds<=2` this is currently a
     no-op (every presently-disqualified seed, e.g. the T-shirt style's 46-49, was only ever
     generated in a RETRY round this script never reaches -- see module docstring SCOPING-DOWN),
@@ -650,14 +652,14 @@ def run_generate_stage(
 ) -> dict[str, list[final_concepts.Candidate]]:
     """Generate `n_seeds` `local_sdxl` candidate(s) per style, round-0 only (see module docstring
     SCOPING-DOWN) -- this script never runs a retry round, so scoring/selection (which needs the
-    full E2 gate, including a network VLM judge call) happens entirely in `run_score_stage`.
+    full gate, including a network VLM judge call) happens entirely in `run_score_stage`.
 
     Reuses `nss.generate.final_concepts.generate_candidates_for_style` verbatim -- the SAME
     primitive `nss.generate.final_concepts_v2`'s own `generate_fn` closure calls (see that
-    module's `main`) -- at E5's `final_concepts_v2.IP_ADAPTER_SCALE=0.45` operating point (C6's
-    superseded 0.2 is never used here). Only the SEED COUNT differs from E5's own round-0 batch
+    module's `main`) -- at the `final_concepts_v2.IP_ADAPTER_SCALE=0.45` operating point (the
+    superseded 0.2 is never used here). Only the SEED COUNT differs from the full round-0 batch
     (see `seeds_for_style`), never the scale or the generation primitive itself. Also passes
-    `final_concepts.build_prompt_2(style_id)` (task F4) as `prompt_2`/`negative_prompt_2`, the same
+    `final_concepts.build_prompt_2(style_id)` as `prompt_2`/`negative_prompt_2`, the same
     second-text-encoder wiring `final_concepts_v2.main`'s own `generate_fn` closure now applies.
 
     Args:
@@ -672,7 +674,7 @@ def run_generate_stage(
     all_candidates: dict[str, list[final_concepts.Candidate]] = {}
     for style_id, brief in design_briefs.items():
         prompt, negative_prompt = final_concepts.build_generation_spec(style_id, brief)
-        prompt_2 = final_concepts.build_prompt_2(style_id)  # task F4 -- SDXL's second text encoder
+        prompt_2 = final_concepts.build_prompt_2(style_id)  # SDXL's second text encoder
         seeds = seeds_for_style(style_id, n_seeds)
         references = style_references[style_id]
         print(f"[generate] style={style_id!r} seeds={seeds} references={len(references)}")
@@ -704,7 +706,7 @@ def run_score_stage(
     out_table_path: Path,
     judges_enabled: bool = True,
 ) -> pl.DataFrame:
-    """Score every round-0 candidate against the FULL E2 gate and select the final concept per
+    """Score every round-0 candidate against the FULL gate and select the final concept per
     style.
 
     Reuses `nss.generate.final_concepts_v2`'s own scoring/selection/write primitives verbatim
@@ -852,7 +854,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Regenerate design_briefs.json from scratch via build_all_design_briefs(), even if "
         "an existing curated file (3 styles, each with an applied_changes field -- see "
         "is_curated_design_briefs) is already present. Default: reuse the existing curated file "
-        "untouched, since it has been hand-refined (tasks C5/E5) with applied_changes entries "
+        "untouched, since it has been hand-refined with applied_changes entries "
         "and SDXL-77-CLIP-token-safe prompts that the naive rebuild does NOT reproduce -- passing "
         "this flag accepts that known regression (missing applied_changes will KeyError the hero "
         "stage; unrefined prompts may exceed the CLIP token limit and get silently truncated) in "
@@ -1009,7 +1011,7 @@ def main() -> None:
         return
 
     design_briefs = final_concepts.load_design_briefs(briefs_path)
-    # F3: screened (full-garment only, best-selling-first) references, not the unscreened,
+    # Screened (full-garment only, best-selling-first) references, not the unscreened,
     # arbitrarily-alphabetically-ordered `final_concepts.load_final_three_references` -- see
     # `nss.generate.screen_references` module docstring for the mechanism this fixes.
     style_references = screen_references.load_screened_references()

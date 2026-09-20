@@ -1,4 +1,4 @@
-"""Cross-style neighbourhood features: is a style's cohort in the attribute lattice rising? (Q1)
+"""Cross-style neighbourhood features: is a style's cohort in the attribute lattice rising?
 
 Every feature in `nss.features.model_features` derives from a style's OWN history. These features
 encode whether the style's NEIGHBOURS -- other styles sharing part of its attribute key -- are

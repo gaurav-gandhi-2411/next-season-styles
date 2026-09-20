@@ -1,4 +1,4 @@
-"""Gate 3 (design-change verification) and the garment-integrity check (tasks N2, N3).
+"""Gate 3 (design-change verification) and the garment-integrity check.
 
 WHY: Gates 1/1b test "not a copy" and Gate 2 tests "still the style"; nothing tested "implements
 the brief". The mandatory human check was doing that by hand with no automated counterpart, and

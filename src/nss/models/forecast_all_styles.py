@@ -1,4 +1,4 @@
-"""Persist the frozen model's forecast for EVERY eligible style (task N8's lookup table).
+"""Persist the frozen model's forecast for EVERY eligible style (the closed loop's lookup table).
 
 The closed loop ("score a generated concept through the same predictor") needs the forecast and
 rank of an arbitrary style_key, but only the top-10 leaderboards were ever persisted. This module
@@ -6,9 +6,9 @@ re-derives the full ranking with the SAME frozen code path `final_forecast.main`
 (`FINAL_MODEL_CONFIG`, wide training origins, seed 42, deterministic) -- no new modelling choice, no
 tuning -- and writes it once, so `concept_forecast` can look styles up instead of retraining.
 
-Sanity check built in: every row of the committed T1/T2 leaderboards must be reproduced (predicted
-intensity within 1e-4 relative), otherwise this raises rather than persist a table that disagrees
-with the shipped forecast.
+Sanity check built in: every row of the committed incumbent/emerging leaderboards must be reproduced
+(predicted intensity within 1e-4 relative), otherwise this raises rather than persist a table that
+disagrees with the shipped forecast.
 
 Usage:
     uv run python -m nss.models.forecast_all_styles
@@ -40,8 +40,9 @@ def main() -> None:
             "all_guards_pass"
         )
     )
-    # Verify against EVERY persisted D3a-fixed leaderboard row (T1 + T2): same style, same value.
-    # (`top_styles.csv` is the pre-D3a raw top-10 and is deliberately not the reference.)
+    # Verify against EVERY persisted leaderboard row (incumbent + emerging): same style, same value.
+    # (`top_styles.csv` is the raw top-10 from before the cross-process determinism fix and is
+    # deliberately not the reference.)
     committed = pl.concat(
         [pl.read_csv(p).select("style_key", "predicted_intensity") for p in COMMITTED_TABLES]
     )

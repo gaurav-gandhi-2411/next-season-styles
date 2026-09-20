@@ -1,4 +1,4 @@
-"""Fetch the Q2 validation photos and the validation gallery, serially, with 429 cool-downs.
+"""Fetch the validation photos and the validation gallery, serially, with 429 cool-downs.
 
 Two sets, both written only to new scratch folders under `data/`:
 

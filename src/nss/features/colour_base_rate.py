@@ -1,11 +1,11 @@
-"""Colour concentration vs base rate (task M1): why is everything black?
+"""Colour concentration vs base rate: why is everything black?
 
-Question: do the T1/T2 leaderboards over-concentrate on Black relative to how much Black sells, or
-do they simply reflect the market? Reported both ways, whichever way it falls:
+Question: do the incumbent/emerging leaderboards over-concentrate on Black relative to how much
+Black sells, or do they simply reflect the market? Reported both ways, whichever way it falls:
 
 a) share of total units by `perceived_colour_master_name` over the full period (the modelled
    panel, and, for reference, the raw transactions);
-b) the colour mix of the top-10 incumbent (T1) and top-10 emerging (T2) leaderboards;
+b) the colour mix of the top-10 incumbent and top-10 emerging leaderboards;
 c) the ratio leaderboard share / sales share, per colour;
 d) whether "Black" is a coarse bucket: a fixed-seed sample of 30 Black articles with their
    `colour_group_name` / `perceived_colour_value_name` / `detail_desc`, and the share of Black
@@ -101,8 +101,9 @@ def main() -> None:
         how="vertical_relaxed",
     )
 
-    # Extra base rates for the T1 (intensity) leaderboard: sales share is not the only fair base.
-    # (i) colour share among ALL guard-passing styles (the pool T1 draws from), by style count;
+    # Extra base rates for the incumbent (intensity) leaderboard: sales share is not the only fair
+    # base. (i) colour share among ALL guard-passing styles (the pool the incumbent leaderboard
+    # draws from), by style count;
     # (ii) colour mix of the REALISED top-10 by trailing-13-week intensity in that same pool -- if
     #      the market's own top-10 looks like the model's, the model reflects the market.
     from nss.models import final_forecast
@@ -191,8 +192,8 @@ def main() -> None:
     with pl.Config(tbl_rows=30, tbl_width_chars=200, fmt_str_lengths=60):
         print("PANEL UNIT SHARE (top 10)\n", panel_units.head(10).select("colour", "share"))
         print("RAW UNIT SHARE (top 10)\n", raw_units.head(10).select("colour", "share"))
-        print("T1 top-10 colours\n", t1.select("colour", "value", "share"))
-        print("T2 top-10 colours\n", t2.select("colour", "value", "share"))
+        print("Incumbent top-10 colours\n", t1.select("colour", "value", "share"))
+        print("Emerging top-10 colours\n", t2.select("colour", "value", "share"))
         print(
             "RATIOS\n",
             ratios.select("section", "colour", "share", "base_share", "ratio_to_sales_share"),
@@ -206,8 +207,8 @@ def main() -> None:
 
         b = float(panel_units.filter(pl.col("colour") == "Black")["share"][0])
         for name, n_black in (
-            ("T1", 7),
-            ("T2", 3),
+            ("incumbent", 7),
+            ("emerging", 3),
             ("realised", int(realised_top.filter(pl.col("colour") == "Black")["value"].sum())),
         ):
             print(

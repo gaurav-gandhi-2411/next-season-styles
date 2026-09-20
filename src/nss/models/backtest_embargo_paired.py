@@ -1,4 +1,4 @@
-"""Post-embargo PAIRED comparison of LightGBM against every baseline (task P1).
+"""Post-embargo PAIRED comparison of LightGBM against every baseline.
 
 `backtest_embargo_check` showed the shipped walk-forward trained on labels overlapping the test
 window and that Hit@3-in-top20 falls from 0.722 to 0.528 once a 13-week gap is enforced. It did not

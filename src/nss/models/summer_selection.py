@@ -1,4 +1,4 @@
-"""Summer style selection under the N6 rules, with a 13-week training embargo (task N9).
+"""Summer style selection under the final-three rules, with a 13-week training embargo.
 
 The earlier Summer forecast (`seasonal_concept.summer_forecast`) trained on EVERY origin before
 2020-06-01, including origins in March-May whose 13-week label windows run into the June-August
@@ -60,10 +60,10 @@ def main() -> None:
         .map_elements(lambda v: float(np.expm1(v)), return_dtype=pl.Float64)
         .alias("realised_intensity")
     )
-    # Full ranking at the summer origin, for the closed loop (`concept_forecast`, task N8).
+    # Full ranking at the summer origin, for the closed loop (`concept_forecast`).
     ranking.write_csv(ALL_OUT)
-    # N6 applied to Summer: the EMERGING table (guards + median-intensity floor, ranked by growth
-    # ratio), then the editorial exclusions, then the first eligible style.
+    # The final-three rules applied to Summer: the EMERGING table (guards + median-intensity floor,
+    # ranked by growth ratio), then the editorial exclusions, then the first eligible style.
     candidates = dm.build_t2_candidate_frame(panel, ranking, ORIGIN).join(
         ranking.select("style_key", "realised_intensity"), on="style_key", how="left"
     )

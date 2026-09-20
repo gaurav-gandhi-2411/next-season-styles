@@ -134,13 +134,14 @@ def test_select_t1_incumbent_applies_diversity_and_drops_failing_guards() -> Non
 
 
 # ---------------------------------------------------------------------------
-# T2: zero-trailing-mean edge case + absolute-intensity floor.
+# Emerging: zero-trailing-mean edge case + absolute-intensity floor.
 # ---------------------------------------------------------------------------
 
 
 def _t2_panel_and_ranking() -> tuple[pl.DataFrame, pl.DataFrame]:
     """3 styles at a shared forecast origin:
-    - "ZERO": trailing_13w_mean_intensity == 0.0 (no recent sales) -- must be excluded from T2.
+    - "ZERO": trailing_13w_mean_intensity == 0.0 (no recent sales) -- must be excluded from the
+    emerging list.
     - "GROWER": modest trailing mean, high predicted_intensity -- big growth ratio, above floor.
     - "TINY": near-zero (but > 0) trailing mean, LOW predicted_intensity (below the floor) -- huge
       growth ratio but must be excluded by the absolute-intensity floor.
@@ -181,8 +182,8 @@ def test_t2_absolute_intensity_floor_is_median_of_guard_passing_predicted_intens
 
 
 def test_build_t2_candidate_frame_excludes_zero_trailing_mean_style() -> None:
-    """ZERO (trailing_13w_mean_intensity == 0.0) must never appear in T2 -- see module docstring
-    T2 ZERO-TRAILING-MEAN HANDLING."""
+    """ZERO (trailing_13w_mean_intensity == 0.0) must never appear in the emerging list -- see
+    module docstring EMERGING ZERO-TRAILING-MEAN HANDLING."""
     panel, ranking = _t2_panel_and_ranking()
 
     candidates = build_t2_candidate_frame(panel, ranking, forecast_origin=panel["week_start"][0])
@@ -192,7 +193,8 @@ def test_build_t2_candidate_frame_excludes_zero_trailing_mean_style() -> None:
 
 def test_build_t2_candidate_frame_excludes_below_floor_style() -> None:
     """TINY has a huge growth ratio (1.0 / 0.01 = 100x) but predicted_intensity (1.0) is below the
-    floor (median = 20.0) -- must be excluded. See module docstring T2 ABSOLUTE-INTENSITY FLOOR."""
+    floor (median = 20.0) -- must be excluded. See module docstring EMERGING ABSOLUTE-INTENSITY
+    FLOOR."""
     panel, ranking = _t2_panel_and_ranking()
 
     candidates = build_t2_candidate_frame(panel, ranking, forecast_origin=panel["week_start"][0])
@@ -214,7 +216,7 @@ def test_select_t2_emerging_end_to_end_with_zero_and_floor_edge_cases() -> None:
 
 
 # ---------------------------------------------------------------------------
-# build_final_three -- T1 rank 1 + T2 ranks 1-2, skipping a T1/T2 duplicate.
+# build_final_three -- incumbent rank 1 + emerging ranks 1-2, skipping an incumbent/emerging dupe.
 # ---------------------------------------------------------------------------
 
 
@@ -242,7 +244,8 @@ def _t1_t2_tables_with_duplicate() -> tuple[pl.DataFrame, pl.DataFrame]:
             {"style_key": "DUPE", "rank": 1, "predicted_intensity": 40.0, **common_cols},
         ]
     )
-    # T2 rank 1 duplicates T1's pick (DUPE) -- must be skipped, falling through to ranks 2 and 3.
+    # Emerging rank 1 duplicates the incumbent pick (DUPE) -- must be skipped, falling through to
+    # ranks 2 and 3.
     t2 = pl.DataFrame(
         [
             {
@@ -285,7 +288,8 @@ def test_build_final_three_skips_t2_entry_duplicating_t1_pick(
 
     final_three = build_final_three(t1, t2, _StubModel(), pl.DataFrame(), [])
 
-    # DUPE from T1, then SECOND + THIRD from T2 (T2's own DUPE row skipped).
+    # DUPE from the incumbent list, then SECOND + THIRD from the emerging list (its own DUPE row
+    # skipped).
     assert final_three["style_key"].to_list() == ["DUPE", "SECOND", "THIRD"]
     assert final_three["source_table"].to_list() == [
         "T1_incumbent",

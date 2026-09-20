@@ -1,6 +1,6 @@
-"""Select 20 random guard-passing styles as an expanded margin-scoring reference base (task C2).
+"""Select 20 random guard-passing styles as an expanded margin-scoring reference base.
 
-B3's `derive_similarity_band.py` derived its band from only ~6 distinct styles (3 winners + 2 T2
+The earlier `derive_similarity_band.py` derived its band from only ~6 distinct styles (3 winners + 2
 emerging + 1 control) -- too small a sample to trust, and (separately, see
 `nss.generate.margin_scoring`'s docstring) built on the wrong absolute-cosine construction anyway.
 This module expands the real-image reference base for the margin-based replacement

@@ -1,4 +1,4 @@
-"""Regenerate the final three's concepts with the concrete briefs (task M3) -- pipeline unchanged.
+"""Regenerate the final three's concepts with the concrete briefs -- pipeline unchanged.
 
 Same primitives as every earlier generation: `final_concepts.build_generation_spec` (attribute-first
 prompt, 77-token budget enforced, style-specific negative prompt), `build_prompt_2`,

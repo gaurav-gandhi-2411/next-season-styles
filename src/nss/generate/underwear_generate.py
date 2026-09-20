@@ -1,8 +1,8 @@
-"""Regenerate the underwear style ONLY, with a pattern-verified solid reference set (task H3).
+"""Regenerate the underwear style ONLY, with a pattern-verified solid reference set.
 
-Everything except the reference set is F5's construction, unchanged: `ip_adapter_scale=0.45`, the
-same `design_briefs.json` prompt via `build_generation_spec` (incl. the underwear negative-prompt
-strengthening) and `build_prompt_2`, seeds 42-45, no retries.
+Everything except the reference set is the earlier construction, unchanged: `ip_adapter_scale=0.45`,
+the same `design_briefs.json` prompt via `build_generation_spec` (incl. the underwear
+negative-prompt strengthening) and `build_prompt_2`, seeds 42-45, no retries.
 
 REFERENCE SET (visually verified on a contact sheet -- the `detail_desc` screen in
 `underwear_refs` alone was NOT sufficient: 666651009/666651012 are plainly lace although their
@@ -34,7 +34,7 @@ from nss.generate.underwear_refs import IMAGES_DIR, MANIFEST_PATH, STYLE_ID
 
 OUTPUT_DIR = Path("data/generated/final_concepts_h3")
 SEEDS: tuple[int, ...] = (42, 43, 44, 45)
-IP_ADAPTER_SCALE = 0.45  # unchanged from F5 -- only the reference set is the H3 variable
+IP_ADAPTER_SCALE = 0.45  # unchanged from the earlier run -- only the reference set varies
 # (article_id, verdict) from visual inspection of the contact sheet, in conditioning order.
 VISUAL_VERDICT: dict[int, str] = {
     592614002: "keep: single red garment, solid satin-look, no pattern (metal rings at sides)",
@@ -53,7 +53,7 @@ def reference_paths() -> list[Path]:
 
 
 def annotate_manifest() -> None:
-    """Add the visual verdict + reference order to the H3 manifest CSV."""
+    """Add the visual verdict + reference order to the manifest CSV."""
     order = {
         i: n for n, i in enumerate(i for i, v in VISUAL_VERDICT.items() if v.startswith("keep"))
     }

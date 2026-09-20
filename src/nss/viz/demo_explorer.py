@@ -63,7 +63,7 @@ def section(concept_images: dict[str, str]) -> str:
 </div>
 <aside id=xd class=xp-detail aria-live=polite aria-label="Style detail"><p class=xp-hint>Select a style to see its history, its drivers and its guards.</p></aside>
 </div>
-<p class=gloss>"Intensity" is units sold per product on sale per week, so a style is not ranked highly just for having many products. "Growth" is the forecast divided by the last 13 weeks. "Peak season" is the season with the highest historical mean. The list is the model's raw output, so it includes intimates and swimwear that the concept selection rule excludes. Numbers are the shipped model's, read from <code>reports/tables/explorer_styles.json</code>.</p>
+<p class=gloss>"Intensity" is units sold per product on sale per week, so a style is not ranked highly just for having many products. "Growth" is the forecast divided by the last 13 weeks. "Peak season" is the season with the highest historical mean. The list is the model's raw output, so it includes intimates and swimwear that the concept selection rule excludes. Numbers are the model's, read from <code>reports/tables/explorer_styles.json</code>.</p>
 <script type="application/json" id=xdata>{payload(concept_images)}</script>
 <script>{JS}</script>
 </section>"""

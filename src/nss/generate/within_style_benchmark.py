@@ -1,7 +1,7 @@
-"""Gate 1 re-anchored on real within-style article similarity (task H1).
+"""Gate 1 re-anchored on real within-style article similarity.
 
-DEFECT BEING FIXED: F1's Gate 1 compared a concept's margin against 90% of `copy_anchor_gen`, an
-image generated at `ip_adapter_scale=1.0`. That is not a copy -- it is SDXL's most reference-
+DEFECT BEING FIXED: the earlier Gate 1 compared a concept's margin against 90% of `copy_anchor_gen`,
+an image generated at `ip_adapter_scale=1.0`. That is not a copy -- it is SDXL's most reference-
 faithful *rendering*, already a new image -- so the gate rejected anything less than 90% as
 faithful as the most faithful generation possible. A fidelity ceiling mislabelled as a plagiarism
 check.
@@ -10,9 +10,9 @@ NEW BENCHMARK, externally grounded: how similar are two genuinely different, com
 H&M articles of the SAME style to each other? A concept no more similar to its references than
 two real distinct products in that style are to each other is, by construction, as novel as an
 actual new product in that assortment. Derived per style from the actual screened reference
-images (never the global B3 0.9401, which pooled 6 styles).
+images (never the earlier global 0.9401, which pooled 6 styles).
 
-STATISTIC. Primary (the gate, corrected in J2 from the median H1 used): the concept's MEAN cosine
+STATISTIC. Primary (the gate, corrected from the median used earlier): the concept's MEAN cosine
 to its style's references must be <= the P90 of that style's pairwise cosines between distinct
 real articles, in BOTH CLIP and DINOv2
 (same both-spaces convention as the old copy check). Two sensitivity variants are reported next to
@@ -51,7 +51,7 @@ F5_TABLE_PATH = Path("reports/tables/final_concepts_v3.csv")
 BENCHMARK_PATH = Path("reports/tables/within_style_benchmark.csv")
 RESCORED_PATH = Path("reports/tables/gate1_rescored_within_style.csv")
 SPACES = ("clip", "dinov2")
-# Gate 1 threshold statistic (task J2): p90 of within-style pairwise similarity. H1's median
+# Gate 1 threshold statistic: p90 of within-style pairwise similarity. The earlier median
 # rejected ~62% of REAL reference articles in the leave-one-out control (6/16 pass jointly).
 GATE1_STAT = "pair_p90"
 
@@ -68,7 +68,7 @@ def style_benchmark(embeddings: Sequence[np.ndarray]) -> dict[str, float]:
         embeddings: >= 2 embeddings of DISTINCT real articles of one style.
 
     Returns:
-        `n_articles`, `n_pairs`, `pair_p90` (the gate threshold, task J2), `pair_median` (H1's
+        `n_articles`, `n_pairs`, `pair_p90` (the gate threshold), `pair_median` (the
         retired threshold), `pair_mean`, `pair_max`,
         `loo_mean_median` (median over articles of mean cosine to the other articles) and
         `nn_median` (median over articles of cosine to their closest sibling).
@@ -110,7 +110,7 @@ def gate1_within_style(concept_mean_sim: float, benchmark: float) -> bool:
 
 
 def main() -> None:
-    """Compute per-style benchmarks and re-score F5's 12 candidates. No image generation."""
+    """Compute per-style benchmarks and re-score the 12 earlier candidates. No image generation."""
     from nss.generate import clip_scoring, dino_scoring, screen_references
 
     embedders = {"clip": clip_scoring.embed_image, "dinov2": dino_scoring.embed_image}
@@ -148,7 +148,7 @@ def main() -> None:
             sim = concept_similarity(fn(Path(row["image_path"])), ref_embs[sid][space])
             ok = gate1_within_style(sim["mean"], thresholds[(sid, space)])
             passes.append(ok)
-            # H1's retired median rule, kept beside the p90 rule for the J2 before/after count.
+            # The retired median rule, kept beside the p90 rule for the before/after count.
             median_passes.append(gate1_within_style(sim["mean"], medians[(sid, space)]))
             rec[f"{space}_median_rule_benchmark"] = medians[(sid, space)]
             rec[f"{space}_max_benchmark"] = maxes[(sid, space)]

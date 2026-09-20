@@ -144,7 +144,7 @@ def test_local_sdxl_passes_negative_prompt_through(tmp_path: Path) -> None:
 
 
 def test_local_sdxl_passes_prompt_2_and_negative_prompt_2_through(tmp_path: Path) -> None:
-    """A caller-supplied prompt_2/negative_prompt_2 (task F4: SDXL's second text encoder) reaches
+    """A caller-supplied prompt_2/negative_prompt_2 (SDXL's second text encoder) reaches
     `_generate_local_sdxl` and the metadata sidecar."""
     with (
         patch.object(backends, "OUTPUT_ROOT", tmp_path),

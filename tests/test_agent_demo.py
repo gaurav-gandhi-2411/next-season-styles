@@ -1,4 +1,4 @@
-"""Light tests for scripts/agent_demo.py's pure logic (tasks D4, U5).
+"""Light tests for scripts/agent_demo.py's pure logic.
 
 Only the pure functions are tested here (allowlist parsing, the critic retry-loop replay, the
 formatting helpers). `run_demo`/`main` drive a real subprocess MCP server that loads CLIP, DINOv2,

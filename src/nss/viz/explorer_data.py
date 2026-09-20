@@ -1,4 +1,4 @@
-"""Data for the DEMO's forecast explorer (task P5): the top styles as one JSON file.
+"""Data for the DEMO's forecast explorer: the top styles as one JSON file.
 
 Everything is derived from the frozen forecast (`final_forecast`: `FINAL_MODEL_CONFIG`, wide
 training

@@ -1,4 +1,4 @@
-"""Record a human's reference screening in the screened manifest (task M2).
+"""Record a human's reference screening in the screened manifest.
 
 `screen_references` classifies framing with VLM judges; when both are quota-blocked it fails closed
 (everything excluded). This module records the SAME decision made by eye, in the same manifest

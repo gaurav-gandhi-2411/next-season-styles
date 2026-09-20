@@ -1,4 +1,4 @@
-"""Screen the widened reference pool with the local judge and write the reference base (task N5).
+"""Screen the widened reference pool with the local judge and write the reference base.
 
 Every fetched candidate (`reports/tables/reference_pool_widened.csv`) is checked, blind to nothing
 but the question asked, by the calibrated local VLM for:

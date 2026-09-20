@@ -1,4 +1,4 @@
-"""Tests for `nss.generate.screen_references` (task F3).
+"""Tests for `nss.generate.screen_references`.
 
 No real GPU/API calls anywhere in this module -- `google.genai.Client`/`groq.Groq` are patched at
 their SDK-module source (mirrors `tests/test_vlm_judges.py`'s convention), and the fetch-more /

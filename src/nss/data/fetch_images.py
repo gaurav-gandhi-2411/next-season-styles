@@ -1,7 +1,7 @@
 """On-demand, per-article image fetcher for the H&M competition dataset.
 
 Downloads individual article images from Kaggle by `article_id`, instead of the full
-~28.46 GiB / 105,100-file competition image bundle. Phase 1's bulk `kaggle competitions
+~28.46 GiB / 105,100-file competition image bundle. The initial bulk `kaggle competitions
 download` of the whole competition (images included -- there is no per-folder download
 in the Kaggle API) was killed partway through once we established this project only
 needs ~200 exemplar images, not the full tree.
