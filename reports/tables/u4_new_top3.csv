@@ -1,0 +1,4 @@
+model,source_table,rank_in_source_table,style_key,predicted_intensity,growth_ratio,in_current_top3,control_pipeline_reproduces_committed,current_top3
+lightgbm_treatment_u,T2_emerging,2,Ladieswear || Sweater || Knitwear || Beige || Melange,15.801091876029535,1.409097388973655,true,true,"Sweater/Beige, Dress/Red, Top/White"
+lightgbm_treatment_u,T2_emerging,3,Ladieswear || Dress || Dresses Ladies || Red || Solid,10.088357589916788,1.2955386046628117,true,true,"Sweater/Beige, Dress/Red, Top/White"
+lightgbm_treatment_u,T2_emerging,4,Ladieswear || Top || Jersey Basic || White || Solid,14.256122490570474,1.2020591158730425,true,true,"Sweater/Beige, Dress/Red, Top/White"
