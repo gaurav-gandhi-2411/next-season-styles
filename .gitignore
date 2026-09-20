@@ -8,6 +8,8 @@ data/images/*
 !data/processed/.gitkeep
 !data/images/.gitkeep
 data/generated/
+# raw API caches for the external-signal experiment; compact weekly tables are committed under reports/
+data/external/
 data/retrieval_cache/
 
 # scripts/run_pipeline.py's scoped-down (1-2 seed) generate/score/hero output -- isolated from
