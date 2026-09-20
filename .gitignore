@@ -8,6 +8,7 @@ data/images/*
 !data/processed/.gitkeep
 !data/images/.gitkeep
 data/generated/
+data/retrieval_cache/
 
 # scripts/run_pipeline.py's scoped-down (1-2 seed) generate/score/hero output -- isolated from
 # the real reports/tables/final_concepts.csv, reports/tables/concept_qc_results.csv, and

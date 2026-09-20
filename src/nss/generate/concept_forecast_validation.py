@@ -66,6 +66,8 @@ N8_VALIDATION = Path("reports/tables/concept_forecast_validation.csv")  # the ba
 IMAGES_DIR = Path("data/images")
 EVAL_FETCH_DIR = Path("data/images_q2_eval")
 OUT = Path("reports/tables/q2_retrieval_validation.csv")
+OLD_OUT = OUT  # the 415-style results (kept untouched); the full-catalogue run writes FULL_OUT
+FULL_OUT = Path("reports/tables/q2_retrieval_validation_full.csv")
 N_STYLES = 40
 GALLERY_PER_STYLE = 2
 
@@ -327,5 +329,108 @@ def main() -> None:
         )
 
 
+def main_full() -> None:
+    """Full-catalogue validation (S1): the whole local image tree, <= `PER_STYLE_CAP` photos per
+    style, over the 1,980 forecast styles; writes `FULL_OUT` and leaves the 415-style file alone.
+
+    Conditions (declared before any number was computed):
+    - `full_index_40`: the SAME 40 N8 photos, every one dropped from the index before any style
+      mean is formed (leave-one-out by exclusion), candidates = all 1,980 forecast styles;
+    - `loo_full_index_159`: the SAME 159 photos as the 415-style leave-one-out, now against the
+      full index (each photo's own style prototype is recomputed without it);
+    - `loo_full_index_1style1photo` (supplementary, larger n): one query per style (its first
+      index photo) for every style with >= 2 index photos, same leave-one-out.
+    """
+    import time
+
+    t0 = time.time()
+    table = cf.load_table()
+    old = pl.read_csv(OLD_OUT)
+    loo_ids = old.filter(
+        (pl.col("condition") == "loo_deployment_index")
+        & (pl.col("config") == "avg")
+        & (pl.col("row_type") == "photo")
+    )["article_id"].to_list()
+    eval_ids = sampled_article_ids()
+    reps = _sample_reps()
+    reps = reps.with_columns(
+        pl.Series("image_path", [str(cfi.find_photo(a)) for a in reps["article_id"].to_list()])
+    )
+    flags = ["covered", "top1", "top5", "top10", "type_ok", "colour_ok"]
+    parts, summaries = [], []
+
+    def score(condition: str, queries: pl.DataFrame, index: cfi.RetrievalIndex, loo: bool) -> None:
+        photos = pl.DataFrame(_photo_rows(condition, queries, table, index, loo))
+        summary = pl.DataFrame(
+            _summary_rows(condition, photos, len(index.styles)), infer_schema_length=None
+        )
+        photos_f = photos.with_columns([pl.col(c).cast(pl.Float64) for c in flags])
+        parts.extend([photos_f, summary.select(photos_f.columns)])
+        summaries.append(summary)
+        n_img = sum(index.n_images.values())
+        print(
+            f"{condition}: index {len(index.styles)} styles / {n_img} photos, "
+            f"{queries.height} queries"
+        )
+
+    styles = table["style_key"].to_list()
+    by_style = cfi.collect_index_images(
+        styles, exclude_articles=eval_ids, max_per_style=cfi.PER_STYLE_CAP
+    )
+    index = cfi.build_index(by_style)
+    assert not (eval_ids and {int(p.stem) for ps in by_style.values() for p in ps} & set(eval_ids))
+    uncovered = [s for s in styles if s not in by_style]
+    print(f"coverage: {len(by_style)}/{len(styles)} styles, uncovered: {len(uncovered)}")
+    score("full_index_40", reps, index, False)
+
+    by_style_l = cfi.collect_index_images(
+        styles, exclude_articles=eval_ids, max_per_style=cfi.PER_STYLE_CAP, require=loo_ids
+    )
+    index_l = cfi.build_index(by_style_l)
+    id_path = {int(p.stem): p for ps in by_style_l.values() for p in ps}
+    art = cfi.load_article_styles()
+    style_of = dict(zip(art["article_id"].to_list(), art["style_key"].to_list(), strict=True))
+    q159 = pl.DataFrame(
+        [
+            {"style_key": style_of[a], "article_id": a, "image_path": str(id_path[a])}
+            for a in loo_ids
+        ],
+        schema={"style_key": pl.String, "article_id": pl.Int64, "image_path": pl.String},
+    )
+    score("loo_full_index_159", q159, index_l, True)
+    q_all = loo_queries(by_style_l)
+    q_one = q_all.group_by("style_key", maintain_order=True).first()
+    score("loo_full_index_1style1photo", q_one, index_l, True)
+
+    pl.concat(parts, how="vertical_relaxed").write_csv(FULL_OUT)
+    pl.DataFrame({"style_key": uncovered}, schema={"style_key": pl.String}).write_csv(
+        FULL_OUT.with_name("q2_full_index_uncovered_styles.csv")
+    )
+    with pl.Config(tbl_rows=60, tbl_width_chars=220, float_precision=3):
+        print(
+            pl.concat(summaries, how="vertical_relaxed")
+            .filter(pl.col("row_type").is_in(["summary_all", "summary_chance_top5_of_candidates"]))
+            .select(
+                "condition",
+                "row_type",
+                "config",
+                "top1",
+                "top5",
+                "top10",
+                "type_ok",
+                "colour_ok",
+                "n",
+            )
+        )
+        print(
+            pl.concat(summaries, how="vertical_relaxed")
+            .filter(pl.col("row_type").str.starts_with("summary_confidence"))
+            .select("condition", "row_type", "top1", "top5", "n")
+        )
+    print(f"validation time {time.time() - t0:.0f}s")
+
+
 if __name__ == "__main__":
-    main()
+    import sys
+
+    main_full() if "--full" in sys.argv else main()

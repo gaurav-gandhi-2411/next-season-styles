@@ -174,3 +174,24 @@ def test_forecast_concept_restricts_to_table_styles() -> None:
 def test_concept_forecast_new_fields_have_defaults() -> None:
     r = cf.ConceptForecast("S", 1.0, 1, 10, "exact", "low", {})
     assert r.top5 == [] and r.similarity == 0.0 and r.margin == 0.0 and r.unavailable == {}
+
+
+def test_collect_index_images_caps_per_style_but_keeps_required(tmp_path: Path) -> None:
+    """The cap keeps the first N photos per style in scan order; `require`d photos survive it, and
+    excluded ones (validation photos) are dropped before the cap is applied."""
+    for d, ids in (("d1", [1, 2, 3]), ("d2", [4, 5])):
+        (tmp_path / d).mkdir()
+        for i in ids:
+            (tmp_path / d / f"{i}.jpg").write_bytes(b"x")
+    art = pl.DataFrame({"article_id": [1, 2, 3, 4, 5], "style_key": ["S"] * 5})
+    dirs = [tmp_path / "d1", tmp_path / "d2"]
+    got = cfi.collect_index_images(["S"], article_styles=art, image_dirs=dirs, max_per_style=2)
+    assert [p.stem for p in got["S"]] == ["1", "2"]
+    got = cfi.collect_index_images(
+        ["S"], exclude_articles=[1], article_styles=art, image_dirs=dirs, max_per_style=2
+    )
+    assert [p.stem for p in got["S"]] == ["2", "3"]
+    got = cfi.collect_index_images(
+        ["S"], article_styles=art, image_dirs=dirs, max_per_style=2, require=[5]
+    )
+    assert [p.stem for p in got["S"]] == ["1", "2", "5"]

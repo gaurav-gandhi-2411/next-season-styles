@@ -411,23 +411,28 @@ def closed_loop_section(concepts: list[dict]) -> str:
     old = pl.read_csv(T / "concept_forecast_validation.csv")
     old_sm = old.filter(pl.col("judge") == "smolvlm")
     old_exact = float(old_sm["exact_style_key"].mean())
-    q = pl.read_csv(T / "q2_retrieval_validation.csv")
-    loo = q.filter(
-        (pl.col("condition") == "loo_deployment_index")
-        & (pl.col("config") == "avg")
-        & (pl.col("row_type") == "summary_all")
-    ).to_dicts()[0]
-    cov = q.filter(
-        (pl.col("condition") == "deployment_coverage")
-        & (pl.col("config") == "avg")
-        & (pl.col("row_type") == "summary_all")
-    ).to_dicts()[0]
+    old_type = float(old_sm["type_ok"].mean())
+    old_colour = float(old_sm["colour_ok"].mean())
+    q415 = pl.read_csv(T / "q2_retrieval_validation.csv")
+    qf = pl.read_csv(T / "q2_retrieval_validation_full.csv")
+
+    def pick(df: pl.DataFrame, cond: str, row: str = "summary_all") -> dict:
+        return df.filter(
+            (pl.col("condition") == cond)
+            & (pl.col("config") == "avg")
+            & (pl.col("row_type") == row)
+        ).to_dicts()[0]
+
+    f40 = pick(qf, "full_index_40")
+    f159 = pick(qf, "loo_full_index_159")
+    f1980 = pick(qf, "loo_full_index_1style1photo")
+    chance = pick(qf, "full_index_40", "summary_chance_top5_of_candidates")
+    n_cand = int(chance["n"])
+    l415 = pick(q415, "loo_deployment_index")
+    c415 = int(pick(q415, "loo_deployment_index", "summary_chance_top5_of_candidates")["n"])
     conf = {
-        r["row_type"].removeprefix("summary_confidence_"): r
-        for r in q.filter(
-            (pl.col("condition") == "loo_deployment_index")
-            & pl.col("row_type").str.starts_with("summary_confidence_")
-        ).to_dicts()
+        lab: pick(qf, "loo_full_index_1style1photo", f"summary_confidence_{lab}")
+        for lab in ("high", "medium", "low")
     }
     rows = ""
     for c in concepts:
@@ -437,13 +442,19 @@ def closed_loop_section(concepts: list[dict]) -> str:
             f"<td class=n>{r['forecast_units']:.1f}</td><td class=n>{int(r['forecast_rank'])}</td><td>{_e(r['forecast_confidence'])}</td></tr>"
         )
     return f"""<section id=loop><h2>Closing the loop: scoring the pictures with the same forecaster</h2>
-<p class=lede>Predict, generate, then score the generated picture through the same predictor: the picture is matched to the nearest real catalogue style and the model's forecast for that style is looked up. The match is now made by image retrieval (CLIP and DINOv2 similarity to each style's real photos), not by asking a small model to name the style.</p>
+<p class=lede>Predict, generate, then score the generated picture through the same predictor: the picture is matched to the nearest real catalogue style and the model's forecast for that style is looked up. The match is made by image retrieval (CLIP and DINOv2 similarity to each style's real photos), not by asking a small model to name the style. It stays a prototype: the measured accuracy is below.</p>
 <div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Matched catalogue style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th></tr></thead><tbody>{rows}</tbody></table></div>
-<p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among the styles forecast from 1 Jun 2020. Three of four match their intended style, but the index contains each intended style's own reference photos (the ones the concept was generated from), so that is close to circular and is not evidence of the method. The white top matches a near-identical sibling style (its intended style is second by 0.001).</p>
+<p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among 3,000 styles from 1 Jun 2020. The index holds each intended style's own reference photos, so an intended-style match is close to circular; a mismatch is the informative case. Against the full catalogue the sweater maps to an orange sibling that is 0.006 more similar than its intended style (third), and the white top to a neighbouring Divided style (its intended style is outside the top 5); the dress and the bikini top are unchanged, the bikini's confidence dropping from high to medium because three orange, yellow and green all-over-pattern tops are near-ties.</p>
 <h3>How well does the matching work?</h3>
-<p><b>Before:</b> asking a small model to caption the picture and mapping the words to a style named the exact style for <b>{old_exact:.1%}</b> of 40 real photos. That asked a captioner to reproduce H&amp;M's internal labels, which no photo shows.</p>
-<p><b>After (retrieval), inside its index:</b> matching each of {int(loo['n'])} real photos against the index with that photo left out gives the exact style first for <b>{loo['top1']:.0%}</b>, within the top 5 for <b>{loo['top5']:.0%}</b> and the top 10 for <b>{loo['top10']:.0%}</b> (chance: 0.2%, 1.2%, 2.4%). The confidence label is informative: the top match is right {conf['high']['top1']:.0%} of the time when it says high ({int(conf['high']['n'])} photos), {conf['medium']['top1']:.0%} for medium and {conf['low']['top1']:.0%} for low.</p>
-<p><b>What this does not show:</b> the index holds only a fifth of the forecast styles (Kaggle stopped serving photos), and on the same 40 photos as the "before" number their styles are not in the index, so that comparison scores {cov['top1']:.0%}: it measures coverage, not retrieval. The like-for-like test needs the full catalogue indexed. Until then this is a labelled prototype, and it is a forecast for the archetype the picture reads as, not for the new design.</p></section>"""
+<div class=scroll><table class=metrics><thead><tr><th>Method and test</th><th>Candidate styles</th><th>Photos</th><th>Exact style</th><th>Top 5</th><th>Top 10</th><th>Product type</th><th>Colour</th></tr></thead><tbody>
+<tr><td>Free-text baseline (a small model names the style), 40 held-out photos</td><td class=n>1,980</td><td class=n>40</td><td class=n>{old_exact:.1%}</td><td class=n>n/a</td><td class=n>n/a</td><td class=n>{old_type:.0%}</td><td class=n>{old_colour:.0%}</td></tr>
+<tr><td><b>Retrieval, full catalogue</b>, the same 40 photos (each left out of the index)</td><td class=n>{n_cand:,}</td><td class=n>{int(f40['n'])}</td><td class=n><b>{f40['top1']:.1%}</b></td><td class=n>{f40['top5']:.1%}</td><td class=n>{f40['top10']:.1%}</td><td class=n>{f40['type_ok']:.0%}</td><td class=n>{f40['colour_ok']:.0%}</td></tr>
+<tr><td>Retrieval, full catalogue, leave-one-out on 159 photos</td><td class=n>{n_cand:,}</td><td class=n>{int(f159['n'])}</td><td class=n>{f159['top1']:.1%}</td><td class=n>{f159['top5']:.1%}</td><td class=n>{f159['top10']:.1%}</td><td class=n>{f159['type_ok']:.0%}</td><td class=n>{f159['colour_ok']:.0%}</td></tr>
+<tr><td>Retrieval, full catalogue, leave-one-out, one photo per style</td><td class=n>{n_cand:,}</td><td class=n>{int(f1980['n']):,}</td><td class=n>{f1980['top1']:.1%}</td><td class=n>{f1980['top5']:.1%}</td><td class=n>{f1980['top10']:.1%}</td><td class=n>{f1980['type_ok']:.0%}</td><td class=n>{f1980['colour_ok']:.0%}</td></tr>
+<tr><td>Retrieval, earlier partial index, leave-one-out on the same 159 photos (optimistic)</td><td class=n>{c415}</td><td class=n>{int(l415['n'])}</td><td class=n>{l415['top1']:.1%}</td><td class=n>{l415['top5']:.1%}</td><td class=n>{l415['top10']:.1%}</td><td class=n>{l415['type_ok']:.0%}</td><td class=n>{l415['colour_ok']:.0%}</td></tr>
+</tbody></table></div>
+<p>Chance for exact style is {1 / n_cand:.2%} with {n_cand:,} candidates. It does not clearly beat the baseline on the same 40 photos, so it keeps the prototype label; the full-catalogue number is the honest result. The {l415['top1']:.1%} earlier figure came from a candidate set of {c415} styles and is optimistic for exactly that reason; the {n_cand:,}-style rows are the honest numbers.</p>
+<p><b>Confidence label</b> (one photo per style, {int(f1980['n']):,} photos): the exact style is first {conf['high']['top1']:.0%} of the time when the label is high ({int(conf['high']['n'])} photos), {conf['medium']['top1']:.0%} for medium ({int(conf['medium']['n'])}) and {conf['low']['top1']:.0%} for low ({int(conf['low']['n'])}); within the top 5 it is {conf['high']['top5']:.0%}, {conf['medium']['top5']:.0%} and {conf['low']['top5']:.0%}. Near-duplicate articles within a style make these leave-one-out figures optimistic, and the forecast is for the archetype the picture reads as, not for the new design.</p></section>"""
 
 
 def seasonal_section(concepts: list[dict]) -> str:

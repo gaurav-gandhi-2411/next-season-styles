@@ -41,7 +41,7 @@ Start with `DEMO.html` (open it in any browser; it is self-contained, needs no s
 | `FINAL_concepts.png` | The three generated concepts, one per forecast style |
 | `evidence_chain.png` | Per concept: references, brief, checks, verdict |
 | `seasonal_comparison.png` | The same pipeline for autumn/winter and for summer |
-| `WRITEUP.md` | The full argument and its limits (about 2,000 words) |
+| `WRITEUP.md` | The full argument and its limits (about 2,200 words) |
 | `SUBMISSION_CHECKLIST.md` | Each required item mapped to the file that satisfies it |
 
 **Repository:** https://github.com/gaurav-gandhi-2411/next-season-styles (private; access can be

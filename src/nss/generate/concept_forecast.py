@@ -242,7 +242,9 @@ def default_index(
     """The retrieval index over every on-disk real photo of a style in `table` (see the index
     module for content and leave-out rules). Embeddings are cached; first use embeds on CPU."""
     by_style = concept_forecast_index.collect_index_images(
-        table["style_key"].to_list(), exclude_articles=exclude_articles
+        table["style_key"].to_list(),
+        exclude_articles=exclude_articles,
+        max_per_style=concept_forecast_index.PER_STYLE_CAP,
     )
     return concept_forecast_index.build_index(by_style)
 
