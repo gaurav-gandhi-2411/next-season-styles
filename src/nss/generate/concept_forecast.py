@@ -1,27 +1,33 @@
-"""Closed loop: score a generated concept through the same forecaster (task N8).
+"""Closed loop: score a generated concept through the same forecaster (tasks N8, Q2).
 
-generated image -> blind VLM attribute extraction (product type, colour, pattern) -> map to the
-nearest catalogue style_key -> look up the frozen model's forecast for that style.
+generated image -> embed (CLIP ViT-L/14 + DINOv2) -> nearest catalogue STYLE by cosine similarity
+to the mean embedding of that style's real photos (`concept_forecast_index`) -> look up the frozen
+model's forecast for that style.
 
     "maps to <style_key>; forecast N units/product/week; rank M of K; confidence <low|medium|high>"
 
 WHY: predict -> generate -> score-the-generation-through-the-predictor closes the product loop with
-components that already exist (VLM judges, the frozen forecaster's full ranking
+components that already exist (the frozen forecaster's full ranking
 `reports/tables/forecast_all_styles.csv`). It answers "would the style this image belongs to be
 forecast to sell?" -- a statement about the ARCHETYPE the image reads as, not a demand forecast for
 the new design (nothing here tests demand for the design itself).
 
-MAPPING: the five style-key attributes are not all visible. `garment_group` ("Jersey Basic",
-"Knitwear") is an internal merchandising label with no visual referent (task H2), and
-`index_group` (department) is not in the picture either, so they are not asked of the judges; among
-catalogue styles matching (product type, colour, pattern) the one with the most active articles
-(the dominant variant) is taken. Matching backs off in order: exact -> pattern relaxed -> colour
-relaxed -> product-type only; every back-off lowers confidence.
+Q2 REBUILD: the N8 route (VLM free-text attributes -> parse -> style_key, kept below as
+`forecast_concept_freetext` for the record and its tests) reached 12.5% exact-style accuracy
+(SmolVLM) / 2.5% (Florence-2) on 40 real catalogue photos: it asked a small captioner to reproduce
+H&M's internal taxonomy (garment group, department) from pixels. `forecast_concept` now uses image
+retrieval. The headline configuration (average of the CLIP and DINOv2 cosine similarities), the
+confidence definition (view agreement + top-1 margin over the 6th-ranked style) and the leave-out
+validation protocol are documented in `concept_forecast_index` and `concept_forecast_validation`.
+Styles are near-ties by construction, so the top-5 list is returned alongside the top-1 style.
 
-CONFIDENCE (from judge agreement, never from the forecast): `high` = at least two judges available
-and all agree on (product type, colour, pattern) after normalisation, exact match; `medium` = judges
-agree on product type and colour; otherwise `low`. The extraction error rate is measured on real
-catalogue images with known style keys by `concept_forecast_validation` and reported, not hidden.
+FREE-TEXT MAPPING (legacy): the five style-key attributes are not all visible. `garment_group`
+("Jersey Basic", "Knitwear") is an internal merchandising label with no visual referent (task H2),
+and `index_group` (department) is not in the picture either, so they are not asked of the judges;
+among catalogue styles matching (product type, colour, pattern) the one with the most active
+articles (the dominant variant) is taken. Matching backs off in order: exact -> pattern relaxed ->
+colour relaxed -> product-type only. Legacy confidence came from judge agreement (`high` = every
+judge agrees on the triple with an exact match; `medium` = judges agree on type and colour).
 """
 
 from __future__ import annotations
@@ -34,6 +40,8 @@ from functools import lru_cache
 from pathlib import Path
 
 import polars as pl
+
+from nss.generate import concept_forecast_index
 
 FORECAST_TABLE = Path("reports/tables/forecast_all_styles.csv")
 COLOUR = "perceived_colour_master_name"
@@ -135,6 +143,15 @@ class ConceptForecast:
     confidence: str
     normalised: dict[str, dict[str, str | None]]
     unavailable: dict[str, str] = field(default_factory=dict)
+    # Q2 retrieval fields (defaults keep every pre-Q2 caller working). `top5` is a best-first list
+    # of {"style_key", "similarity", "forecast", "rank"}; `similarity` is the top-1 averaged cosine;
+    # `margin` is top-1 minus the 6th-ranked averaged similarity (drives the confidence label).
+    top5: list[dict[str, object]] = field(default_factory=list)
+    similarity: float = 0.0
+    margin: float = 0.0
+    # number of styles the concept could be matched to (styles with >= 1 index photo): the match
+    # can never be a style outside this set, so it bounds how much the top-1 can mean
+    n_indexed_styles: int = 0
 
     def sentence(self) -> str:
         """Human-readable one-liner in the required format."""
@@ -214,12 +231,75 @@ def _consensus(values: Sequence[str | None]) -> str | None:
     return max(dict.fromkeys(votes), key=votes.count) if votes else None
 
 
+def _rank_of(table: pl.DataFrame, predicted_intensity: float) -> int:
+    """1-based rank of a forecast value within the table (descending predicted intensity)."""
+    return int(table.filter(pl.col("predicted_intensity") > predicted_intensity).height + 1)
+
+
+def default_index(
+    table: pl.DataFrame, exclude_articles: Sequence[int] = ()
+) -> concept_forecast_index.RetrievalIndex:
+    """The retrieval index over every on-disk real photo of a style in `table` (see the index
+    module for content and leave-out rules). Embeddings are cached; first use embeds on CPU."""
+    by_style = concept_forecast_index.collect_index_images(
+        table["style_key"].to_list(), exclude_articles=exclude_articles
+    )
+    return concept_forecast_index.build_index(by_style)
+
+
 def forecast_concept(
+    image: Path,
+    table: pl.DataFrame | None = None,
+    index: concept_forecast_index.RetrievalIndex | None = None,
+) -> ConceptForecast:
+    """Retrieve the nearest catalogue style for `image` and look up its forecast.
+
+    The candidate styles are those in `table` that have at least one index photo (uncovered styles
+    cannot be retrieved). Headline ranking: average of the CLIP and DINOv2 cosine similarities.
+
+    Raises:
+        ValueError: no style in `table` has any index photo (never fabricates a forecast).
+    """
+    table = load_table() if table is None else table
+    index = default_index(table) if index is None else index
+    query = concept_forecast_index.embed_query(image, index.embedders or None)
+    result = concept_forecast_index.retrieve(query, index, restrict=table["style_key"].to_list())
+    truth = {r["style_key"]: r for r in table.iter_rows(named=True)}
+    top5 = [
+        {
+            "style_key": s,
+            "similarity": sim,
+            "forecast": float(truth[s]["predicted_intensity"]),
+            "rank": _rank_of(table, truth[s]["predicted_intensity"]),
+        }
+        for s, sim in result.top(concept_forecast_index.HEADLINE_VIEW, 5)
+    ]
+    best = top5[0]
+    return ConceptForecast(
+        style_key=str(best["style_key"]),
+        forecast=float(best["forecast"]),
+        rank=int(best["rank"]),
+        n_styles=table.height,
+        match_level="retrieval",
+        confidence=result.confidence,
+        normalised={
+            "clip": {"style_key": result.top("clip")[0][0]},
+            "dino": {"style_key": result.top("dino")[0][0]},
+        },
+        top5=top5,
+        similarity=float(best["similarity"]),
+        margin=result.margin,
+        n_indexed_styles=len(result.ranked[concept_forecast_index.HEADLINE_VIEW]),
+    )
+
+
+def forecast_concept_freetext(
     image: Path,
     extractors: Mapping[str, Extractor],
     table: pl.DataFrame | None = None,
 ) -> ConceptForecast:
-    """Run every available judge on `image`, map to a style_key, look up the forecast.
+    """LEGACY (N8, superseded by retrieval): run every judge on `image`, map free-text attributes
+    to a style_key, look up the forecast. Kept for the record of the 12.5% baseline.
 
     Raises `ValueError` if no catalogue style can be matched at all (never fabricates a forecast).
     """

@@ -1,0 +1,3 @@
+# Q1 scratch model artifacts: regenerable with `python -m nss.models.q1_neighbourhood`, never committed
+*
+!.gitignore

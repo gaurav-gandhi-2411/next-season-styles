@@ -496,16 +496,26 @@ def score_concept(
 
 
 def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict[str, Any]:
-    """Score a generated concept THROUGH THE SAME FORECASTER (the closed loop).
+    """Score a generated concept THROUGH THE SAME FORECASTER (the closed loop). PROTOTYPE.
 
-    Blind VLM attribute extraction (local model, plus Groq/Gemini when reachable) -> map to the
-    nearest catalogue style_key -> look up the frozen model's forecast for that style. The result
-    is about the ARCHETYPE the image reads as, not a demand forecast for the new design.
+    Image retrieval: embed the concept (CLIP ViT-L/14 + DINOv2) -> nearest catalogue STYLE by the
+    average cosine similarity to the mean embedding of that style's real photos -> look up the
+    frozen model's forecast for that style. The result is about the ARCHETYPE the image reads as,
+    not a demand forecast for the new design. Styles are near-ties by construction: read `top5`,
+    not only the top-1.
+
+    Args:
+        concept_path: Path to the concept image.
+        include_api_judges: Deprecated and ignored. Retrieval uses no VLM judges; the parameter is
+            kept so existing callers do not break.
 
     Returns:
         `{"sentence", "style_key", "forecast_units_per_product_per_week", "rank", "n_styles",
-        "match_level", "confidence", "judges", "unavailable_judges"}`. `confidence` comes from
-        judge agreement (`high`/`medium`/`low`), never from the forecast itself.
+        "match_level", "confidence", "judges", "unavailable_judges", "top5", "similarity",
+        "margin", "n_indexed_styles"}`. `confidence` (`high`/`medium`/`low`) comes from
+        CLIP/DINOv2 agreement and the top-1 margin over the 6th-ranked style, never from the
+        forecast itself; `judges` lists the two embedding views; `n_indexed_styles` is how many
+        catalogue styles have index photos (the match can only be one of them).
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
@@ -515,9 +525,7 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
     path = Path(concept_path)
     if not path.exists():
         raise FileNotFoundError(f"concept image not found: {concept_path}")
-    result = concept_forecast.forecast_concept(
-        path, concept_forecast.default_extractors(include_api=include_api_judges)
-    )
+    result = concept_forecast.forecast_concept(path)
     return {
         "sentence": result.sentence(),
         "style_key": result.style_key,
@@ -528,6 +536,10 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
         "confidence": result.confidence,
         "judges": sorted(result.normalised),
         "unavailable_judges": result.unavailable,
+        "top5": result.top5,
+        "similarity": result.similarity,
+        "margin": result.margin,
+        "n_indexed_styles": result.n_indexed_styles,
     }
 
 

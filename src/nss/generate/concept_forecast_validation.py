@@ -1,135 +1,329 @@
-"""Validate the closed loop's style_key extraction on REAL catalogue images (task N8).
+"""Validate the closed loop's style retrieval on REAL catalogue photos (tasks N8, Q2).
 
-For 40 catalogue styles drawn at random (seed 42) from the frozen model's forecast table (styles
-with at least 5 articles, so they are real assortments), take the style's best-selling article's
-photo, whose true style_key is known, and run `concept_forecast.forecast_concept` on it with the
-judge panel. Reported, not hidden:
+The 40 evaluation photos are exactly the ones the N8 free-text baseline was scored on: the 40
+`style_key`s in the committed N8 per-image file `concept_forecast_validation.csv`, each with its
+lowest-`article_id` photo (N8's rule). All 40 were usable in N8, so the comparison is like-for-like.
+The N8 draw code (`table.join(...).sample(n=40, seed=42)`) is NOT re-run: re-running it today
+reproduces only 3 of the 40 styles (the join's row order is not stable across polars versions /
+runs), so the file, not the seed, is the source of truth. Photos not already in `data/images` are
+fetched into the scratch folder `data/images_q2_eval/`.
 
-- per-attribute accuracy of the extraction after mapping (product type, colour, pattern);
-- accuracy of the (product type, colour, pattern) triple;
-- exact style_key match (also needs department and garment group, which no image shows -- they are
-  filled with the dominant catalogue variant, so exact match is an upper-bounded, honest measure);
-- the forecast error that a wrong mapping causes: |predicted(mapped) - predicted(true)| and rank
-  distance, and the confidence label's calibration (accuracy within high / medium / low).
+METHOD (`concept_forecast_index`): nearest style by cosine similarity to the mean embedding of that
+style's real photos. Headline configuration, fixed before any number was computed: the AVERAGE of
+the CLIP ViT-L/14 and DINOv2-base cosine similarities (`avg`); `clip` and `dino` alone are
+ablations. No index or method choice was tuned on these photos.
 
-Output: `reports/tables/concept_forecast_validation.csv` (one row per image).
+LEAVE-OUT (critical): the 40 evaluation `article_id`s are dropped from every style's index BEFORE
+the style means are formed. A style left with no photo is UNCOVERED, can never be retrieved, and
+counts as a MISS at every k (reported as `coverage`, and every metric is reported both over all 40
+photos and over the covered subset only). The index only holds photos already on disk plus a
+time-budgeted fetch (`scripts/q2_fetch_index_images.py`), so coverage of the ~2,000 forecast styles
+is partial by construction; top-k accuracy over all 40 is bounded above by coverage.
+
+TWO INDEX CONDITIONS (declared before any 40-photo number was computed; a 6-photo debugging run of
+the pipeline preceded this and was not used to choose anything). With ~450 of ~1,980 styles indexed,
+a random draw of 40 styles has ~1 covered style (measured 1 of 40, before adding any gallery), so
+the deployment-coverage condition can only measure coverage, not retrieval quality:
+- `deployment_coverage`: the index as it exists on disk, minus the 40 evaluation photos and minus
+  the gallery photos below -- the honest picture of what a user gets today (coverage-bound);
+- `gallery_covers_eval` (HEADLINE for retrieval quality): the same index plus up to
+  `GALLERY_PER_STYLE` OTHER real articles of each evaluation style (never the evaluation photo), the
+  standard closed-set protocol (the gallery must contain the classes being queried). The candidate
+  set is then every indexed style (~490), not the ~1,980 the free-text baseline could name, so the
+  chance level is stated (`summary_chance_top5_of_candidates`) and the comparison with the 12.5%
+  baseline is favourable to retrieval in one respect (a smaller label space) and unfavourable in
+  another (the baseline had no coverage limit); both caveats are reported with the numbers;
+- `loo_deployment_index` (SUPPLEMENTARY, larger n, added when the gallery fetch was rate-limited by
+  Kaggle): every index photo of a style with >= 2 index photos is a query against an index whose
+  own-style prototype excludes it (leave-one-out); these are real photos of catalogue styles, but
+  they are not the 40 N8 photos, and near-duplicate articles within a style make it optimistic.
+
+Reported per configuration: top-1 / top-5 / top-10 style accuracy; product-type-alone and
+colour-alone accuracy of the top-1 style; coverage; and, for the headline configuration, accuracy
+by confidence label (calibration). Top-5 is the fair headline (styles are near-ties by
+construction); top-1 is reported too. Baseline: the N8 free-text route, 12.5% exact style
+(SmolVLM), 2.5% (Florence-2) (`reports/tables/concept_forecast_validation.csv`, untouched).
+
+Output: `reports/tables/q2_retrieval_validation.csv` (`condition` = `deployment_coverage` |
+`gallery_covers_eval` | `loo_deployment_index`; `row_type` = `photo` | `summary_*`;
+`config` = `clip` | `dino` | `avg`; summary rows have `style_key` = `ALL`).
 
 Usage:
-    NSS_JUDGES=smolvlm uv run python -m nss.generate.concept_forecast_validation
+    python -m nss.generate.concept_forecast_validation
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import polars as pl
 
 from nss.data.fetch_images import fetch_images, local_path
 from nss.generate import concept_forecast as cf
-from nss.generate import local_vlm
+from nss.generate import concept_forecast_index as cfi
 
-ARTICLES = Path("data/raw/articles.csv")
+N8_VALIDATION = Path("reports/tables/concept_forecast_validation.csv")  # the baseline's 40 styles
 IMAGES_DIR = Path("data/images")
-OUT = Path("reports/tables/concept_forecast_validation.csv")
+EVAL_FETCH_DIR = Path("data/images_q2_eval")
+OUT = Path("reports/tables/q2_retrieval_validation.csv")
 N_STYLES = 40
-SEED = 42
+GALLERY_PER_STYLE = 2
 
 
-def sample_images() -> pl.DataFrame:
-    """One best-selling-article photo per randomly drawn eligible style (fetched if missing)."""
-    table = cf.load_table()
-    articles = pl.read_csv(ARTICLES).with_columns(
-        (
-            pl.col("index_group_name")
-            + " || "
-            + pl.col(cf.TYPE)
-            + " || "
-            + pl.col("garment_group_name")
-            + " || "
-            + pl.col(cf.COLOUR)
-            + " || "
-            + pl.col(cf.PATTERN)
-        ).alias("style_key")
-    )
-    counts = articles.group_by("style_key").len().filter(pl.col("len") >= 5)
-    pool = table.join(counts, on="style_key").sample(n=N_STYLES, seed=SEED)
-    # deterministic representative article: the lowest article_id of the style (no sales lookup
-    # needed for validation; any real photo of the style is a valid positive)
-    reps = (
-        articles.filter(pl.col("style_key").is_in(pool["style_key"].to_list()))
+def _sample_reps() -> pl.DataFrame:
+    """The 40 (style_key, article_id) validation photos of the N8 baseline; nothing is fetched.
+
+    Styles come from the committed N8 per-image file; each style's photo is its lowest
+    `article_id` (N8's deterministic representative-article rule).
+    """
+    styles = pl.read_csv(N8_VALIDATION)["style_key"].unique().sort().to_list()
+    articles = cfi.load_article_styles()
+    return (
+        articles.filter(pl.col("style_key").is_in(styles))
         .sort("article_id")
         .group_by("style_key", maintain_order=True)
         .first()
         .select("style_key", "article_id")
+        .sort("style_key")
     )
-    ok = fetch_images(reps["article_id"].to_list(), IMAGES_DIR)
-    reps = reps.with_columns(
-        pl.col("article_id")
-        .map_elements(lambda a: str(local_path(a, IMAGES_DIR)), return_dtype=pl.String)
-        .alias("image_path"),
-        pl.col("article_id")
-        .map_elements(lambda a: ok[str(a)], return_dtype=pl.Boolean)
-        .alias("ok"),
+
+
+def sampled_article_ids() -> list[int]:
+    """All 40 validation article ids (usable or not): every one is kept out of the index."""
+    return _sample_reps()["article_id"].to_list()
+
+
+def sample_images() -> pl.DataFrame:
+    """The N8 evaluation photo (lowest article id) of each of the 40 styles, fetched if missing.
+
+    Photos already in `data/images` are reused as they are; missing ones are fetched into the
+    scratch folder `EVAL_FETCH_DIR` (never into the shared `data/images`). Returns the usable
+    subset with `image_path`.
+    """
+    reps = _sample_reps()
+    paths: dict[int, Path] = {}
+    missing = []
+    for a in reps["article_id"].to_list():
+        if local_path(a, IMAGES_DIR).exists():
+            paths[a] = local_path(a, IMAGES_DIR)
+        else:
+            missing.append(a)
+    ok = fetch_images(missing, EVAL_FETCH_DIR) if missing else {}
+    for a in missing:
+        if ok[str(a)]:
+            paths[a] = local_path(a, EVAL_FETCH_DIR)
+    usable = reps.filter(pl.col("article_id").is_in(list(paths)))
+    return usable.with_columns(
+        pl.Series("image_path", [str(paths[a]) for a in usable["article_id"].to_list()])
     )
-    return reps.filter(pl.col("ok"))
+
+
+def _photo_rows(
+    condition: str,
+    reps: pl.DataFrame,
+    table: pl.DataFrame,
+    index: cfi.RetrievalIndex,
+    leave_one_out: bool = False,
+) -> list[dict[str, object]]:
+    """One row per (config, photo): rank of the true style and top-1 attribute agreement.
+
+    `leave_one_out`: the photos ARE index photos (`reps` rows must have >= 2 index photos for
+    their style); each is matched against an index whose own style prototype excludes it.
+    """
+    attrs = {r["style_key"]: r for r in table.iter_rows(named=True)}
+    candidates = table["style_key"].to_list()
+    rows: list[dict[str, object]] = []
+    for r in reps.iter_rows(named=True):
+        true = r["style_key"]
+        covered = true in index.n_images
+        result = cfi.retrieve(
+            cfi.embed_query(Path(r["image_path"]), index.embedders or None),
+            index,
+            candidates,
+            leave_out=true if leave_one_out else None,
+        )
+        for view in cfi.VIEWS:
+            order = [s for s, _ in result.ranked[view]]
+            rank = order.index(true) + 1 if true in order else None
+            top1 = order[0]
+            rows.append(
+                {
+                    "condition": condition,
+                    "row_type": "photo",
+                    "config": view,
+                    "style_key": true,
+                    "article_id": r["article_id"],
+                    "n_index_images": index.n_images.get(true, 0) - int(leave_one_out),
+                    "covered": covered,
+                    "pred_top1": top1,
+                    "true_rank": rank,
+                    "top1": rank is not None and rank <= 1,
+                    "top5": rank is not None and rank <= 5,
+                    "top10": rank is not None and rank <= 10,
+                    "type_ok": attrs[top1][cf.TYPE] == attrs[true][cf.TYPE],
+                    "colour_ok": attrs[top1][cf.COLOUR] == attrs[true][cf.COLOUR],
+                    "confidence": result.confidence if view == cfi.HEADLINE_VIEW else None,
+                    "margin": result.margin if view == cfi.HEADLINE_VIEW else None,
+                    "n": None,
+                }
+            )
+    return rows
+
+
+def _summary_rows(
+    condition: str, photos: pl.DataFrame, n_candidates: int
+) -> list[dict[str, object]]:
+    """Per-config means over all photos ('all'), the covered subset, and by confidence label."""
+    rows: list[dict[str, object]] = []
+    base = {
+        "condition": condition,
+        "style_key": "ALL",
+        "article_id": None,
+        "n_index_images": None,
+        "pred_top1": None,
+        "true_rank": None,
+        "margin": None,
+    }
+    for view in cfi.VIEWS:
+        d = photos.filter(pl.col("config") == view)
+        subsets = [("all", d), ("covered_only", d.filter(pl.col("covered")))]
+        if view == cfi.HEADLINE_VIEW:
+            subsets += [
+                (f"confidence_{lab}", d.filter(pl.col("confidence") == lab))
+                for lab in ("high", "medium", "low")
+            ]
+        for name, sub in subsets:
+            n = sub.height
+            rows.append(
+                {
+                    **base,
+                    "row_type": f"summary_{name}",
+                    "config": view,
+                    "covered": float(d["covered"].mean()) if name == "all" else None,
+                    "top1": float(sub["top1"].mean()) if n else None,
+                    "top5": float(sub["top5"].mean()) if n else None,
+                    "top10": float(sub["top10"].mean()) if n else None,
+                    "type_ok": float(sub["type_ok"].mean()) if n else None,
+                    "colour_ok": float(sub["colour_ok"].mean()) if n else None,
+                    "confidence": None,
+                    "n": n,
+                }
+            )
+    rows.append(
+        {
+            **base,
+            "row_type": "summary_chance_top5_of_candidates",
+            "config": cfi.HEADLINE_VIEW,
+            "covered": None,
+            "top1": 1 / n_candidates,
+            "top5": 5 / n_candidates,
+            "top10": 10 / n_candidates,
+            "type_ok": None,
+            "colour_ok": None,
+            "confidence": None,
+            "n": n_candidates,
+        }
+    )
+    return rows
+
+
+def gallery_article_ids(per_style: int = GALLERY_PER_STYLE) -> list[int]:
+    """Up to `per_style` OTHER articles (lowest ids) of each evaluation style: the gallery photos
+    (`scripts/q2_fetch_validation_photos.py` fetches them; never an evaluation photo)."""
+    reps = _sample_reps()
+    art = cfi.load_article_styles()
+    out: list[int] = []
+    for row in reps.iter_rows(named=True):
+        others = (
+            art.filter(
+                (pl.col("style_key") == row["style_key"])
+                & (pl.col("article_id") != row["article_id"])
+            )
+            .sort("article_id")["article_id"]
+            .to_list()
+        )
+        out.extend(others[:per_style])
+    return out
+
+
+def loo_queries(by_style: dict[str, list[Path]]) -> pl.DataFrame:
+    """Every index photo of a style that has >= 2 index photos, as a leave-one-out query."""
+    return pl.DataFrame(
+        [
+            {"style_key": s, "article_id": int(p.stem), "image_path": str(p)}
+            for s, ps in sorted(by_style.items())
+            if len(ps) >= 2
+            for p in ps
+        ],
+        schema={"style_key": pl.String, "article_id": pl.Int64, "image_path": pl.String},
+    )
+
+
+def run_condition(
+    condition: str,
+    reps: pl.DataFrame | None,
+    table: pl.DataFrame,
+    exclude: list[int],
+    leave_one_out: bool = False,
+) -> tuple[pl.DataFrame, pl.DataFrame, cfi.RetrievalIndex]:
+    """Build the index minus `exclude`, score every query photo; `(photo rows, summary rows,
+    index)`. With `leave_one_out` the queries are the index photos themselves (`reps` ignored)."""
+    by_style = cfi.collect_index_images(table["style_key"].to_list(), exclude_articles=exclude)
+    index = cfi.build_index(by_style)
+    eval_ids = set(sampled_article_ids())
+    assert not (
+        eval_ids & {int(p.stem) for ps in by_style.values() for p in ps}
+    ), "leave-out violated: an evaluation photo is in the index"
+    queries = loo_queries(by_style) if leave_one_out else reps
+    assert queries is not None
+    photos = pl.DataFrame(_photo_rows(condition, queries, table, index, leave_one_out))
+    summary = pl.DataFrame(
+        _summary_rows(condition, photos, len(index.styles)), infer_schema_length=None
+    )
+    return photos, summary, index
 
 
 def main() -> None:
-    """Run the panel on every sampled image and write per-image results plus a summary."""
-    backends = os.environ.get("NSS_JUDGES", "smolvlm").split(",")
+    """Score the validation photos under every view for all index conditions; write the table."""
     table = cf.load_table()
-    truth = {r["style_key"]: r for r in table.iter_rows(named=True)}
     reps = sample_images()
-    rows = []
-    for backend in backends:
-        local_vlm.load(backend)
-        for r in reps.iter_rows(named=True):
-            rows.append(
-                {
-                    "judge": backend,
-                    "style_key": r["style_key"],
-                    "image_path": r["image_path"],
-                    "raw": cf.default_extractors(include_api=False)["local"](Path(r["image_path"])),
-                }
-            )
-        local_vlm.unload()
-    out = []
-    for r in rows:
-        t = truth[r["style_key"]]
-        n = cf.normalise(r["raw"], table)
-        pick, level = cf._pick(table, n["product_type"], n["colour"], n["pattern"])
-        out.append(
-            {
-                "judge": r["judge"],
-                "style_key": r["style_key"],
-                "type_ok": n["product_type"] == t[cf.TYPE],
-                "colour_ok": n["colour"] == t[cf.COLOUR],
-                "pattern_ok": n["pattern"] == t[cf.PATTERN],
-                "mapped_style_key": pick["style_key"] if pick else None,
-                "match_level": level,
-                "exact_style_key": bool(pick and pick["style_key"] == r["style_key"]),
-                "forecast_true": t["predicted_intensity"],
-                "forecast_mapped": pick["predicted_intensity"] if pick else None,
-                "raw": str(r["raw"]),
-            }
-        )
-    df = pl.DataFrame(out).with_columns(
-        (pl.col("type_ok") & pl.col("colour_ok") & pl.col("pattern_ok")).alias("triple_ok")
-    )
-    df.write_csv(OUT)
-    for backend in backends:
-        d = df.filter(pl.col("judge") == backend)
+    eval_ids = sampled_article_ids()  # all 40 draws, usable or not
+    gallery = gallery_article_ids()
+    flags = ["covered", "top1", "top5", "top10", "type_ok", "colour_ok"]
+    parts = []
+    summaries = []
+    # (condition, ids kept out of the index, leave-one-out queries?)
+    conditions = {
+        "deployment_coverage": (eval_ids + gallery, False),  # index as it exists without gallery
+        "gallery_covers_eval": (eval_ids, False),  # HEADLINE: evaluated styles have other photos
+        "loo_deployment_index": (eval_ids + gallery, True),  # supplementary, larger n
+    }
+    for condition, (exclude, loo) in conditions.items():
+        photos, summary, index = run_condition(condition, reps, table, exclude, loo)
+        photos_f = photos.with_columns([pl.col(c).cast(pl.Float64) for c in flags])
+        parts.append(photos_f)
+        parts.append(summary.select(photos_f.columns))
+        summaries.append(summary)
+        n_img = sum(index.n_images.values())
         print(
-            backend,
-            {
-                "n": d.height,
-                "type": d["type_ok"].mean(),
-                "colour": d["colour_ok"].mean(),
-                "pattern": d["pattern_ok"].mean(),
-                "triple": d["triple_ok"].mean(),
-                "exact_style_key": d["exact_style_key"].mean(),
-            },
+            f"{condition}: index {len(index.styles)} styles / {n_img} photos; "
+            f"queries: {summary.filter(pl.col('row_type') == 'summary_all')['n'][0]}"
+        )
+    pl.concat(parts, how="vertical_relaxed").write_csv(OUT)
+    with pl.Config(tbl_rows=60, tbl_width_chars=220, float_precision=3):
+        print(
+            pl.concat(summaries, how="vertical_relaxed").select(
+                "condition",
+                "row_type",
+                "config",
+                "covered",
+                "top1",
+                "top5",
+                "top10",
+                "type_ok",
+                "colour_ok",
+                "n",
+            )
         )
 
 
