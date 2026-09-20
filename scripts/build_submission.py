@@ -44,9 +44,9 @@ Start with `DEMO.html` (open it in any browser; it is self-contained, needs no s
 | `WRITEUP.md` | The full argument and its limits (about 2,400 words) |
 | `SUBMISSION_CHECKLIST.md` | Each required item mapped to the file that satisfies it |
 
-**Repository:** https://github.com/gaurav-gandhi-2411/next-season-styles (private; access can be
-granted on request). This bundle is cut from its `main` branch; the code, tests, agents, skills, MCP
-server and every table cited here live there.
+**Repository:** https://github.com/gaurav-gandhi-2411/next-season-styles
+This bundle is cut from its `main` branch; the code, tests, agents, skills, MCP server and every
+table cited here live there.
 
 - Reviewers without a GPU: `uv run --no-sync python scripts/run_pipeline.py --dry-run` (about 1 to
   2.5 minutes, writes only to a scratch directory; needs the H&M data in `data/`).
