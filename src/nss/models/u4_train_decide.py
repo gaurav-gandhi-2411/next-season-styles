@@ -41,6 +41,15 @@ test origins with a block-bootstrap CI.
 In-sample SHAP says what the model uses, not that the use generalises; the paired out-of-sample
 table decides adoption.
 
+ERRATUM (added AFTER the run; the code, the recorded rule and `u4_hypothesis.csv` are unchanged):
+"falling age concentration" means RISING age dispersion, so the expected sign for the four
+`cust_age_std_*` / `cust_age_gini_*` slopes should have been +1, not -1 as coded in
+`HYPOTHESIS_FEATURES`. As declared (age signs -1) 4 of 10 features are SHAP-consistent and 6 of 10
+growth-consistent (verdict MIXED); with the four age signs flipped, 7 of 10 are SHAP-consistent
+(verdict still MIXED, needs 8) and 10 of 10 growth-consistent. The verdict is MIXED under both
+readings, so the specification error does not change the conclusion; the adoption rule is
+unaffected.
+
 NEW TOP-3: the treatment model is retrained on the wide final-model origin set with the U3 config,
 scored at the forecast origin, and passed through the SAME selection guards as the shipped pipeline
 (`final_forecast` guards -> `diversity_forecast.select_t2_emerging` ->
