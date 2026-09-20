@@ -157,6 +157,7 @@ def test_forecast_concept_end_to_end_returns_top5_and_lookup() -> None:
     assert len(r.top5) == 5 and r.top5[0]["style_key"] == "B"
     assert r.normalised == {"clip": {"style_key": "B"}, "dino": {"style_key": "B"}}
     assert r.similarity > 0.9 and r.margin >= cfi.MARGIN_HIGH
+    assert r.n_indexed_styles == 6
     assert r.sentence() == (
         "maps to B; forecast 25.0 units/product/week; rank 2 of 6; confidence high"
     )
@@ -167,6 +168,7 @@ def test_forecast_concept_restricts_to_table_styles() -> None:
     table = _table().filter(pl.col("style_key") != "B")
     r = cf.forecast_concept(Path("B_9.jpg"), table, index)
     assert r.style_key != "B" and "B" not in [t["style_key"] for t in r.top5]
+    assert r.n_indexed_styles == 5
 
 
 def test_concept_forecast_new_fields_have_defaults() -> None:

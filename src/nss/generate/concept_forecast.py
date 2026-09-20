@@ -149,6 +149,9 @@ class ConceptForecast:
     top5: list[dict[str, object]] = field(default_factory=list)
     similarity: float = 0.0
     margin: float = 0.0
+    # number of styles the concept could be matched to (styles with >= 1 index photo): the match
+    # can never be a style outside this set, so it bounds how much the top-1 can mean
+    n_indexed_styles: int = 0
 
     def sentence(self) -> str:
         """Human-readable one-liner in the required format."""
@@ -286,6 +289,7 @@ def forecast_concept(
         top5=top5,
         similarity=float(best["similarity"]),
         margin=result.margin,
+        n_indexed_styles=len(result.ranked[concept_forecast_index.HEADLINE_VIEW]),
     )
 
 

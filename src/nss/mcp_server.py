@@ -512,9 +512,10 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
     Returns:
         `{"sentence", "style_key", "forecast_units_per_product_per_week", "rank", "n_styles",
         "match_level", "confidence", "judges", "unavailable_judges", "top5", "similarity",
-        "margin"}`. `confidence` (`high`/`medium`/`low`) comes from CLIP/DINOv2 agreement and the
-        top-1 margin over the 6th-ranked style, never from the forecast itself; `judges` lists the
-        two embedding views.
+        "margin", "n_indexed_styles"}`. `confidence` (`high`/`medium`/`low`) comes from
+        CLIP/DINOv2 agreement and the top-1 margin over the 6th-ranked style, never from the
+        forecast itself; `judges` lists the two embedding views; `n_indexed_styles` is how many
+        catalogue styles have index photos (the match can only be one of them).
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
@@ -538,6 +539,7 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
         "top5": result.top5,
         "similarity": result.similarity,
         "margin": result.margin,
+        "n_indexed_styles": result.n_indexed_styles,
     }
 
 
