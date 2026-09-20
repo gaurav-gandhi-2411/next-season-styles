@@ -1,0 +1,15 @@
+path,truth_coherent,judge_coherent,raw,floor_max_sim,floor_floor,floor_pass,note
+data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed42.png,false,true,Yes.,0.5541062951087952,0.8976573050022125,false,H3 seed 42: cut-out defect
+data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed44.png,false,true,Yes.,0.811151921749115,0.8976573050022125,false,H3 seed 44: sheer mesh panels
+data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed45.png,false,true,Yes.,0.6042270064353943,0.8976573050022125,false,H3 seed 45: unrecognisable folded object
+data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.15_s43.png,false,true,Yes.,0.6583500504493713,0.7926446199417114,false,"fabric swatch, no garment"
+data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-style-only-1.0_s42.png,false,true,Yes.,0.35504403710365295,0.7926446199417114,false,"fabric swatch, no garment"
+data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed43.png,true,true,Yes.,0.9206936359405518,0.8976573050022125,true,H3 seed 43: accepted by visual QC
+data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.25-nat_s43.png,true,true,Yes.,0.8752148151397705,0.7926446199417114,true,clean sweater
+data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.35-nat_s43.png,true,true,Yes.,0.9164578318595886,0.7926446199417114,true,clean sweater
+data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/single-0.35-nat_s43.png,true,true,Yes.,0.9055238366127014,0.7926446199417114,true,clean sweater
+reports/concepts/beige-melange-sweater_m3a1_seed43.png,true,true,Yes.,0.9161808490753174,0.7926446199417114,true,M3 sweater concept
+reports/concepts/red-dress_m3a2_seed45.png,true,true,Yes.,0.796964704990387,0.7311748266220093,true,M3 dress concept
+data/images/0863646003.jpg,true,true,Yes.,0.94163978099823,0.774127471446991,true,real catalogue sweater
+data/images/0554598001.jpg,true,true,Yes.,0.8977837562561035,0.8887962698936462,true,real catalogue T-shirt
+data/images/0803986005.jpg,true,true,Yes.,0.7821555733680725,0.8976573050022125,false,real catalogue underwear

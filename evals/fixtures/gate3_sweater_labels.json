@@ -1,0 +1,29 @@
+{
+  "_comment": "Human labels (task N2), made by looking at each image, for the two briefed changes of the beige melange sweater: c0 = 'a high funnel neck collar', c1 = 'dark brown contrast rib cuffs and hem'. Ground truth for validating Gate 3's judges; images live under data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/.",
+  "changes": ["a high funnel neck collar", "dark brown contrast rib cuffs and hem"],
+  "labels": {
+    "concat-0.25-nat_s42.png": [true, true],
+    "concat-0.25-nat_s43.png": [true, true],
+    "concat-0.35-nat_s42.png": [true, false],
+    "concat-0.35-nat_s43.png": [true, true],
+    "concat-0.45-nat_s42.png": [true, false],
+    "concat-0.45-nat_s43.png": [true, false],
+    "concat-0.45-w1.5-nat_s42.png": [true, true],
+    "concat-0.45-w1.5-nat_s43.png": [true, true],
+    "single-0.25-nat_s42.png": [true, true],
+    "single-0.25-nat_s43.png": [true, true],
+    "single-0.35-nat_s42.png": [true, false],
+    "single-0.35-nat_s43.png": [true, true],
+    "single-0.45-nat_s42.png": [false, false],
+    "single-0.45-nat_s43.png": [false, false],
+    "concat-0.35_s42.png": [false, false],
+    "concat-0.35_s43.png": [false, false],
+    "concat-0.45_s42.png": [false, false],
+    "concat-0.45_s43.png": [false, false],
+    "single-0.45_s42.png": [false, false],
+    "single-0.45_s43.png": [false, false],
+    "mean-0.45_s42.png": [false, false],
+    "concat-style-layout-0.6_s42.png": [false, false],
+    "concat-style-layout-0.6_s43.png": [false, false]
+  }
+}

@@ -495,6 +495,42 @@ def score_concept(
     return qc_gates.score_gates(concept_path, style_key, include_fidelity=include_fidelity)
 
 
+def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict[str, Any]:
+    """Score a generated concept THROUGH THE SAME FORECASTER (the closed loop).
+
+    Blind VLM attribute extraction (local model, plus Groq/Gemini when reachable) -> map to the
+    nearest catalogue style_key -> look up the frozen model's forecast for that style. The result
+    is about the ARCHETYPE the image reads as, not a demand forecast for the new design.
+
+    Returns:
+        `{"sentence", "style_key", "forecast_units_per_product_per_week", "rank", "n_styles",
+        "match_level", "confidence", "judges", "unavailable_judges"}`. `confidence` comes from
+        judge agreement (`high`/`medium`/`low`), never from the forecast itself.
+
+    Raises:
+        FileNotFoundError: `concept_path` does not exist.
+    """
+    from nss.generate import concept_forecast
+
+    path = Path(concept_path)
+    if not path.exists():
+        raise FileNotFoundError(f"concept image not found: {concept_path}")
+    result = concept_forecast.forecast_concept(
+        path, concept_forecast.default_extractors(include_api=include_api_judges)
+    )
+    return {
+        "sentence": result.sentence(),
+        "style_key": result.style_key,
+        "forecast_units_per_product_per_week": result.forecast,
+        "rank": result.rank,
+        "n_styles": result.n_styles,
+        "match_level": result.match_level,
+        "confidence": result.confidence,
+        "judges": sorted(result.normalised),
+        "unavailable_judges": result.unavailable,
+    }
+
+
 def compose_final_sheet(concept_paths: list[str], captions: list[str]) -> str:
     """Compose a labeled, single-row multi-panel image from generated concepts + captions.
 
@@ -555,6 +591,7 @@ mcp.tool()(get_reference_images)
 mcp.tool()(generate_concept)
 mcp.tool()(score_concept)
 mcp.tool()(compose_final_sheet)
+mcp.tool()(forecast_concept)
 
 
 def main() -> None:

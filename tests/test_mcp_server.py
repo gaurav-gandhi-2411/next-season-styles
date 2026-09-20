@@ -23,8 +23,8 @@ KNOWN_STYLE_KEY = "Ladieswear || T-shirt || Jersey Basic || Black || Solid"  # T
 UNKNOWN_STYLE_KEY = "Menswear || Bogus Type || Bogus Group || Purple || Dotted"
 
 
-def test_mcp_server_registers_all_7_tools() -> None:
-    """The MCPServer instance ends up with exactly the 7 tools the task brief specifies."""
+def test_mcp_server_registers_all_8_tools() -> None:
+    """Exactly the 7 brief tools plus the N8 closed-loop `forecast_concept`."""
     tool_names = {t.name for t in mcp_server.mcp._tool_manager.list_tools()}
     assert tool_names == {
         "query_transactions",
@@ -34,6 +34,7 @@ def test_mcp_server_registers_all_7_tools() -> None:
         "generate_concept",
         "score_concept",
         "compose_final_sheet",
+        "forecast_concept",
     }
 
 

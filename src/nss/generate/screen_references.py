@@ -83,7 +83,7 @@ from nss.features.style_panel import STYLE_KEY_COLS
 from nss.generate import vlm_judges
 
 FINAL_THREE_MANIFEST_PATH = Path("reports/tables/exemplar_images_final_three.csv")
-SCREENED_MANIFEST_PATH = Path("reports/tables/exemplar_images_screened.csv")
+SCREENED_MANIFEST_PATH = Path("reports/tables/reference_base_widened.csv")
 PANEL_PATH = Path("data/processed/style_week_panel.parquet")
 IMAGES_DIR = Path("data/images")
 

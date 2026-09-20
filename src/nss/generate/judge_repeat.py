@@ -87,14 +87,14 @@ def main() -> None:
     does not clear within seconds; hammering it only burns the retry window) and is recorded as
     the reason on every row it blocks. A judge with no calibrated threshold is never called.
     """
-    from nss.generate.h4_deliverables import SELECTED, _image  # lazy: h4 imports this
+    from nss.generate.h4_deliverables import SELECTED, selected_seed  # lazy import
 
     thresholds = judge_thresholds()
     done = _load_successes()
     blocked: dict[str, str] = {}
     rows: list[dict[str, Any]] = []
     RAW_PATH.parent.mkdir(parents=True, exist_ok=True)
-    items = [(sid, seed, _image(sid, seed, src)) for sid, (seed, src) in SELECTED.items()]
+    items = [(sid, selected_seed(sid), path) for sid, path in SELECTED.items()]
     for style_id, seed, image in items:
         truth = {d: parse_style_attributes(style_id)[d] for d in vlm_judges.ATTRIBUTE_DIMENSIONS}
         for judge, caller in CALLERS.items():

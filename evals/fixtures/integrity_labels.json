@@ -1,0 +1,89 @@
+{
+  "_comment": "Garment-integrity ground truth (task N3). coherent=false: the three malformed candidates from the retired red-underwear run (cut-out defect, sheer mesh, unrecognisable folded object) plus fabric-swatch collapses that show no garment. coherent=true: the visually accepted underwear seed 43, real catalogue photos, and lever images inspected by eye as clean single garments.",
+  "cases": [
+    {
+      "path": "data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed42.png",
+      "coherent": false,
+      "note": "H3 seed 42: cut-out defect",
+      "style": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+    },
+    {
+      "path": "data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed44.png",
+      "coherent": false,
+      "note": "H3 seed 44: sheer mesh panels",
+      "style": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+    },
+    {
+      "path": "data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed45.png",
+      "coherent": false,
+      "note": "H3 seed 45: unrecognisable folded object",
+      "style": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+    },
+    {
+      "path": "data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.15_s43.png",
+      "coherent": false,
+      "note": "fabric swatch, no garment",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-style-only-1.0_s42.png",
+      "coherent": false,
+      "note": "fabric swatch, no garment",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "data/generated/final_concepts_h3/ladieswear_underwear-bottom_under--nightwear_red_solid_seed43.png",
+      "coherent": true,
+      "note": "H3 seed 43: accepted by visual QC",
+      "style": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+    },
+    {
+      "path": "data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.25-nat_s43.png",
+      "coherent": true,
+      "note": "clean sweater",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/concat-0.35-nat_s43.png",
+      "coherent": true,
+      "note": "clean sweater",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "data/generated/n1_levers/ladieswear_sweater_knitwear_beige_melange/single-0.35-nat_s43.png",
+      "coherent": true,
+      "note": "clean sweater",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "reports/concepts/beige-melange-sweater_m3a1_seed43.png",
+      "coherent": true,
+      "note": "M3 sweater concept",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "reports/concepts/red-dress_m3a2_seed45.png",
+      "coherent": true,
+      "note": "M3 dress concept",
+      "style": "Ladieswear || Dress || Dresses Ladies || Red || Solid"
+    },
+    {
+      "path": "data/images/0863646003.jpg",
+      "coherent": true,
+      "note": "real catalogue sweater",
+      "style": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+    },
+    {
+      "path": "data/images/0554598001.jpg",
+      "coherent": true,
+      "note": "real catalogue T-shirt",
+      "style": "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+    },
+    {
+      "path": "data/images/0803986005.jpg",
+      "coherent": true,
+      "note": "real catalogue underwear",
+      "style": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+    }
+  ]
+}

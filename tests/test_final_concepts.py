@@ -8,7 +8,6 @@ import pytest
 
 from nss.generate import final_concepts, prompt_budget
 from nss.generate.final_concepts import (
-    DESIGN_BRIEFS_PATH,
     UNDERWEAR_STYLE_KEY,
     _distance_to_band,
     _slugify,
@@ -151,23 +150,20 @@ def test_build_generation_spec_keeps_prompt_and_negative_prompt_within_token_bud
     assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
 
 
-@pytest.mark.skipif(
-    not DESIGN_BRIEFS_PATH.exists(), reason="requires the real committed design_briefs.json"
-)
-def test_build_generation_spec_real_final_three_briefs_fit_token_budget() -> None:
-    """Real-data regression test (task F5, retargeted at the M-session final three): the synthetic
-    `_full_brief()` fixture above under-counts what the REAL `design_briefs.json` entries carry
-    (F5's first end-to-end run hit a real `ValueError` from an over-budget negative_prompt). This
-    test uses the REAL, committed briefs so a future edit to the rule table or to
-    `design_briefs.json` that reintroduces an over-budget prompt fails loudly here, not mid-GPU-run.
-    """
-    from nss.generate.final_registry import STYLE_ORDER
+def test_n9_briefs_and_negative_prompts_fit_the_token_budget() -> None:
+    """Real-data regression test (task N9): every final style's N9 brief yields a negative prompt
+    inside SDXL's 77-token budget (the rule table layered on the style's own extras once went
+    6 tokens over mid-GPU-run). The N9 positive prompt is a natural sentence encoded WITHOUT
+    truncation by compel, so it has no 77-token limit and is checked for content instead."""
+    from nss.generate import final_registry, n9_generate
 
-    briefs = load_design_briefs(DESIGN_BRIEFS_PATH)
-    for style_id in STYLE_ORDER:
-        prompt, negative_prompt = build_generation_spec(style_id, briefs[style_id])
-        assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
-        assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+    for style_id in (*final_registry.STYLE_ORDER, final_registry.SUMMER):
+        brief = n9_generate._pad(n9_generate.brief_for(style_id))
+        _prompt, negative = build_generation_spec(style_id, brief)
+        assert prompt_budget.count_clip_tokens(negative) <= prompt_budget.SDXL_TOKEN_BUDGET
+        natural = n9_generate.natural_prompt(style_id, brief["applied_changes"], 1.5)
+        for change in brief["applied_changes"]:
+            assert f"({change})1.5" in natural  # every briefed change is weighted in the prompt
 
 
 def test_build_generation_spec_solid_style_gets_pattern_exclusion_terms() -> None:

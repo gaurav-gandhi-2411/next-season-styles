@@ -1,0 +1,8 @@
+judge,style_id,image,config,n_present,n_changes,answers,coherent,gate3_pass
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0-nat_s42.png,concat-0.0-nat_s42,2,2,"Y,Y",true,true
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0-nat_s43.png,concat-0.0-nat_s43,1,2,"Y,N",true,false
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0-natP2old_s42.png,concat-0.0-natP2old_s42,0,2,"N,N",false,false
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0-natP2old_s43.png,concat-0.0-natP2old_s43,0,2,"N,N",false,false
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0_s42.png,concat-0.0_s42,0,2,"N,N",false,false
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.0_s43.png,concat-0.0_s43,0,2,"N,N",false,false
+groq,Ladieswear || Sweater || Knitwear || Beige || Melange,data\generated\n1_levers\ladieswear_sweater_knitwear_beige_melange\concat-0.15_s42.png,concat-0.15_s42,0,2,"N,N",true,false

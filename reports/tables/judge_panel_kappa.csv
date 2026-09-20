@@ -1,0 +1,7 @@
+judge_a,judge_b,n_items,kappa
+florence2,gemini,18,0.35714285714285704
+florence2,groq,51,0.47807017543859653
+florence2,smolvlm,51,0.5342465753424657
+gemini,groq,18,0.8888888888888888
+gemini,smolvlm,18,0.7804878048780487
+groq,smolvlm,51,0.6807511737089201
