@@ -246,7 +246,9 @@ def main() -> None:
     trends_terms.write_csv(OUT_DIR / "external_signal_style_terms.csv")
     coverage = coverage_table(styles, trends_terms, trends_weekly, wiki_terms, wiki_weekly)
     coverage.write_csv(OUT_DIR / "external_signal_coverage.csv")
-    with pl.Config(tbl_rows=30, tbl_width_chars=200, fmt_str_lengths=70):
+    with pl.Config(
+        tbl_rows=30, tbl_width_chars=200, fmt_str_lengths=70, tbl_formatting="ASCII_FULL"
+    ):
         print(coverage)
 
     origins = generate_origin_schedule(panel)
@@ -261,7 +263,9 @@ def main() -> None:
     rows += lead_lag_rows("wikipedia", panel, wiki_terms, wiki_weekly, forward, first_test)
     table = pl.DataFrame(rows)
     table.write_csv(OUT_DIR / "external_signal_lead_lag.csv")
-    with pl.Config(tbl_rows=80, tbl_width_chars=220, float_precision=3):
+    with pl.Config(
+        tbl_rows=80, tbl_width_chars=220, float_precision=3, tbl_formatting="ASCII_FULL"
+    ):
         print(table.filter(pl.col("window") == "pre_test"))
     print(
         f"MIN_NONZERO_SHARE={MIN_NONZERO_SHARE}; product words {len(PRODUCT_WORD)}, colours "

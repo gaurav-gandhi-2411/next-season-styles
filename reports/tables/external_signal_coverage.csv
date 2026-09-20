@@ -1,0 +1,10 @@
+source,tier,n_styles,share,note
+all,styles in panel,3076,1.0,""
+google_trends,mapped to a query term,2869,0.932704811443433,colour word + product word
+google_trends,unmapped: colour unmapped,92,0.02990897269180754,no term invented
+google_trends,unmapped: product type unmapped,110,0.03576072821846554,no term invented
+google_trends,unmapped: product type and colour both unmapped,5,0.001625487646293888,no term invented
+google_trends,term fetched (cache present),2846,0.9252275682704811,488/501 terms
+google_trends,usable series (>= 90% non-zero weeks),2595,0.8436280884265279,406/488 fetched terms clear the threshold
+wikipedia,product type has an article,2565,0.8338751625487646,product-type level only
+wikipedia,usable series,2565,0.8338751625487646,60 articles; 46 distinct series serve all styles
