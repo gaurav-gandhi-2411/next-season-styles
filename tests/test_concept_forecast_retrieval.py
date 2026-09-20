@@ -27,7 +27,7 @@ def _fake_embedders() -> dict[str, cfi.Embedder]:
         def embed(path: Path) -> np.ndarray:
             style, n = path.stem.split("_")
             v = _DIRS[style][view].astype(np.float32).copy()
-            v[view] += 0.01 * int(n)
+            v[3 - view] += 0.05 * int(n)  # off-axis jitter, so same-style photos differ
             return v / np.linalg.norm(v)
 
         return embed
@@ -65,6 +65,29 @@ def test_index_prototype_is_unit_norm_mean_and_query_finds_own_style() -> None:
     assert res.top("clip")[0][0] == "C" and res.top("dino")[0][0] == "C"
     sims = [s for _, s in res.ranked["avg"]]
     assert sims == sorted(sims, reverse=True)
+
+
+def test_leave_one_out_removes_the_query_from_its_own_prototype() -> None:
+    index = cfi.build_index(_by_style(n=2), _fake_embedders())
+    q = cfi.embed_query(Path("A_1.jpg"), index.embedders)
+    plain = cfi.retrieve(q, index).ranked["clip"]
+    loo = cfi.retrieve(q, index, leave_out="A").ranked["clip"]
+    sim_plain = dict(plain)["A"]
+    sim_loo = dict(loo)["A"]
+    # the un-held-out prototype contains the query itself, so it is strictly closer to it
+    assert sim_plain > sim_loo
+    # expected value: cosine to the unit mean of the OTHER photo (A_2) only
+    other = cfi.embed_query(Path("A_2.jpg"), index.embedders)["clip"]
+    assert sim_loo == pytest.approx(float(other @ q["clip"]), abs=1e-5)
+    # other styles are untouched
+    assert dict(plain)["B"] == pytest.approx(dict(loo)["B"])
+
+
+def test_leave_one_out_needs_two_photos() -> None:
+    index = cfi.build_index(_by_style(n=1), _fake_embedders())
+    q = cfi.embed_query(Path("A_1.jpg"), index.embedders)
+    with pytest.raises(ValueError, match="needs >= 2"):
+        cfi.retrieve(q, index, leave_out="A")
 
 
 def test_confidence_high_needs_agreement_and_margin() -> None:

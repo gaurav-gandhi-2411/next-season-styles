@@ -164,17 +164,36 @@ class RetrievalIndex:
     means: dict[str, np.ndarray]  # view ("clip"/"dino") -> (n_styles, dim)
     n_images: dict[str, int]
     embedders: dict[str, Embedder] = field(default_factory=dict, repr=False)
+    # view -> (n_styles, dim) SUM of each style's unit photo embeddings (for leave-one-out)
+    sums: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
 
-    def similarities(self, q: dict[str, np.ndarray], restrict: Sequence[str] | None = None):
+    def similarities(
+        self,
+        q: dict[str, np.ndarray],
+        restrict: Sequence[str] | None = None,
+        leave_out: str | None = None,
+    ):
         """Cosine similarity of one query (per-view unit vectors) to every style, per view.
 
         Returns `(styles, {"clip": s, "dino": s, "avg": s})`, restricted to `restrict` if given.
+        `leave_out` names the query's OWN style when the query is itself one of that style's index
+        photos: that style's prototype is recomputed without the query photo (leave-one-out), so a
+        photo is never matched against a prototype it helped form. It needs >= 2 photos.
         """
         keep = np.arange(len(self.styles))
         if restrict is not None:
             allowed = set(restrict)
             keep = np.array([i for i, s in enumerate(self.styles) if s in allowed], dtype=int)
         sims = {v: self.means[v][keep] @ q[v] for v in ("clip", "dino")}
+        if leave_out is not None:
+            if self.n_images.get(leave_out, 0) < 2:
+                raise ValueError(f"leave-one-out needs >= 2 photos for {leave_out!r}")
+            own = int(self.styles.index(leave_out))
+            pos = np.flatnonzero(keep == own)
+            if pos.size:
+                for v in ("clip", "dino"):
+                    proto = _unit(self.sums[v][own] - q[v])
+                    sims[v][pos[0]] = proto @ q[v]
         sims["avg"] = (sims["clip"] + sims["dino"]) / 2
         return [self.styles[i] for i in keep], sims
 
@@ -187,14 +206,16 @@ def build_index(
     styles = sorted(by_style)
     flat = [(s, p) for s in styles for p in by_style[s]]
     means: dict[str, np.ndarray] = {}
+    sums: dict[str, np.ndarray] = {}
     for view in ("clip", "dino"):
         vecs = _unit(embed_cached(view, emb[view], [p for _, p in flat]))
         rows = []
         for s in styles:
             idx = [i for i, (st, _) in enumerate(flat) if st == s]
-            rows.append(vecs[idx].mean(axis=0))
-        means[view] = _unit(np.stack(rows))
-    return RetrievalIndex(styles, means, {s: len(by_style[s]) for s in styles}, emb)
+            rows.append(vecs[idx].sum(axis=0))
+        sums[view] = np.stack(rows)
+        means[view] = _unit(sums[view])  # the unit mean == the unit sum
+    return RetrievalIndex(styles, means, {s: len(by_style[s]) for s in styles}, emb, sums)
 
 
 def embed_query(path: Path, embedders: dict[str, Embedder] | None = None) -> dict[str, np.ndarray]:
@@ -233,10 +254,17 @@ def confidence_label(ranked: dict[str, list[tuple[str, float]]]) -> tuple[str, f
 
 
 def retrieve(
-    query: dict[str, np.ndarray], index: RetrievalIndex, restrict: Sequence[str] | None = None
+    query: dict[str, np.ndarray],
+    index: RetrievalIndex,
+    restrict: Sequence[str] | None = None,
+    leave_out: str | None = None,
 ) -> Retrieval:
-    """Rank every (allowed) covered style for one query embedding under all three views."""
-    styles, sims = index.similarities(query, restrict)
+    """Rank every (allowed) covered style for one query embedding under all three views.
+
+    `leave_out`: the query's own style, when the query is one of that style's index photos (see
+    `RetrievalIndex.similarities`).
+    """
+    styles, sims = index.similarities(query, restrict, leave_out)
     if not styles:
         raise ValueError("retrieval index has no style in the requested candidate set")
     ranked = {
