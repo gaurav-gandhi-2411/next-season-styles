@@ -25,10 +25,10 @@ from PIL import Image
 
 from nss.generate import final_registry
 from nss.generate.final_selection_figures import OBSERVED_CAPTIONS, SELECTED, SUMMER_SELECTED
+from nss.viz.deliverable_figures import ACCENT, INK, MUTED, PAPER, SANS, SERIF
 
 OUT_PATH = Path("reports/figures/seasonal_comparison.png")
 T = Path("reports/tables")
-INK, ACCENT, MUTED = "#15181e", "#2a3fd0", "#5f646d"
 
 
 def main() -> Path:
@@ -61,11 +61,11 @@ def main() -> Path:
             OBSERVED_CAPTIONS[final_registry.SUMMER],
         ),
     ]
-    fig, axes = plt.subplots(1, 2, figsize=(12.5, 7.4), facecolor="white")
+    fig, axes = plt.subplots(1, 2, figsize=(12.5, 7.4), facecolor=PAPER)
     for ax, (season, name, path, label, caption) in zip(axes, panels, strict=True):
         ax.imshow(Image.open(path))
         ax.axis("off")
-        ax.set_title(season, fontsize=11, color=MUTED, loc="left", pad=10)
+        ax.set_title(season, fontsize=11, color=MUTED, loc="left", pad=10, family=SANS)
         ax.text(0, 1.045, "", transform=ax.transAxes)
         ax.text(
             0.0,
@@ -73,7 +73,7 @@ def main() -> Path:
             name,
             transform=ax.transAxes,
             fontsize=17,
-            family="serif",
+            family=SERIF,
             color=INK,
             va="top",
         )
@@ -82,24 +82,27 @@ def main() -> Path:
             -0.105,
             "\n".join(textwrap.wrap(label, 58)),
             transform=ax.transAxes,
-            fontsize=10.5,
+            fontsize=11,
             color=ACCENT,
             va="top",
             fontweight="bold",
+            family=SANS,
         )
         ax.text(
             0.0,
             -0.2,
             "\n".join(textwrap.wrap(caption, 62)),
             transform=ax.transAxes,
-            fontsize=9.5,
+            fontsize=10.5,
             color=MUTED,
             va="top",
+            family=SANS,
         )
     fig.suptitle(
         "Same pipeline, two seasons: the forecast changes which garment is designed",
-        fontsize=14,
-        family="serif",
+        fontsize=17,
+        family=SERIF,
+        fontweight="bold",
         color=INK,
         x=0.03,
         ha="left",
@@ -107,7 +110,7 @@ def main() -> Path:
     )
     fig.subplots_adjust(top=0.9, bottom=0.2, left=0.03, right=0.97, wspace=0.08)
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT_PATH, dpi=150, bbox_inches="tight", facecolor="white")
+    fig.savefig(OUT_PATH, dpi=150, bbox_inches="tight", facecolor=PAPER)
     plt.close(fig)
     print(f"Wrote {OUT_PATH}")
     return OUT_PATH

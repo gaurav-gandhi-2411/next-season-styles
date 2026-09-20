@@ -1,18 +1,18 @@
-# Agent Run Transcript -- next-season-styles (task U5)
+# Agent run transcript -- next-season-styles
 
-> **Current.** Re-run in U5 against the CURRENT gates: Gate 1 (within-style p90), Gate 1b (closest reference, clone-validated), the GLOBAL integrity floor (per-style floor advisory), Gate 2 (SmolVLM gates, Florence-2 advisory), Gate 3 (briefed changes visible) and the human visual check, on the current final concepts (beige melange sweater, red dress, white jersey top, summer orange bikini top). It replaces the D4 transcript, whose banner said the agent layer still ran the old margin-band scoring: that was true of `score_concept` and `agents/critic.md` until this change, and both were updated in the same PR (the tool now runs the shipped gates; see the commit log).
+> **Current.** Recorded against the current quality checks: Gate 1 (within-style p90), Gate 1b (closest reference, clone-validated), the GLOBAL integrity floor (per-style floor advisory), Gate 2 (SmolVLM gates, Florence-2 advisory), Gate 3 (briefed changes visible) and the human visual check, on the current final concepts (beige melange sweater, red dress, white jersey top, summer orange bikini top). An earlier recording of this run predates these checks: at that point `score_concept` and `agents/critic.md` still used the old margin-band scoring. Both now run the final checks.
 >
 > **What is live and what is replayed.** LIVE (real MCP tool calls over stdio, CPU only, 18 calls): `forecast_concept` (forecaster), `forecast_styles` (forecaster), `get_style_profile` (style-profiler), `query_transactions` (data-analyst), `score_concept` (critic). REPLAYED from recorded tables: concept generation (no GPU, no `generate_concept` call), the design briefs, the summer forecast, and the critic's retry sequence (derived from `candidates_scored.csv`; the same images are also re-scored live and compared). HUMAN (recorded, not performed here): the visual check.
 
 ## Request
 
-> find next season's winning styles and generate concepts
+> what should we make more of next autumn, and show me a design for it
 
 ## Run notes
 
 - MCP server: `python -m nss.mcp_server` over stdio, spawned by this driver (`scripts/agent_demo.py`) with `CUDA_VISIBLE_DEVICES` emptied, so CLIP, DINOv2, SmolVLM and Florence-2 ran on CPU.
 - MCP client: the official `mcp` Python SDK `ClientSession`. Every tool call is checked against the calling agent's allowlist parsed from `agents/<agent>.md` before it is sent.
-- The rejected candidate images are N9 outputs under `data/generated/n9/`, which is not in git: the live rejection calls are reproducible only with the local data tree; the shipped images are committed in `reports/concepts/`.
+- The rejected candidate images are generation outputs under `data/generated/n9/`, which is not in git: the live rejection calls are reproducible only with the local data tree; the kept images are committed in `reports/concepts/`.
 
 ## Step 1 -- orchestrator delegates to `forecaster`
 
@@ -190,7 +190,7 @@ Response:
 
 ## Step 3 -- orchestrator delegates to `style-profiler` (once per style)
 
-Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` (its only allowed tool). The design brief itself is a human design decision recorded in code (`nss.generate.concept_generation.CHANGES`: concrete, visually checkable changes with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** from that table and the N9 prompt builder (`natural_prompt`), not recomputed.
+Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` (its only allowed tool). The design brief itself is a human design decision recorded in code (`nss.generate.concept_generation.CHANGES`: concrete, visually checkable changes with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** from that table and the prompt builder (`natural_prompt`), not recomputed.
 
 **[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Sweater || Knitwear || Beige || Melange`; response (summarised): trajectory available = True, 106 weeks seen, recent mean units 270.9; SHAP source `reports\tables\final_three_shap_verdict.csv` (style-specific: True), top drivers: n_active_articles_level, lag_1, perceived_colour_master_name.
 
@@ -211,15 +211,15 @@ Per `agents/style-profiler.md`: fetch the structured profile via `get_style_prof
 
 ## Step 4 -- orchestrator delegates to `concept-designer` (once per style)
 
-**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is `generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded in `reports/tables/candidates_scored.csv` with sidecar JSONs. The candidates below are those recorded images; the run makes no claim to have generated anything. Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; Step 5 replays the critic loop over them in seed order.
+**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is `generate_concept` (SDXL + IP-Adapter, GPU). The generation run already produced 8 seeds (42-49) per style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded in `reports/tables/candidates_scored.csv` with sidecar JSONs. The candidates below are those recorded images; the run makes no claim to have generated anything. Note that the 8 seeds were generated as a batch, not in reaction to critic rejections; Step 5 replays the critic loop over them in seed order.
 
-- `Ladieswear || Sweater || Knitwear || Beige || Melange`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 45.
+- `Ladieswear || Sweater || Knitwear || Beige || Melange`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; kept = seed 45.
 
-- `Ladieswear || Dress || Dresses Ladies || Red || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 44.
+- `Ladieswear || Dress || Dresses Ladies || Red || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; kept = seed 44.
 
-- `Ladieswear || Top || Jersey Basic || White || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 42.
+- `Ladieswear || Top || Jersey Basic || White || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; kept = seed 42.
 
-- `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 48.
+- `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; kept = seed 48.
 
 
 ## Step 5 -- orchestrator delegates to `critic` (once per style, with retries)
@@ -241,7 +241,7 @@ Each verdict below is derived from the recorded gating columns (`failed_gates`);
 - **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate2
   - seed 44: G1 pass (CLIP 0.904/0.966, DINOv2 0.836/0.904); G1b pass (CLIP 0.939/0.983, DINOv2 0.913/0.947); integrity pass (closest ref 0.913 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.00; Florence-2 advisory pass); G3 pass (YY)
 
-Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 45. The shipped image is seed 45; on its recorded row it clears every gating gate. (N9 selected best-of-8, so it went past the cap.)
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 45. The kept image is seed 45; on its recorded row it clears every gating gate. (best-of-8 selection, so it went past the cap.)
 
 **critic, `Ladieswear || Dress || Dresses Ladies || Red || Solid` -- PASS_PENDING_HUMAN**
 
@@ -264,7 +264,7 @@ Shipped image is seed 44 (selected by `final_selection_figures`: passes every au
 - **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate3
   - seed 44: G1 pass (CLIP 0.878/0.977, DINOv2 0.820/0.928); G1b pass (CLIP 0.906/0.986, DINOv2 0.880/0.956); integrity pass (closest ref 0.880 vs global floor 0.779; per-style floor advisory fail); G2 pass (SmolVLM fidelity 0.85; Florence-2 advisory fail); G3 FAIL (YN)
 
-Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 47, seed 48. The shipped image is seed 42; on its recorded row it fails the gating gate(s): integrity, gate3.
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 47, seed 48. The kept image is seed 42; on its recorded row it fails the gating gate(s): integrity, gate3.
 
 **critic, `Ladieswear || Bikini top || Swimwear || Orange || All over pattern` -- FAILED (retry cap exhausted)**
 
@@ -277,7 +277,7 @@ Under the critic's cap alone the orchestrator would report this style as FAILED 
 - **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate2
   - seed 44: G1 pass (CLIP 0.833/0.895, DINOv2 0.734/0.847); G1b pass (CLIP 0.875/0.920, DINOv2 0.853/0.915); integrity pass (closest ref 0.853 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 pass (YY)
 
-Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: none. The shipped image is seed 48; on its recorded row it fails the gating gate(s): gate2.
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: none. The kept image is seed 48; on its recorded row it fails the gating gate(s): gate2.
 
 
 ### 5b. The same gates, LIVE through `score_concept`
@@ -396,7 +396,7 @@ Response:
 Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live False / recorded False; gate2 live False / recorded False; gate3 live True / recorded True)
 
 
-#### Red dress, seed 44 -- the retry that was shipped
+#### Red dress, seed 44 -- the retry that was kept
 
 **[LIVE] critic** calls MCP tool `score_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
@@ -523,7 +523,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live False / recorded False; gate3 live True / recorded True)
 
 
-#### Beige knit sweater, seed 45 -- shipped
+#### Beige knit sweater, seed 45 -- kept
 
 **[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png`, `include_fidelity=true` (gate summary of the real response):
 
@@ -539,7 +539,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live True / recorded True; gate3 live True / recorded True)
 
 
-#### White jersey top, seed 42 -- shipped (recorded verdict FAIL)
+#### White jersey top, seed 42 -- kept (recorded verdict FAIL)
 
 **[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png`, `include_fidelity=true` (gate summary of the real response):
 
@@ -555,7 +555,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live False / recorded False; gate2 live True / recorded True; gate3 live False / recorded False)
 
 
-#### Orange patterned bikini top, seed 48 -- shipped (recorded verdict FAIL)
+#### Orange patterned bikini top, seed 48 -- kept (recorded verdict FAIL)
 
 **[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png`, `include_fidelity=true` (gate summary of the real response):
 
@@ -571,7 +571,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live False / recorded False; gate3 live True / recorded True)
 
 
-#### White jersey top, seed 47 -- DISCREPANCY CHECK: a recorded candidate that clears every gating gate
+#### White jersey top, seed 47 -- CROSS-CHECK: a recorded candidate that clears every gating check
 
 **[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed47.png`, `include_fidelity=true` (gate summary of the real response):
 
@@ -589,7 +589,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 
 ## Step 6 -- the human visual check
 
-**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward `PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they looked at the shipped images is recorded in `nss.generate.final_selection_figures.HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in `reports/concepts/`.
+**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward `PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they looked at the kept images is recorded in `nss.generate.final_selection_figures.HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in `reports/concepts/`.
 
 - **Beige knit sweater** (seed 45): every briefed change visible = True. Both briefed changes visible (funnel neck; dark-brown rib cuffs and hem). Body is a light beige, only faintly heathered. One coherent garment.
 
@@ -602,7 +602,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 
 ## Step 7 -- orchestrator delegates the closed loop to `forecaster`
 
-`forecast_concept` (added to `agents/forecaster.md`'s allowlist in U5; it was in no agent's allowlist before) matches each shipped image to the nearest real catalogue style by CLIP + DINOv2 retrieval and looks up that style's forecast. **Prototype:** near-ties dominate, so the top-5 and the intended style's position are reported, and the result is about the archetype the picture reads as, not a demand forecast for the new design.
+`forecast_concept` (now in `agents/forecaster.md`'s allowlist; it was in no agent's allowlist before) matches each kept image to the nearest real catalogue style by CLIP + DINOv2 retrieval and looks up that style's forecast. **Prototype:** near-ties dominate, so the top-5 and the intended style's position are reported, and the result is about the archetype the picture reads as, not a demand forecast for the new design.
 
 **[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
@@ -744,7 +744,7 @@ Response (projected: top-5 flattened to one line each, `judges` and `unavailable
 
 ## Step 8 -- orchestrator aggregates the final result
 
-Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a failing concept is a failed item, not fatal to the request. Verdicts below are the LIVE `score_concept` results on the shipped images, beside the recorded `final_selection.csv` verdict.
+Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a failing concept is a failed item, not fatal to the request. Verdicts below are the LIVE `score_concept` results on the kept images, beside the recorded `final_selection.csv` verdict.
 
 | Concept | live automatic gates | failed gates (live) | recorded (h4) | human: briefed changes visible |
 |---|---|---|---|---|
@@ -756,4 +756,4 @@ Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict
 **Final outcome: 2 of 4 concepts clear every automatic gate and are forwarded for the human check** (which is recorded above, not re-performed). The others are reported with their failing gates.
 
 
-**Unresolved discrepancy, flagged rather than absorbed.** The white top is reported as failing by mechanism (integrity floor and Gate 3), and the shipped image (seed 42) does fail both. But the recorded candidate seed 47 (and 48) at the same scale clears every gating gate on `candidates_scored.csv`, and the live `score_concept` call above confirms it for seed 47. `final_selection_figures.SELECTED` pins seed 42 for the white top, so the written selection rule (passes every automatic gate first) does not produce the shipped image. Whether seed 47 passes the human check has not been looked at by a person in this run. The owner of the write-up should decide whether the white top's failure is a property of the style or of seed choice.
+**A note on the white top.** The kept image (seed 42) fails the integrity floor and Gate 3. Two other recorded seeds (47 and 48) clear every gating check on `candidates_scored.csv`, and the live `score_concept` call above confirms it for seed 47. The kept image is the author's decision, not the output of the written selection rule, which would pick a seed that clears every check.

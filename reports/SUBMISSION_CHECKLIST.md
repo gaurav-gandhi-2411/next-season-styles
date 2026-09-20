@@ -11,7 +11,7 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 | 2. Generate design concepts for the top styles | `FINAL_concepts.png` (the three concepts); `evidence_chain.png` (references → brief → concept → checks → verdict); `DEMO.html` §1–2 |
 | 3. Agent architecture with sub-agents and reusable skills | `agents/*.md` (orchestrator + 5 sub-agents), `skills/style-brief/`, `skills/concept-qc/`, `reports/agent_run_transcript.md` (a recorded run: live tool calls over stdio, generation replayed from recorded results); `WRITEUP.md` §7 |
 | 4. An MCP server exposing the tools | `src/nss/mcp_server.py` (8 tools, stdio); README "MCP server" with a repeatable smoke test (`scripts/mcp_smoke_test.py`) and its real output |
-| Write-up | `WRITEUP.md` (about 2,200 words by `wc -w`, tables included) |
+| Write-up | `WRITEUP.md` (about 2,400 words by `wc -w`, tables included) |
 | Bonus: split by season, show how styles or concepts change | `seasonal_comparison.png` (autumn/winter vs summer concept); `DEMO.html` §4 (four seasonal top-3 tables); `WRITEUP.md` §8 |
 
 ## Reviewer bundle (`reports/SUBMISSION/`)
@@ -45,7 +45,7 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 
 ## Known limits a reviewer should weigh
 
-- Three of four final concepts pass every automatic check. The summer bikini top fails Gate 2 on one reader's pattern answer (none of its 8 seeds cleared Gate 2). The white top is the closest call: 2 of its 8 seeds cleared every check, and the chosen one clears the global integrity floor that gates (closest reference 0.828 against 0.779) but not the per-style floor reported as advisory (0.922). A human confirmed every requested change is visible in all four.
+- Two of four final concepts pass every automatic check. The white top fails the integrity floor (closest reference 0.733, below both the global floor 0.779 that gates and the per-style floor 0.922 reported as advisory) and Gate 3 (SmolVLM answers YN); only 2 of its 8 seeds cleared every check, and the kept image is seed 42. The summer bikini top fails Gate 2 on one reader's pattern answer. A human confirmed every requested change is visible except that the top's cuffs are narrower than briefed.
 - The walk-forward headline Hit@3-in-top20 is 0.528 with a 13-week gap, not 0.722 (`reports/tables/backtest_embargo_check.csv`). Post-embargo, paired: comparable to seasonal naive on top-k (top-20 +0.233, CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and better than persistence and the naive means on every metric (`backtest_embargo_paired_diff.csv`).
 - The image readers are two small local models (SmolVLM gates, Florence-2 is advisory: kappa 0.36-0.48 vs API judges); Groq's daily budget is spent and Gemini's refreshed key authenticates and calibrates (gap 0.522) but its free quota ran out before any concept was re-read, so the bikini's pattern call has no second reader. The design-change reader over-says yes; the human check decides.
 - The global integrity floor gates and the per-style floor is advisory; the global floor's one miss is seed 44, sheer mesh, 0.811 (`integrity_global_validation.csv`). Neighbourhood features and buyer-mix and price features were tested and rejected (`neighbourhood_decision.csv`, `buyer_price_decision.csv`). The summer prediction (37.88) matches the realised value (37.94) by luck: typical error is 6 units (`summer_check.csv`).

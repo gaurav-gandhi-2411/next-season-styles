@@ -51,7 +51,7 @@ N9 = Path("data/generated/n9")
 SELECTED: dict[str, Path] = {
     SWEATER: N9 / "ladieswear_sweater_knitwear_beige_melange" / "s0.35_seed45.png",
     DRESS: N9 / "ladieswear_dress_dresses-ladies_red_solid" / "s0.35_seed44.png",
-    TOP: N9 / "ladieswear_top_jersey-basic_white_solid" / "s0.35_seed47.png",
+    TOP: N9 / "ladieswear_top_jersey-basic_white_solid" / "s0.35_seed42.png",
 }
 # The Summer (forecast origin 2020-06-01) concept, chosen from its own 8-seed run.
 SUMMER_SELECTED = N9 / "ladieswear_bikini-top_swimwear_orange_all-over-pattern" / "s0.35_seed48.png"
@@ -63,7 +63,7 @@ OBSERVED_CAPTIONS: dict[str, str] = {
     ),
     SWEATER: "Ribbed beige knit sweater, dark-brown funnel neck, dark-brown cuffs and hem.",
     DRESS: "Red midi dress: square neckline, large puff sleeves, self belt tied in a bow.",
-    TOP: "White long-sleeve top: square neckline, full balloon sleeves ending in wide ribbed cuffs.",
+    TOP: "White long-sleeve top: square neckline, full balloon sleeves gathered at the cuff.",
 }
 # What a human saw, including whether each briefed change shows.
 HUMAN_CHECK: dict[str, str] = {
@@ -80,8 +80,8 @@ HUMAN_CHECK: dict[str, str] = {
         "the waist). Solid red, plain flat-lay. One coherent garment."
     ),
     TOP: (
-        "Square neckline, long balloon sleeves and wide ribbed cuffs all visible. Clean flat-lay, "
-        "one coherent garment."
+        "Square neckline and balloon sleeves visible; the cuffs are narrower than the briefed "
+        "'wide ribbed' cuffs. Clean flat-lay, one coherent garment."
     ),
 }
 # Human verdict: is every briefed change visible?

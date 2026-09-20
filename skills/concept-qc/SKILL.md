@@ -818,7 +818,7 @@ gate in near-identical styles (white top: p10 0.922) and false-alarmed on 1 of 9
 Garment coherence is a global property, so one floor calibrated over all real photos on disk (154
 photos, 8 styles, p10 0.779) gates: it passes 9/9 known-good, catches 4/5 known-bad and 2/3
 malformed images (`integrity_global_validation.csv`). **The one case the global floor misses is
-seed 44 (sheer mesh, closest reference 0.811); the per-style floor catches it.** The white top's first pick (0.733) was below both floors. The per-style floor's
+seed 44 (sheer mesh, closest reference 0.811); the per-style floor catches it.** The white top (0.733) is below both floors. The per-style floor's
 failure mode (unmeetable for any design change in a near-identical style) is the worse one for a
 generation gate, which is why the global floor is the one that gates. The human check remains
 mandatory either way. The pool is small (8 styles): a larger one is untested.
@@ -827,5 +827,5 @@ mandatory either way. The pool is small (8 styles): a larger one is untested.
 (kappa 0.36-0.48) is too low to carry a verdict; SmolVLM's is 0.68 with Groq. With Gemini's key
 invalid and Groq's daily budget spent, SmolVLM is the gating Gate 2 judge and Florence-2 is reported,
 never gating (`concept_scoring.GATING_JUDGES` / `ADVISORY_JUDGES`). This was decided on measured agreement,
-not to pass concepts; it changed one verdict (the white top's first pick, Gate 2: fail -> pass) and no overall verdict.
+not to pass concepts; it changes one verdict (white top Gate 2: fail -> pass) and no overall verdict.
 Restore Florence-2 as a gate only if its kappa against a live API judge rises above ~0.6.

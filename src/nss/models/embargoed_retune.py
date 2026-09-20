@@ -45,6 +45,7 @@ import polars as pl
 
 from nss.models.backtest import Origin, generate_origin_schedule
 from nss.models.backtest_embargo_check import embargoed_train_origin_weeks
+from nss.models.experiment_common import load_panel
 from nss.models.final_forecast import FINAL_MODEL_CONFIG
 from nss.models.lightgbm_model import (
     HYPERPARAM_GRID,
@@ -55,7 +56,6 @@ from nss.models.lightgbm_model import (
     train_lightgbm,
 )
 from nss.models.metrics import score_predictions
-from nss.models.experiment_common import load_panel
 
 ROLLING_VALIDATION_INDICES: tuple[int, ...] = (4, 5, 6, 7)
 # the only validation origin whose label window closes before the first test origin

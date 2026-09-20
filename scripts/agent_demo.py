@@ -640,9 +640,14 @@ async def run_demo() -> str:
             (DRESS, _shipped_seed(DRESS), "the retry that was shipped", True),
             (SWEATER, 44, "REJECTED candidate (third attempt of the sweater replay)", False),
             (SWEATER, _shipped_seed(SWEATER), "shipped", False),
-            (TOP, _shipped_seed(TOP), "shipped (best of the seeds that clear every check)", False),
+            (TOP, _shipped_seed(TOP), "shipped (recorded verdict FAIL)", False),
             (SUMMER, _shipped_seed(SUMMER), "shipped (recorded verdict FAIL)", False),
-            (TOP, 42, "REJECTED candidate (the first pick for the white top)", False),
+            (
+                TOP,
+                47,
+                "CROSS-CHECK: a recorded candidate that clears every gating check",
+                False,
+            ),
         ]
         for style_id, seed, note, full_json in plan:
             changes, _prompt = _brief_lines(style_id)
@@ -764,6 +769,17 @@ async def run_demo() -> str:
             "re-performed). The others are reported with their failing gates.\n"
         )
 
+        top_live = live_results[(TOP, 47)]
+        if top_live["automated_gates_pass"]:
+            sections.append(
+                "\n**A note on the white top.** The kept image (seed "
+                f"{_shipped_seed(TOP)}) fails the integrity floor and Gate 3. Two other recorded "
+                "seeds (47 and 48) clear every gating check on `candidates_scored.csv`, and the "
+                "live `score_concept` call above confirms it for seed 47. The kept image is the "
+                "author's decision, not the output of the written selection rule, which would "
+                "pick a seed that clears every check.\n"
+            )
+
     header = (
         "# Agent run transcript -- next-season-styles\n\n"
         "> **Current.** Recorded against the current quality checks: Gate 1 (within-style p90), Gate 1b "
@@ -794,10 +810,16 @@ async def run_demo() -> str:
     return header + "\n" + "\n".join(sections)
 
 
+def plain_words(text: str) -> str:
+    """The transcript says "kept" for the selected image and "final" for the checks."""
+    return re.sub(r"shipped", "kept", text.replace("shipped checks", "final checks"))
+
+
 def main() -> None:
     """Run the demo (from `WORK_DIR`) and write `reports/agent_run_transcript.md`."""
     os.chdir(WORK_DIR)
     transcript = asyncio.run(run_demo())
+    transcript = plain_words(transcript)
     TRANSCRIPT_PATH.write_text(transcript, encoding="utf-8")
     print(f"Wrote transcript to {TRANSCRIPT_PATH}")
 

@@ -6,6 +6,8 @@ import numpy as np
 import polars as pl
 
 from nss.models.backtest import generate_origin_schedule
+from nss.models.lightgbm_model import build_model_frame, feature_columns
+from nss.models.metrics import METRIC_KEYS
 from nss.models.ranking_variants import (
     VARIANT_A_METHOD,
     VARIANT_B_METHOD,
@@ -16,8 +18,6 @@ from nss.models.ranking_variants import (
     run_variant_c_ensemble,
     train_lightgbm_weighted,
 )
-from nss.models.lightgbm_model import build_model_frame, feature_columns
-from nss.models.metrics import METRIC_KEYS
 
 _WEEK0 = date(2018, 1, 1)
 _N_WEEKS = 90

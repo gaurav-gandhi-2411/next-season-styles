@@ -98,15 +98,14 @@ near-identical style it becomes a similarity check (0.922 for the white top). Ca
 over 154 real photos in 8 styles (0.779), it passes 9 of 9 known-good and catches 4 of 5 known-bad
 and 2 of 3 malformed, missing one sheer mesh (closest reference 0.811). Coherence is not a property
 of one style, so the global floor decides and the per-style floor is advisory. That corrected my
-framing, not a verdict: the white top's first pick (0.733) was below both.
+framing, not a verdict: the white top (0.733) is below both.
 
 **Judges and references.** With Groq's daily limit and Gemini's free quota spent, the panel is two
 local models calibrated on 26 controls: SmolVLM-500M (gap 0.338) and Florence-2-base (0.373). Gemini
 calibrates too (gap 0.522) but ran out of its 20 daily requests, so whether it agrees with
 SmolVLM's "original" pattern call on the bikini is unresolved. Florence-2 is advisory: its
 agreement with the API readers (kappa 0.36–0.48) is too low to carry a verdict, against 0.68 for
-SmolVLM with Groq. That turned the white top's first pick from a Gate 2 fail into a pass, though its overall
-verdict stayed fail. I also widened the reference base from 4–6 to 17 (sweater), 25 (dress) and 19 (white
+SmolVLM with Groq. That turns the white top's Gate 2 from fail to pass, though its overall verdict stays fail. I also widened the reference base from 4–6 to 17 (sweater), 25 (dress) and 19 (white
 top; only 20 such articles exist), added a border check after a fabric close-up got through the
 small judge, and regenerated the sweater. Confidence intervals on the DINOv2 limits shrank 2.5–4.4
 times.
@@ -138,10 +137,10 @@ visible.
 |---|---|---|---|---|---|---|---|
 | Sweater | pass | pass | pass | pass | pass | yes | Orange Solid (Divided): 7.9, rank 461, low |
 | Dress | pass | pass | pass | pass | pass | yes | Red Dresses Ladies: 11.0, rank 282, high |
-| White top | pass | pass | pass (0.828 ≥ 0.779; per-style 0.922 not met) | pass (Florence advisory: fail) | pass (YY) | yes | Blouses White (Ladieswear): 4.3, rank 1088, low |
+| White top | pass | pass | **fail** (0.733 < 0.779; per-style 0.922 fails too) | pass (Florence advisory: fail) | fail (YN) | mostly (narrow cuffs) | Divided Jersey Fancy: 6.4, rank 651, medium |
 | Bikini top (summer) | pass | pass | pass | fail (SmolVLM 0.28) | pass | yes | Orange All-over: 37.9, rank 118 of 3,000, medium |
 
-Three of four concepts pass every automatic check. The white top is the case I first got wrong. I had kept seed 42, which fails the integrity floor and Gate 3, and explained that as the style's near-identical assortment (19 real articles, per-style floor 0.922, global floor 0.779) making a visible design change impossible. That was too strong: 2 of its 8 seeds cleared every check, and my own selection rule (clear every check, then most briefed changes visible, then highest fidelity) picks seed 47, whose briefed changes I confirmed by eye. The tight assortment does matter: only 3 of 8 seeds showed both briefed changes (Gate 3), against 8 of 8 for the sweater and the dress, and the chosen seed still misses the per-style floor (closest reference 0.828 against 0.922) while clearing the global one. Yield is low everywhere at this scale: seeds clearing every check were 1 of 8 for the sweater, 2 for the white top, 4 for the dress and 0 for the summer bikini top, whose Gate 2 failure is SmolVLM answering "original" for the pattern. A visible change is harder to land in a tight assortment, not impossible, and I did not loosen any check.
+Two of four concepts pass every automatic check. The white top fails the integrity floor (closest reference 0.733 against the global floor of 0.779) and Gate 3. That is a matter of yield, not impossibility: 2 of its 8 seeds cleared every check (47 and 48; the kept image is seed 42), against 1 of 8 for the sweater, 4 of 8 for the dress and 0 of 8 for the summer bikini top, so yield is low everywhere at this scale. What is particular to the white top is its assortment: 19 near-identical real articles put the per-style floor at 0.922 and leave the global floor of 0.779 little room, and only 3 of 8 seeds showed both briefed changes (8 of 8 for the sweater and the dress). A visible change is harder to land here, not impossible, and I did not loosen any check. The bikini's Gate 2 failure is SmolVLM answering "original" for the pattern.
 
 **The closed loop, rebuilt as retrieval (still a prototype).** My first version had a small vision
 model caption the picture and mapped the words to a style; on 40 real photos it named the exact
@@ -164,8 +163,8 @@ alone was right on 11 photos and the baseline alone on 5 (McNemar p = 0.21), so 
 prototype label. Confidence carries signal: on the one-per-style set the exact style is first 45%
 of the time at high confidence, 21% at medium and 10% at low. Two of the four concepts do not
 map to their intended style: the sweater to an orange sibling 0.006 more similar than its
-intended style, which is third, and the white top to a neighbouring Blouses style, its intended
-style fifth and 0.007 behind.
+intended style, which is third, and the white top to a neighbouring Divided style, its intended
+style outside the top five.
 
 **Seasonal view.** With the same rules and a summer model trained under a 13-week embargo, I pick an
 orange all-over-pattern bikini top, predicted at 37.88 and realised at 37.94. That is one data

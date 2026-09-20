@@ -80,11 +80,11 @@ for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to wh
 **Generation, honestly:** an earlier round produced no briefed design change in 12 images. The
 cause was measured, not assumed (`reports/tables/prompt_lever_summary.md`): an attribute-first prompt
 plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
-multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Three
-of four final concepts (sweater, dress, white top) pass every automatic check (Gates 1, 1b, the integrity floor, 2 and 3)
-and a human check; the summer bikini top fails Gate 2 on one reader's answer. Only 2 of the white top's 8
-seeds cleared every check, and the chosen one meets the global integrity floor (closest reference 0.828 against 0.779) but
-not the per-style floor shown as advisory (0.922). The local readers are small (the design-change reader says yes
+multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
+of four final concepts (sweater, dress) pass every automatic check (Gates 1, 1b, the integrity floor, 2 and 3)
+and a human check; the white top fails the integrity floor (closest reference 0.733, below the global floor 0.779 that
+gates and the per-style floor 0.922 shown as advisory) and Gate 3, and the summer bikini top
+fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
 too easily), so a human check decides. Details: `reports/tables/final_selection.csv`,
 `reports/figures/evidence_chain.png`.
 
