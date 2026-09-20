@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 
 from nss.models.backtest import generate_origin_schedule
-from nss.models.g3_variants import (
+from nss.models.ranking_variants import (
     VARIANT_A_METHOD,
     VARIANT_B_METHOD,
     VARIANT_C_METHOD,

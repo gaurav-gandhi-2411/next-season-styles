@@ -359,7 +359,7 @@ garment-type misidentification) is the remaining blocker, not the QC gate's cali
 Re-evaluating all 24 already-computed `final_concepts_v2.csv` rows (3 styles x up to 8 seeds/retry
 rounds each -- NO new generation, embedding, or VLM call) under BOTH corrections at once
 (`nss.generate.concept_qc_pipeline.rescore_final_concepts_v2_under_f1_f2`, written to
-`reports/tables/final_concepts_v2_rescored_f1_f2.csv`):
+`reports/tables/final_concepts_v2_rescored.csv`):
 
 | Gate | Before (original gate) | After (F1/F2-corrected) |
 |------|--------------------------|----------------------------|

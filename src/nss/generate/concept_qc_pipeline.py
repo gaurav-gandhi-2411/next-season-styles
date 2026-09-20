@@ -87,7 +87,7 @@ RETRY_OUTPUT_DIR = Path("data/generated/concept_qc_retries")
 MARGIN_ANCHORS_GEN_PATH = Path("reports/tables/margin_anchors_generated_space.csv")
 RESCORED_RESULTS_PATH = Path("reports/tables/concept_qc_rescored_under_new_gate.csv")
 FINAL_CONCEPTS_V2_PATH = Path("reports/tables/final_concepts_v2.csv")
-FINAL_CONCEPTS_V2_RESCORED_PATH = Path("reports/tables/final_concepts_v2_rescored_f1_f2.csv")
+FINAL_CONCEPTS_V2_RESCORED_PATH = Path("reports/tables/final_concepts_v2_rescored.csv")
 
 MAX_RETRIES = 2
 ATTRIBUTE_FIDELITY_THRESHOLD = SKILL.DEFAULT_ATTRIBUTE_FIDELITY_THRESHOLD  # 0.75 -- OLD flat

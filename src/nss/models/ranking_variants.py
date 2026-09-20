@@ -110,7 +110,7 @@ HEAD_SIZE = 50
 HEAD_SCORE_OFFSET = 1000.0
 
 DEFAULT_PANEL_PATH = Path("data/processed/style_week_panel.parquet")
-DEFAULT_OUT_PATH = Path("reports/tables/g3_variants.csv")
+DEFAULT_OUT_PATH = Path("reports/tables/ranking_variants.csv")
 
 
 def train_lightgbm_weighted(

@@ -7,11 +7,11 @@ and (2) reads each of the four final concepts three times (median, as for the AP
 Transient 503s ("high demand") are retried with backoff; anything else stops the run and is
 reported. Every raw reading is written, so a quota stop leaves an honest partial table.
 
-Outputs: `reports/tables/r1_gemini_calibration.csv`, `r1_gemini_readings.csv` (per reading and
+Outputs: `reports/tables/gemini_calibration.csv`, `r1_gemini_readings.csv` (per reading and
 dimension; also read by `judge_panel_kappa`), `r1_gemini_gate2.csv` (per concept).
 
 Usage:
-    uv run python -m nss.generate.r1_gemini_panel
+    uv run python -m nss.generate.gemini_panel
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from nss.generate.vlm_judges import SKILL
 N_READINGS = 3
 GAP_SECONDS = 6.0
 RETRIES = 6
-CAL_OUT = Path("reports/tables/r1_gemini_calibration.csv")
+CAL_OUT = Path("reports/tables/gemini_calibration.csv")
 READINGS_OUT = Path("reports/tables/r1_gemini_readings.csv")
 GATE2_OUT = Path("reports/tables/r1_gemini_gate2.csv")
 

@@ -2,7 +2,7 @@
 existing L2-regression LightGBM model (`nss.models.lightgbm_model`), trained/scored through the
 SAME walk-forward harness and feature/target pipeline.
 
-MOTIVATION (see PLAN.md / Task G1, `reports/tables/g1_diagnostics_summary.csv`): G1 found that a
+MOTIVATION (see PLAN.md / Task G1, `reports/tables/ranking_diagnostics_summary.csv`): G1 found that a
 causally-clean 16-week-lag persistence oracle actually UNDERPERFORMS the current L2 model on all 3
 headline metrics -- so this task is NOT "closing a gap to an achievable oracle" (that framing was
 the task's original, now-falsified, motivating hypothesis). What DID hold up from G1: prediction

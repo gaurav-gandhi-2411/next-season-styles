@@ -45,8 +45,8 @@ gap between the true #3 style's target and the true #4/#5/#10 styles', as a perc
 value. A small gap means exact-argmax Precision@3 has a coin-flip-like component (several
 near-identical styles competing for position 3 vs. 4).
 
-Every number in the final report is written to `reports/tables/g1_diagnostics_summary.csv`
-(pooled headline numbers) and `reports/tables/g1_diagnostics_per_origin.csv` (full per-origin
+Every number in the final report is written to `reports/tables/ranking_diagnostics_summary.csv`
+(pooled headline numbers) and `reports/tables/ranking_diagnostics_per_origin.csv` (full per-origin
 traceability for a/c/d) -- nothing is narrated without a backing row in one of these two files.
 """
 
@@ -86,8 +86,8 @@ from nss.models.metrics import (
 DEFAULT_PANEL_PATH = Path("data/processed/style_week_panel.parquet")
 DEFAULT_LIGHTGBM_PER_ORIGIN_PATH = Path("reports/tables/backtest_per_origin_lightgbm.csv")
 DEFAULT_SUMMARY_V2_PATH = Path("reports/tables/backtest_summary_v2.csv")
-DEFAULT_SUMMARY_OUT_PATH = Path("reports/tables/g1_diagnostics_summary.csv")
-DEFAULT_PER_ORIGIN_OUT_PATH = Path("reports/tables/g1_diagnostics_per_origin.csv")
+DEFAULT_SUMMARY_OUT_PATH = Path("reports/tables/ranking_diagnostics_summary.csv")
+DEFAULT_PER_ORIGIN_OUT_PATH = Path("reports/tables/ranking_diagnostics_per_origin.csv")
 
 # Ranks (1-indexed, by realised target value) whose gap to the true #3 is reported by
 # `near_tie_gaps`. See module docstring (d).
