@@ -30,7 +30,7 @@ from PIL import Image
 
 from nss.generate import final_registry, n9_generate
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h4_deliverables import OBSERVED_CAPTIONS
+from nss.generate.h4_deliverables import CLOSED_LOOP_LABEL, OBSERVED_CAPTIONS, closed_loop_view
 from nss.generate.n9_score import ADVISORY_JUDGES
 from nss.viz import demo_explorer
 
@@ -406,6 +406,25 @@ def trace_back(concepts: list[dict]) -> str:
     return "\n".join(out)
 
 
+def _top5_block(name: str, view: dict | None) -> str:
+    """One concept's top-5 retrieval list, the intended style marked; presentation only."""
+    if view is None:
+        return ""
+    body = "".join(
+        f"<tr{' class=intended' if t['intended'] else ''}><td class=n>{t['pos']}</td>"
+        f"<td>{_e(t['key'].replace(' || ', ' · '))}</td><td class=n>{t['sim']:.3f}</td>"
+        f"<td class=n>{t['rank']}</td><td>{'the style this concept was designed from' if t['intended'] else ''}</td></tr>"
+        for t in view["rows"]
+    )
+    return (
+        f"<details class=top5 open><summary><b>{_e(name)}</b>: top 5 of {view['n_styles']:,} matched styles. "
+        f"{_e(view['summary'])}; top-5 similarity spread {view['spread']:.3f}; "
+        f"{view['same_type']}/5 share the intended product type, {view['same_colour']}/5 the intended colour.</summary>"
+        "<div class=scroll><table class=metrics><thead><tr><th>#</th><th>Matched style</th><th>Similarity</th>"
+        f"<th>Forecast rank</th><th>Note</th></tr></thead><tbody>{body}</tbody></table></div></details>"
+    )
+
+
 def closed_loop_section(concepts: list[dict]) -> str:
     """Predict -> generate -> score the generation through the same predictor (retrieval)."""
     old = pl.read_csv(T / "concept_forecast_validation.csv")
@@ -435,23 +454,29 @@ def closed_loop_section(concepts: list[dict]) -> str:
         for lab in ("high", "medium", "low")
     }
     rows = ""
+    top5_html = ""
     for c in concepts:
         r = c["sel"]
+        view = closed_loop_view(c["sid"])
         rows += (
             f"<tr><td>{_e(c['name'])}</td><td>{_e(str(r['forecast_style_key']).replace(' || ', ' · '))}</td>"
-            f"<td class=n>{r['forecast_units']:.1f}</td><td class=n>{int(r['forecast_rank'])}</td><td>{_e(r['forecast_confidence'])}</td></tr>"
+            f"<td class=n>{r['forecast_units']:.1f}</td><td class=n>{int(r['forecast_rank'])}</td><td>{_e(r['forecast_confidence'])}</td>"
+            f"<td>{_e(view['summary']) if view else 'n/a'}</td></tr>"
         )
+        top5_html += _top5_block(c["name"], view)
     return f"""<section id=loop><h2>Closing the loop: scoring the pictures with the same forecaster</h2>
 <p class=lede>Predict, generate, then score the generated picture through the same predictor: the picture is matched to the nearest real catalogue style and the model's forecast for that style is looked up. The match is made by image retrieval (CLIP and DINOv2 similarity to each style's real photos), not by asking a small model to name the style. It stays a prototype: the measured accuracy is below.</p>
-<div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Matched catalogue style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th></tr></thead><tbody>{rows}</tbody></table></div>
+<div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Top-1 matched style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th><th>Where the intended style falls</th></tr></thead><tbody>{rows}</tbody></table></div>
+<p class=proto><b>{_e(CLOSED_LOOP_LABEL)}</b></p>
+{top5_html}
 <p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among 3,000 styles from 1 Jun 2020. The index holds each intended style's own reference photos, so an intended-style match is close to circular; a mismatch is the informative case. Against the full catalogue the sweater maps to an orange sibling that is 0.006 more similar than its intended style (third), and the white top to a neighbouring Divided style (its intended style is outside the top 5); the dress and the bikini top are unchanged, the bikini's confidence dropping from high to medium because three orange, yellow and green all-over-pattern tops are near-ties.</p>
 <h3>How well does the matching work?</h3>
 <div class=scroll><table class=metrics><thead><tr><th>Method and test</th><th>Candidate styles</th><th>Photos</th><th>Exact style</th><th>Top 5</th><th>Top 10</th><th>Product type</th><th>Colour</th></tr></thead><tbody>
-<tr><td>Free-text baseline (a small model names the style), 40 held-out photos</td><td class=n>1,980</td><td class=n>40</td><td class=n>{old_exact:.1%}</td><td class=n>n/a</td><td class=n>n/a</td><td class=n>{old_type:.0%}</td><td class=n>{old_colour:.0%}</td></tr>
-<tr><td><b>Retrieval, full catalogue</b>, the same 40 photos (each left out of the index)</td><td class=n>{n_cand:,}</td><td class=n>{int(f40['n'])}</td><td class=n><b>{f40['top1']:.1%}</b></td><td class=n>{f40['top5']:.1%}</td><td class=n>{f40['top10']:.1%}</td><td class=n>{f40['type_ok']:.0%}</td><td class=n>{f40['colour_ok']:.0%}</td></tr>
-<tr><td>Retrieval, full catalogue, leave-one-out on 159 photos</td><td class=n>{n_cand:,}</td><td class=n>{int(f159['n'])}</td><td class=n>{f159['top1']:.1%}</td><td class=n>{f159['top5']:.1%}</td><td class=n>{f159['top10']:.1%}</td><td class=n>{f159['type_ok']:.0%}</td><td class=n>{f159['colour_ok']:.0%}</td></tr>
-<tr><td>Retrieval, full catalogue, leave-one-out, one photo per style</td><td class=n>{n_cand:,}</td><td class=n>{int(f1980['n']):,}</td><td class=n>{f1980['top1']:.1%}</td><td class=n>{f1980['top5']:.1%}</td><td class=n>{f1980['top10']:.1%}</td><td class=n>{f1980['type_ok']:.0%}</td><td class=n>{f1980['colour_ok']:.0%}</td></tr>
-<tr><td>Retrieval, earlier partial index, leave-one-out on the same 159 photos (optimistic)</td><td class=n>{c415}</td><td class=n>{int(l415['n'])}</td><td class=n>{l415['top1']:.1%}</td><td class=n>{l415['top5']:.1%}</td><td class=n>{l415['top10']:.1%}</td><td class=n>{l415['type_ok']:.0%}</td><td class=n>{l415['colour_ok']:.0%}</td></tr>
+<tr><td>Free-text baseline (a small model names the style), 40 held-out photos</td><td class=n>1,980</td><td class=n>40</td><td class=n>{old_exact:.1%}</td><td class=n>n/a</td><td class=n>n/a</td><td class=n>{old_type:.1%}</td><td class=n>{old_colour:.1%}</td></tr>
+<tr><td><b>Retrieval, full catalogue</b>, the same 40 photos (each left out of the index)</td><td class=n>{n_cand:,}</td><td class=n>{int(f40['n'])}</td><td class=n><b>{f40['top1']:.1%}</b></td><td class=n>{f40['top5']:.1%}</td><td class=n>{f40['top10']:.1%}</td><td class=n>{f40['type_ok']:.1%}</td><td class=n>{f40['colour_ok']:.1%}</td></tr>
+<tr><td>Retrieval, full catalogue, leave-one-out on 159 photos</td><td class=n>{n_cand:,}</td><td class=n>{int(f159['n'])}</td><td class=n>{f159['top1']:.1%}</td><td class=n>{f159['top5']:.1%}</td><td class=n>{f159['top10']:.1%}</td><td class=n>{f159['type_ok']:.1%}</td><td class=n>{f159['colour_ok']:.1%}</td></tr>
+<tr><td>Retrieval, full catalogue, leave-one-out, one photo per style</td><td class=n>{n_cand:,}</td><td class=n>{int(f1980['n']):,}</td><td class=n>{f1980['top1']:.1%}</td><td class=n>{f1980['top5']:.1%}</td><td class=n>{f1980['top10']:.1%}</td><td class=n>{f1980['type_ok']:.1%}</td><td class=n>{f1980['colour_ok']:.1%}</td></tr>
+<tr><td>Retrieval, earlier partial index, leave-one-out on the same 159 photos (optimistic)</td><td class=n>{c415}</td><td class=n>{int(l415['n'])}</td><td class=n>{l415['top1']:.1%}</td><td class=n>{l415['top5']:.1%}</td><td class=n>{l415['top10']:.1%}</td><td class=n>{l415['type_ok']:.1%}</td><td class=n>{l415['colour_ok']:.1%}</td></tr>
 </tbody></table></div>
 <p>Chance for exact style is {1 / n_cand:.2%} with {n_cand:,} candidates. It does not clearly beat the baseline on the same 40 photos, so it keeps the prototype label; the full-catalogue number is the honest result. The {l415['top1']:.1%} earlier figure came from a candidate set of {c415} styles and is optimistic for exactly that reason; the {n_cand:,}-style rows are the honest numbers.</p>
 <p><b>Confidence label</b> (one photo per style, {int(f1980['n']):,} photos): the exact style is first {conf['high']['top1']:.0%} of the time when the label is high ({int(conf['high']['n'])} photos), {conf['medium']['top1']:.0%} for medium ({int(conf['medium']['n'])}) and {conf['low']['top1']:.0%} for low ({int(conf['low']['n'])}); within the top 5 it is {conf['high']['top5']:.0%}, {conf['medium']['top5']:.0%} and {conf['low']['top5']:.0%}. Near-duplicate articles within a style make these leave-one-out figures optimistic, and the forecast is for the archetype the picture reads as, not for the new design.</p></section>"""
@@ -611,6 +636,7 @@ h3{font:600 1.15rem/1.3 var(--sans);margin:0 0 10px}h4{font:600 .95rem/1.3 var(-
 .big{font:400 1.25rem var(--serif);font-variant-numeric:tabular-nums}.ci{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
 .paired{display:block;color:var(--muted);font-size:.78rem;margin-top:3px;font-variant-numeric:tabular-nums}
 .metrics tr.shuffle{outline:2px solid var(--accent);outline-offset:-2px}
+.metrics tr.intended{background:var(--wash);font-weight:600}.proto{max-width:72ch;margin:14px 0 8px}details.top5{margin:10px 0}details.top5 summary{cursor:pointer;font-size:.92rem;max-width:88ch}
 .callout{margin:40px 0;padding:24px 28px;border-left:4px solid var(--accent);background:var(--wash);max-width:78ch}.callout p{margin:0}.callout p+p{margin-top:12px}
 .chart{width:100%;height:auto;display:block;margin-top:8px}
 .seasons{display:grid;grid-template-columns:repeat(2,1fr);gap:32px 40px}.season table{font-size:.9rem}.season th,.season td{padding:8px 8px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}.season thead th{border-top:0;border-bottom:2px solid var(--ink);font-size:.8rem}.season .n{font-variant-numeric:tabular-nums;white-space:nowrap}

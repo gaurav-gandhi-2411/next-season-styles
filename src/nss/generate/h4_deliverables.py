@@ -113,6 +113,75 @@ def _forecast_by_style() -> dict[str, dict[str, Any]]:
     return {r["style_id"]: r for r in pl.read_csv(FORECAST).iter_rows(named=True)}
 
 
+# Presentation label for every closed-loop panel (figure and DEMO). The numbers are the recorded
+# 40-photo validation (q2_retrieval_validation_full.csv `full_index_40` vs
+# concept_forecast_validation.csv smolvlm: 11 retrieval-only vs 5 free-text-only exact matches,
+# McNemar exact p=0.2101).
+CLOSED_LOOP_LABEL = (
+    "Prototype: nearest-neighbour retrieval over 1,980 styles (summer concept: 3,000). "
+    "Exact-match 27.5% vs 12.5% free-text (n=40, McNemar p=0.21 — better but not "
+    "established). Near-ties dominate: see top-5."
+)
+_TOP5_RE = re.compile(r"^(?P<key>.+) \(sim (?P<sim>[\d.]+), rank (?P<rank>\d+)\)$")
+_ORDINALS = {2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
+
+
+def closed_loop_view(style_id: str) -> dict[str, Any] | None:
+    """Top-5 retrieval view of one concept's closed loop, read from the recorded Q2 table.
+
+    Presentation only: parses the `top5` column (best-first, 3-decimal similarities) and marks where
+    the intended style falls. Nothing is recomputed, re-ranked or re-thresholded.
+
+    Returns:
+        None if the concept has no forecast row; else a dict with `rows` (pos, key, sim, rank,
+        intended), `intended_pos` (None if outside the top 5), `gap` (top-1 minus intended
+        similarity when the intended style is 2nd-5th), `spread` (top-1 minus top-5 similarity),
+        `summary` (one sentence) and the forecast/confidence of the top-1 style.
+    """
+    f = _forecast_by_style().get(style_id)
+    if f is None or not f.get("top5"):
+        return None
+    rows = []
+    for pos, part in enumerate(str(f["top5"]).split(" | "), start=1):
+        m = _TOP5_RE.match(part)
+        if m is None:
+            raise ValueError(f"unparseable top5 entry: {part!r}")
+        rows.append(
+            {
+                "pos": pos,
+                "key": m["key"],
+                "sim": float(m["sim"]),
+                "rank": int(m["rank"]),
+                "intended": m["key"] == style_id,
+            }
+        )
+    hit = next((r for r in rows if r["intended"]), None)
+    pos = hit["pos"] if hit else None
+    gap = round(rows[0]["sim"] - hit["sim"], 3) if hit and pos != 1 else None
+    if pos == 1:
+        ahead = round(rows[0]["sim"] - rows[1]["sim"], 3)
+        summary = f"Intended style is 1st, {ahead:.3f} ahead of 2nd"
+    elif pos:
+        summary = f"Intended style {_ORDINALS[pos]}, {gap:.3f} behind top-1"
+    else:
+        summary = "Intended style is outside the top 5"
+    want = style_id.split(" || ")
+    same_type = sum(r["key"].split(" || ")[1] == want[1] for r in rows)
+    same_colour = sum(r["key"].split(" || ")[3] == want[3] for r in rows)
+    return {
+        "rows": rows,
+        "same_type": same_type,
+        "same_colour": same_colour,
+        "intended_pos": pos,
+        "gap": gap,
+        "spread": round(rows[0]["sim"] - rows[-1]["sim"], 3),
+        "summary": summary,
+        "n_styles": int(f["n_styles"]),
+        "units": f["forecast"],
+        "confidence": f["confidence"],
+    }
+
+
 def selection_rows() -> list[dict[str, Any]]:
     """One row per style with every gate's result for the selected image."""
     scored = pl.read_csv(SCORED)
@@ -187,20 +256,37 @@ def _judge_text(r: dict[str, Any]) -> str:
             lines.append(
                 f"{j}: {r[f'{j}_gate3_answers']}  {'PASS' if r[f'{j}_gate3_pass'] else 'FAIL'}"
             )
-    lines += ["", "Closed loop: image matched to a style, scored"]
-    if r["forecast_units"] is not None:
-        lines.append(
-            f"{r['forecast_units']:.1f} units/product/wk, rank {int(r['forecast_rank'])}"
-            f" ({r['forecast_confidence']} confidence)"
-        )
-    else:
-        lines.append("not run")
     return "\n".join(lines)
+
+
+def _closed_loop_text(r: dict[str, Any]) -> str:
+    v = closed_loop_view(r["style_id"])
+    if v is None:
+        return "Closed loop: not run"
+    out = ["\n".join(textwrap.wrap(CLOSED_LOOP_LABEL, 78)), ""]
+    out.append(f"Top-5 matched styles of {v['n_styles']:,} (similarity, forecast rank):")
+    for t in v["rows"]:
+        mark = ">>" if t["intended"] else "  "
+        key = t["key"].replace(" || ", "/")
+        out.append(f"{mark} {t['pos']}. {key}  {t['sim']:.3f} #{t['rank']}")
+    out.append(">> = the style this concept was designed from")
+    out.append(f"{v['summary']}; top-5 similarity spread {v['spread']:.3f}.")
+    out.append(
+        f"Of the top 5: {v['same_type']}/5 share the intended product type, "
+        f"{v['same_colour']}/5 the intended colour."
+    )
+    out.append(f"Top-1 forecast: {v['units']:.1f} units/product/wk ({v['confidence']} confidence)")
+    return "\n".join(out)
 
 
 def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]]) -> plt.Figure:
     """refs -> brief -> concept -> Gate 1/1b/integrity -> Gate 2/3/forecast -> verdict."""
-    fig, axes = plt.subplots(len(rows), 6, figsize=(27, 5.4 * len(rows)))
+    fig, axes = plt.subplots(
+        len(rows),
+        6,
+        figsize=(30, 5.4 * len(rows)),
+        gridspec_kw={"width_ratios": [1.0, 0.85, 1.0, 1.0, 1.9, 1.1]},
+    )
     titles = (
         "Real references",
         "Briefed changes (inputs, not verified)",
@@ -227,6 +313,15 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
             ax.text(
                 0.02, 0.98, txt, transform=ax.transAxes, va="top", fontsize=7.8, family="monospace"
             )
+        a_g2.text(
+            0.02,
+            0.70,
+            _closed_loop_text(r),
+            transform=a_g2.transAxes,
+            va="top",
+            fontsize=8.6,
+            family="monospace",
+        )
         a_v.axis("off")
         human = "briefed changes visible" if r["human_brief_met"] else "brief NOT met"
         a_v.text(
