@@ -809,3 +809,19 @@ into the reference base until a border-variance check was added.
 **The prompt is part of the gate's surface.** The token budget and an attribute-first prompt (texture
 words, attribute-only second-encoder prompt) hid every briefed change; a plain sentence naming the
 garment and its changes on both text encoders fixed it (`n1_levers_summary.md`).
+
+## Update (P-session): two calibration decisions
+
+**A global integrity floor was tested and rejected.** The per-style floor is a similarity gate in
+near-identical styles (white top: p10 0.922). Calibrating one floor over all real photos on disk
+(154 photos, 8 styles, p10 0.779) passed 9/9 known-good but missed one of the 3 known-malformed
+images (sheer mesh, closest reference 0.811); a floor that passes a known-bad image does not work, so
+the per-style floor stays and its limitation is stated (`integrity_global_validation.csv`). It does
+not rescue the white top either (0.733). The pool was small: a larger one is untested, not refuted.
+
+**Florence-2 is an ADVISORY judge.** Its agreement with the API judges on binarised attribute calls
+(kappa 0.36-0.48) is too low to carry a verdict; SmolVLM's is 0.68 with Groq. With Gemini's key
+invalid and Groq's daily budget spent, SmolVLM is the gating Gate 2 judge and Florence-2 is reported,
+never gating (`n9_score.GATING_JUDGES` / `ADVISORY_JUDGES`). This was decided on measured agreement,
+not to pass concepts; it changes one verdict (white top Gate 2: fail -> pass) and no overall verdict.
+Restore Florence-2 as a gate only if its kappa against a live API judge rises above ~0.6.

@@ -40,6 +40,7 @@ from nss.generate.final_deliverables import (
     build_hero_figure,
     display_name,
 )
+from nss.generate.n9_score import ADVISORY_JUDGES
 
 HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
@@ -174,7 +175,10 @@ def _gate_text(r: dict[str, Any]) -> str:
 def _judge_text(r: dict[str, Any]) -> str:
     lines = ["Gate 2 -- attribute fidelity (local judges)"]
     for j in r["judges"].split(","):
-        lines.append(f"{j}: {r[f'{j}_fidelity']:.2f}  {'PASS' if r[f'{j}_gate2_pass'] else 'FAIL'}")
+        tag = " (advisory)" if j in ADVISORY_JUDGES else ""
+        lines.append(
+            f"{j}{tag}: {r[f'{j}_fidelity']:.2f}  {'PASS' if r[f'{j}_gate2_pass'] else 'FAIL'}"
+        )
     lines += ["", "Gate 3 -- briefed changes visible?"]
     for j in r["judges"].split(","):
         if r.get(f"{j}_gate3_answers") is not None:

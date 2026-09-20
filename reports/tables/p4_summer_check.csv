@@ -1,0 +1,2 @@
+selected_style,predicted_full_precision,realised_full_precision,abs_err_selected,n_emerging_candidates,median_abs_err_all,median_ratio_pred_over_real,corr_pred_real,n_within_0p5,verdict
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,37.876683521254286,37.94044464307622,0.06376112182193339,127,6.044562739424833,1.2101228729134694,0.8196212127601971,5,independent numbers; the 0.06 agreement is luck (typical error is ~6 units)

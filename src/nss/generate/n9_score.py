@@ -48,6 +48,14 @@ from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
 
 OUT = Path("reports/tables/n9_candidates_scored.csv")
+# Panel rule (task P3). Gemini's key is invalid (401) and Groq's daily token budget is spent, so the
+# panel is the two local judges. Florence-2's agreement with the API judges on binarised attribute
+# calls is too low to carry a verdict (kappa 0.36-0.48; `judge_panel_kappa.csv`) while SmolVLM's is
+# 0.68 with Groq, so Florence-2 is ADVISORY (reported, never gating) and SmolVLM gates Gate 2. This
+# was decided on measured agreement, not to pass any concept, and it changes one verdict (the white
+# top's Gate 2: fail -> pass; its overall verdict stays FAIL on Gates 3 and integrity).
+GATING_JUDGES = ("smolvlm",)
+ADVISORY_JUDGES = ("florence2",)
 SPACES = ("clip", "dinov2")
 
 
@@ -120,6 +128,28 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
     local_vlm.unload()
 
 
+def apply_panel_rule(row: dict[str, Any]) -> None:
+    """Derive the panel Gate 2 / Gate 3 columns from per-judge columns (in place).
+
+    Gate 2 and Gate 3 need every GATING judge that has a reading to pass; advisory judges are
+    reported in `gate2_advisory_pass` and never gate.
+    """
+    gating = [j for j in GATING_JUDGES if f"{j}_gate2_pass" in row]
+    row["gate2_pass"] = all(row[f"{j}_gate2_pass"] for j in gating)
+    advisory = [j for j in ADVISORY_JUDGES if f"{j}_gate2_pass" in row]
+    row["gate2_advisory_pass"] = all(row[f"{j}_gate2_pass"] for j in advisory) if advisory else None
+    g3 = [row[f"{j}_gate3_pass"] for j in GATING_JUDGES if f"{j}_gate3_pass" in row]
+    row["gate3_pass"] = all(g3) if g3 else None
+
+
+def reapply(path: Path = OUT) -> None:
+    """Re-derive the panel columns of an existing scored table without re-running any judge."""
+    rows = pl.read_csv(path).to_dicts()
+    for row in rows:
+        apply_panel_rule(row)
+    pl.DataFrame(rows, infer_schema_length=None).write_csv(path)
+
+
 def main(keyword: str) -> None:
     """Score the styles matching `keyword` (or all); append to/replace rows in `OUT`."""
     backends = os.environ.get("NSS_JUDGES", "smolvlm").split(",")
@@ -136,9 +166,7 @@ def main(keyword: str) -> None:
     for backend in backends:
         judge_rows(backend, rows, thresholds)
     for row in rows:
-        row["gate2_pass"] = all(row[f"{b}_gate2_pass"] for b in backends)
-        g3 = [row[f"{b}_gate3_pass"] for b in backends if f"{b}_gate3_pass" in row]
-        row["gate3_pass"] = all(g3) if g3 else None
+        apply_panel_rule(row)
     new = pl.DataFrame(rows, infer_schema_length=None)
     if OUT.exists():
         old = pl.read_csv(OUT).filter(~pl.col("style_id").is_in(styles))
@@ -160,4 +188,7 @@ def main(keyword: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    if sys.argv[1] == "--reapply":
+        reapply()
+    else:
+        main(sys.argv[1])
