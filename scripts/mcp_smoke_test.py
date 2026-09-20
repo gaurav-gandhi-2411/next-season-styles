@@ -8,7 +8,8 @@ MCP client, lists the tools, and calls `forecast_styles`, `get_style_profile` an
 Usage (from the repo root; needs the data/ artifacts the tools read):
     uv run --no-sync python scripts/mcp_smoke_test.py
 
-Exit code 0 iff both tools return real payloads; prints the raw JSON so it can be pasted into the
+Exit code 0 iff the tools return real payloads, 1 if they do not, 2 if the needed data/ files are
+absent (a clean clone) and the test was not run; prints the raw JSON so it can be pasted into the
 README's expected-output block.
 """
 
@@ -101,5 +102,20 @@ async def run() -> int:
     return 0 if ok else 1
 
 
+REQUIRED_DATA = (
+    Path("data/processed/style_week_panel.parquet"),  # get_style_profile reads the trajectory
+    Path("data/images/0800691008.jpg"),  # score_concept compares against the fetched references
+)
+
+
 if __name__ == "__main__":
+    # Fail closed with a plain message rather than a JSON-decode traceback from an error payload.
+    missing = [str(p) for p in REQUIRED_DATA if not (REPO_ROOT / p).exists()]
+    if missing:
+        print(
+            "MCP smoke test: SKIPPED (not run). It needs gitignored data that is absent on a "
+            f"clean clone: {', '.join(missing)}.\nSee the README's Quickstart, step 3, for how to "
+            "build it. Exit code 2 means 'preconditions missing', not 'server broken'."
+        )
+        sys.exit(2)
     sys.exit(asyncio.run(run()))

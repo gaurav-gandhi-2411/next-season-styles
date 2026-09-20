@@ -122,7 +122,8 @@ For Claude Desktop specifically, add that block to `claude_desktop_config.json` 
 `scripts/mcp_smoke_test.py` reads the `mcpServers` block above **as written** (only the documented
 `cwd` placeholder is replaced with your checkout path), launches the server with that command over
 stdio, connects a real MCP client, and calls `forecast_styles`, `get_style_profile` and `score_concept`. It needs the
-`data/` artifacts the tools read (see Quickstart) and exits 0 on success:
+`data/` artifacts the tools read (Quickstart, step 3) and exits 0 on success; on a clean clone
+without them it prints that it was not run and exits 2:
 
 ```
 uv run --no-sync python scripts/mcp_smoke_test.py
