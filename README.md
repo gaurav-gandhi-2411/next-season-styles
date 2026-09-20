@@ -1,7 +1,7 @@
 # next-season-styles
 
-H&M fashion trend forecasting + generation pipeline, built as an agentic workflow exposed via an
-MCP server — technical assignment for a Lead/Principal Data Scientist role.
+H&M fashion trend forecasting and concept generation, built as an agentic workflow. The MCP
+server exposes the forecasting, generation and scoring tools over stdio.
 
 ## Package manager
 
@@ -121,9 +121,9 @@ better (`covid_two_model_comparison.csv`).
 
 ## Note
 
-Built under a tight assignment deadline; favors a disciplined, minimal footprint over speculative
-completeness — every phase (data pipeline, panel construction, modeling, generation, agent layer,
-MCP server) reports honest, sometimes negative, results rather than a polished narrative. See
+The design favours a disciplined, minimal footprint over speculative abstraction. Every stage
+(data pipeline, panel construction, modelling, generation, agent layer, MCP server) reports
+honest, sometimes negative, results rather than a polished narrative. See
 `reports/WRITEUP.md` Section 9 for the full list of known limitations.
 
 ## MCP server
@@ -173,9 +173,9 @@ uv run --no-sync python scripts/mcp_smoke_test.py
 ```
 
 Expected output (captured from a real run; long lists are elided by the script and say so; paths
-under `<your checkout>` are yours). `score_concept` runs the shipped gates on the committed
-sweater concept: Gate 1 and Gate 1b pass (the exact-clone control fails as required), Gate 2 is
-not run by default, and the human visual check is always required:
+under `<your checkout>` are yours). `score_concept` runs the shipped checks on the committed
+sweater concept: Gate 1, Gate 1b and the integrity floor pass (the exact-clone control fails as
+required), Gates 2 and 3 are not run by default, and the human visual check is always required:
 
 ```
 launching: uv run --no-sync python -m nss.mcp_server  (cwd=<your checkout>)
@@ -264,7 +264,7 @@ get_style_profile -> {
   }
 }
 score_concept -> {
-  "concept_path": "<your checkout>\reports\\concepts\\beige-knit-sweater_s0.35_seed45.png",
+  "concept_path": "<your checkout>\\reports\\concepts\\beige-knit-sweater_s0.35_seed45.png",
   "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange",
   "n_references": 17,
   "gate1": {
@@ -294,9 +294,23 @@ score_concept -> {
       "pass": true
     }
   },
+  "integrity": {
+    "pass": true,
+    "closest_reference_dinov2": 0.90105801820755,
+    "global_floor": 0.7785730004310608,
+    "per_style_floor_advisory": {
+      "limit": 0.8352220177650451,
+      "pass": true
+    }
+  },
   "gate2": {
     "status": "not_run",
-    "note": "pass include_fidelity=True (one Groq call) or run `nss.generate.judge_repeat`"
+    "pass": null,
+    "note": "pass include_fidelity=True to run the local judge panel (no network)"
+  },
+  "gate3": {
+    "status": "not_run",
+    "pass": null
   },
   "human_visual_check": {
     "required": true,
@@ -304,7 +318,7 @@ score_concept -> {
     "note": "REQUIRED and never automated: look at the image. The automatic gates have passed visibly malformed garments (cut-out defects, pattern drift, straps on a bottom)."
   },
   "automated_gates_pass": null,
-  "verdict": "Gate 1 and Gate 1b passed; Gate 2 not run; human visual check REQUIRED"
+  "verdict": "gate1, gate1b, integrity passed; gate2, gate3 not run; human visual check REQUIRED"
 }
 forecast_styles returned 3 rows (only the first is shown above)
 MCP smoke test: OK

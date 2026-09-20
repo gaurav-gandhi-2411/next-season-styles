@@ -1,7 +1,7 @@
-"""Agent-layer demonstration driver (tasks D4, rebuilt in U5 against the CURRENT gates).
+"""Agent-layer demonstration driver, run against the current quality checks.
 
-Walks through the `agents/` layer's typical "find next season's winning styles and generate
-concepts" request the way the orchestrator/sub-agents would per `agents/*.md`, and writes a
+Walks through the `agents/` layer's typical forecast-then-design request (a buyer asking what to
+make more of next autumn and for a design) the way the orchestrator/sub-agents would per `agents/*.md`, and writes a
 narrated transcript to `reports/agent_run_transcript.md`.
 
 Every step is labelled in the transcript as one of:
@@ -58,7 +58,7 @@ SELECTION_PATH = Path("reports/tables/final_selection_h4.csv")
 CLOSED_LOOP_PATH = Path("reports/tables/q2_concept_forecast_retrieval.csv")
 SUMMER_FORECAST_PATH = Path("reports/tables/seasonal_summer_forecast.csv")
 
-USER_REQUEST = "find next season's winning styles and generate concepts"
+USER_REQUEST = "what should we make more of next autumn, and show me a design for it"
 RETRY_CAP = 2  # critic's max-2-retries-per-concept cap, per agents/critic.md.
 GATING_COLUMNS = (
     ("gate1", "gate1_pass"),

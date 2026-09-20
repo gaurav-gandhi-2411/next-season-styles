@@ -1,4 +1,4 @@
-"""Render the Track D agent-delegation architecture diagram (task D2).
+"""Render the agent-delegation architecture diagram.
 
 Draws the orchestrator, its 5 sub-agents (`data-analyst`, `forecaster`, `style-profiler`,
 `concept-designer`, `critic`), the delegation/return arrows between the orchestrator and each
@@ -46,7 +46,7 @@ SUBAGENT_ROLE = {
     "forecaster": "reads frozen\nforecast tables",
     "style-profiler": "profile -> design\nbrief (skill)",
     "concept-designer": "generate_concept\n(SDXL / Gemini)",
-    "critic": "score_concept\n(Gate 1/1b/2 + human)",
+    "critic": "score_concept\n(Gates 1, 1b, 2, 3,\nintegrity floor + human)",
 }
 
 ORCHESTRATOR_COLOR = "#2C3E50"
@@ -179,7 +179,7 @@ def build_figure() -> plt.Figure:
     ax.set_ylim(1.0, FIG_HEIGHT)
     ax.axis("off")
     ax.set_title(
-        "next-season-styles -- Agent Delegation Architecture (Track D)",
+        "next-season-styles: how the agents delegate and retry",
         fontsize=15,
         fontweight="bold",
         pad=14,

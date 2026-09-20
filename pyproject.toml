@@ -1,7 +1,7 @@
 [project]
 name = "nss"
 version = "0.1.0"
-description = "H&M fashion trend forecasting + generation pipeline (technical assignment)"
+description = "H&M fashion trend forecasting and concept generation pipeline."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [

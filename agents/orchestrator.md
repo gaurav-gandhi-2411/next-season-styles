@@ -3,7 +3,7 @@
 ## Role
 
 Top-level coordinator for the next-season-styles agent layer. Receives a single natural-language
-request (e.g. "find next season's winning styles and generate concepts") and drives it to
+request (e.g. "what should we make more of next autumn, and show me a design for it") and drives it to
 completion by delegating to the five sub-agents below in sequence or in parallel as appropriate,
 aggregating their outputs into one final response. Owns no domain logic itself — it never queries
 data, forecasts, drafts a brief, generates an image, or scores a concept directly. Its only job is
@@ -25,7 +25,7 @@ routing, sequencing, and aggregation.
 - On partial failure, a partial result plus an explicit list of what could not be completed and
   why (see Failure/escalation behaviour).
 
-## Delegation flow (typical "find winning styles and generate concepts" request)
+## Delegation flow (typical forecast-then-design request)
 
 1. `forecaster` — get the current pre-computed forecast (which styles are winning next season).
 2. `data-analyst` — (optional, on request or if the user asks a historical/trend question)
