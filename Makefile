@@ -5,10 +5,11 @@
 setup:
 	uv sync
 
-# Download the H&M dataset from Kaggle. Script does not exist yet
-# — target is wired now so `make data` is the single entry point once it lands.
+# The H&M download is not scripted (it needs Kaggle credentials and accepting the competition
+# rules); this target used to call scripts/download_data.py, which was never committed.
 data:
-	uv run python scripts/download_data.py
+	@echo "Download articles.csv and transactions_train.csv into data/raw/ -- see README, Quickstart step 3."
+	@exit 1
 
 # Build the style_key x ISO-week panel (with support filter) from raw + interim data.
 panel:

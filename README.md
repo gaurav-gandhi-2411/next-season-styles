@@ -1,135 +1,92 @@
 # next-season-styles
 
-H&M fashion trend forecasting and concept generation, built as an agentic workflow. The MCP
-server exposes the forecasting, generation and scoring tools over stdio.
+Forecast which H&M fashion styles will sell best next season, then generate and check new design concepts for them.
 
-## Package manager
+![Final concepts: three generated designs, one per forecast style](reports/figures/FINAL_concepts.png)
 
-Uses **[uv](https://github.com/astral-sh/uv)** (present on this machine, `uv 0.11.14`). Lockfile
-is `uv.lock`, committed for reproducibility per project convention.
+## What this does
 
-## Setup
+From two years of H&M transactions I build a weekly panel of "styles" (garment type, colour and pattern together) and train a LightGBM model to forecast which will sell best over the next 13 weeks. For the top forecast styles I write a design brief, generate new concept images with SDXL conditioned on real reference photos, and check each one against similarity, integrity and attribute tests plus a human look. The same steps are exposed as sub-agents, two reusable Claude Agent Skills and an MCP server.
 
-```
-make setup
-```
+## Headline result
 
-equivalent to `uv sync`, which creates `.venv/` and installs all pinned dependencies (runtime +
-dev) from `uv.lock`.
+Under a 13-week training embargo, the model's predicted top 3 land in the true top 20 (Hit@3-in-top20) **0.528** of the time over 12 walk-forward origins. That is comparable to seasonal-naive on top-k (paired difference +0.233, 95% CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and clearly ahead of EWMA persistence and the naive means.
 
-## Shell conventions
+My first number, 0.722, trained on labels that overlap the test window and was wrong; the write-up shows how I found that and what changed. Full argument and limits: [`reports/WRITEUP.md`](reports/WRITEUP.md). Sources: `reports/tables/backtest_embargo_summary.csv`, `backtest_embargo_paired_diff.csv` and `backtest_embargo_check.csv` (last regenerated in commits `a6cc769` and `06d22c3`).
 
-Commands in this repo were developed and verified using **Git Bash (POSIX sh)** via Claude Code's
-Bash tool, run from PowerShell on Windows 11. All `make` targets and `uv` commands are shell-
-agnostic and work identically from PowerShell.
+Of the four concepts, the sweater and the dress pass every automatic check and a human check. The white top fails the integrity floor and one automatic check, and the summer bikini top fails one automatic check on one reader's answer; I did not loosen any check to hide that. How each concept was built and judged:
+
+![Per concept: references, brief, checks, verdict](reports/figures/evidence_chain.png)
+
+For a non-specialist walk-through, open [`reports/DEMO.html`](reports/DEMO.html) in a browser (self-contained, no server). Requirement-by-requirement mapping: [`reports/SUBMISSION_CHECKLIST.md`](reports/SUBMISSION_CHECKLIST.md).
+
+## Repo map
+
+| Path | What is there |
+|---|---|
+| `src/nss/features/` | Style-week panel construction, causal feature set, style-key validation |
+| `src/nss/models/` | Rolling-origin backtest harness, baselines, random floor, LightGBM, embargo checks, final forecast |
+| `src/nss/generate/` | SDXL / IP-Adapter generation, CLIP and DINOv2 scoring, VLM judges, quality-check pipeline |
+| `src/nss/mcp_server.py` | The 8-tool MCP server |
+| `src/nss/demo_backtest.py` | Runs the real backtest harness on a synthetic panel, no dataset needed |
+| `agents/` | Sub-agent role definitions (orchestrator, data analyst, forecaster, style profiler, concept designer, critic) |
+| `skills/` | Two dataset-agnostic Claude Agent Skills: `style-brief/` and `concept-qc/` |
+| `scripts/` | `run_pipeline.py` (end-to-end run, with a CPU `--dry-run`), `agent_demo.py`, `mcp_smoke_test.py` |
+| `reports/` | `WRITEUP.md`, `DEMO.html`, `figures/`, `tables/` (every table the write-up cites), `agent_run_transcript.md`, `SUBMISSION/` (the reviewer bundle as sent) |
+| `tests/` | pytest suite; tests that need the dataset skip with a message when it is absent |
+| `data/` | Gitignored data tiers (`raw/`, `interim/`, `processed/`, `images/`, `generated/`) |
 
 ## Quickstart
 
-```
-uv sync                                   # or: make setup
-uv run python scripts/download_data.py    # or: make data (Kaggle CLI creds required)
-uv run python scripts/run_pipeline.py     # or: make pipeline -- full end-to-end reproduction
-                                           # (panel -> features -> forecast -> top-3 -> briefs ->
-                                           # generate -> score -> hero image; GPU required, ~1
-                                           # seed/style by default, see script docstring)
-```
-
-The hero deliverable image is `reports/figures/FINAL_concepts.png`; the full write-up is
-`reports/WRITEUP.md`. Individual pipeline stages (`panel`, `eda`, `backtest`, `train`, `forecast`,
-`sweep`, `agent-diagram`, `deliverables`, `test`, `lint`) are each their own `make` target — see the
-`Makefile` for the exact command and artifact each one produces.
-
-### Running the pipeline
-
-`scripts/run_pipeline.py` has two modes.
-
-**`--dry-run` (reviewers, no GPU).** Exercises every stage (panel → features → forecast → briefs →
-generate → score → hero) end to end in about 1–2.5 minutes on CPU:
+Uses [uv](https://github.com/astral-sh/uv); `uv.lock` is committed. The install pulls PyTorch and the diffusion stack, so it is large.
 
 ```
-uv run --no-sync python scripts/run_pipeline.py --dry-run
+uv sync
 ```
 
-It writes only under a scratch directory (`<system temp>/nss_dry_run`, or `--scratch-dir`), never
-under `data/` or `reports/`. SDXL generation is skipped and the committed final concepts in
-`reports/concepts/` are scored instead. The VLM judges are disabled, so attribute fidelity (Gate 2)
-is skipped and the printed verdicts read "did not pass"; the similarity numbers are real. It needs
-`data/processed/style_week_panel.parquet` (`make data`, `make panel`) and internet access (the
-briefs stage downloads ~16 product photos into the scratch directory).
-
-**Full mode (reproduction, needs a CUDA GPU).**
+**1. No dataset, no GPU: run the real evaluation harness on synthetic data (about 15 seconds on my machine).**
 
 ```
-uv run --no-sync python scripts/run_pipeline.py [--n-seeds 2] [--stop-after <stage>]
+uv run python -m nss.demo_backtest
 ```
 
-Runs local SDXL generation and the live VLM judges. Outputs go to `reports/pipeline_run/`
-(gitignored), never over the committed deliverables.
+This builds a panel from a small committed synthetic fixture (`src/nss/demo_data/`, 200 toy styles, 106 weeks), then runs the same rolling-origin backtest code the results come from: the four baselines, LightGBM trained under the 13-week embargo, the random-permutation floor, and paired block-bootstrap comparisons. **The numbers it prints are from synthetic data. They show that the machinery runs, not what H&M's sales do, and they are not the reported results.**
 
-## Status
+**2. Tests (no dataset needed).**
 
-The data pipeline, panel construction, modelling, generation, agent layer, MCP server and
-write-up are all implemented and committed. `reports/WRITEUP.md` has the full narrative,
-including the correction to my own evaluation (Section 3) and what did not work (Section 9).
+```
+uv run pytest
+```
 
-**Start here:** open `reports/DEMO.html` in any browser (self-contained, no server) for the three
-concepts, how each traces back to its forecast, the model evidence and the seasonal view, written
-for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to which requirement is
-`reports/SUBMISSION_CHECKLIST.md`.
+Tests that need the H&M data or the fetched reference images skip with a message naming the missing file.
 
-**Generation, honestly:** an earlier round produced no briefed design change in 12 images. The
-cause was measured, not assumed (`reports/tables/prompt_lever_summary.md`): an attribute-first prompt
-plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
-multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
-of four final concepts (sweater, dress) pass every automatic check (Gates 1, 1b, the integrity floor, 2 and 3)
-and a human check; the white top fails the integrity floor (closest reference 0.733, below the global floor 0.779 that
-gates and the per-style floor 0.922 shown as advisory) and Gate 3, and the summer bikini top
-fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
-too easily), so a human check decides. Details: `reports/tables/final_selection.csv`,
-`reports/figures/evidence_chain.png`.
+**3. With the H&M data.** Download the [H&M Personalized Fashion Recommendations](https://www.kaggle.com/competitions/h-and-m-personalized-fashion-recommendations) files `articles.csv` and `transactions_train.csv` into `data/raw/` (Kaggle credentials and accepting the competition rules are required; I have not scripted this step, and an earlier version of this README pointed at a download script that was never committed). Then:
 
-**Evaluation correction:** my first walk-forward headline (Hit@3-in-top20 0.722) trained on
-labels that overlap the test window. With a 13-week gap it is **0.528** (paired drop 0.194, CI
-[0.111, 0.250]); see `reports/tables/backtest_embargo_check.csv`. Re-done as a paired comparison
-(`backtest_embargo_paired_diff.csv`), the embargoed model is comparable to seasonal naive on top-k
-(top-20 +0.233, CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and better than
-persistence and the naive means on every metric. The label-shuffle control (0 hits in 108 picks)
-does not detect this leak. COVID: a second model without COVID-overlapping training rows was no
-better (`covid_two_model_comparison.csv`).
+```
+uv run python -m nss.data.convert_transactions   # transactions_train.csv -> partitioned parquet
+uv run python -m nss.features.style_panel        # -> data/processed/style_week_panel.parquet
+uv run --no-sync python scripts/run_pipeline.py --dry-run   # every stage on CPU, ~1-2.5 minutes
+```
 
-## Project layout
+`--dry-run` writes only under a scratch directory, skips SDXL generation (the committed final concepts are scored instead) and disables the VLM judges, so attribute checks are skipped and the printed verdicts read "did not pass"; the similarity numbers are real. It also downloads about 16 product photos. The full run (`scripts/run_pipeline.py` without `--dry-run`) needs a CUDA GPU and writes to `reports/pipeline_run/` (gitignored), never over the committed deliverables. Individual stages have their own `make` targets; see the `Makefile`.
 
-- `src/nss/` — installable package: `data/` (ingestion, exemplar selection), `features/` (panel +
-  style_key construction, causal feature set, style-key validation), `models/` (backtest harness,
-  baselines, LightGBM, final forecast + selection), `generate/` (SDXL/IP-Adapter + Gemini
-  generation, CLIP/DINOv2 margin scoring, VLM judges, QC pipeline), `viz/` (EDA + diagram figures),
-  and `mcp_server.py` (the 8-tool MCP server)
-- `skills/` — 2 reusable, dataset-agnostic Claude Agent Skills: `style-brief/` (style profile ->
-  design brief) and `concept-qc/` (Gate 1 within-style range + Gate 1b nearest-reference + blind
-  VLM fidelity + mandatory human check -> verdict + retry strategy)
-- `agents/` — sub-agent role definitions (`orchestrator.md`, `data-analyst.md`, `forecaster.md`,
-  `style-profiler.md`, `concept-designer.md`, `critic.md`) consumed by the agent-layer demo
-- `scripts/` — `agent_demo.py` (drives the agent delegation graph end-to-end) and
-  `run_pipeline.py` (non-interactive full reproduction)
-- `reports/{figures,tables}/` — every generated artifact this project produces, plus
-  `WRITEUP.md` (the full technical write-up) and `agent_run_transcript.md` (a recorded agent run)
-- `data/{raw,interim,processed,generated,images}/` — gitignored data tiers (empty dirs tracked via
-  `.gitkeep`)
-- `notebooks/` — exploratory notebooks
-- `tests/` — pytest suite (unit tests, cross-process determinism regression test)
+## Known limits
 
-## Note
+- The embargo shrinks the training sets, so the drop from 0.722 to 0.528 mixes leakage with lost data; the write-up says so.
+- The label-shuffle control (0 hits in 108 picks) does not detect this kind of leak.
+- A second model without COVID-overlapping training rows was no better (`reports/tables/covid_two_model_comparison.csv`).
+- The local judges are small (the design-change reader says yes too easily), so a human check decides; the closed-loop retrieval is a prototype (27.5% exact-style match against 12.5% for the earlier caption-based version, n=40, McNemar p=0.21).
+- Everything else that did not work, and what I could not verify, is in section 9 of the write-up.
 
-The design favours a disciplined, minimal footprint over speculative abstraction. Every stage
-(data pipeline, panel construction, modelling, generation, agent layer, MCP server) reports
-honest, sometimes negative, results rather than a polished narrative. See
-`reports/WRITEUP.md` Section 9 for the full list of known limitations.
+Generation needed real work: an earlier round produced no briefed design change in 12 images, and the cause was measured rather than assumed (`reports/tables/prompt_lever_summary.md`).
+
+Commands here were developed with Git Bash from PowerShell on Windows 11; `make` targets and `uv` commands are shell-agnostic.
 
 ## MCP server
 
-`src/nss/mcp_server.py` exposes 7 read-only tools (transaction queries, style profiles/SHAP
-drivers, pre-computed forecasts, reference images, concept generation, concept scoring, and
-concept-sheet composition) over the **stdio** transport of the official
+`src/nss/mcp_server.py` exposes 8 tools (transaction queries, style profiles/SHAP
+drivers, pre-computed forecasts, reference images, concept generation, concept scoring,
+concept-sheet composition and the closed-loop concept forecast) over the **stdio** transport of the official
 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) (`mcp` package). Every tool
 reads artifacts already on disk — modelling is frozen; nothing here retrains a model or re-runs a
 backtest. `generate_concept` performs live GPU (or paid-API) work when invoked, and `score_concept`
