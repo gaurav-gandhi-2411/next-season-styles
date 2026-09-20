@@ -16,6 +16,7 @@ dependencies = [
     "kaggle>=1.6,<2.1",
     "sentence-transformers>=6.1.0",
     "diffusers>=0.40.0",
+    "compel>=2.4.0",  # prompt weighting of the briefed change clauses (task N1)
     "transformers>=5.17.0",
     "accelerate>=1.15.0",
     "safetensors>=0.8.0",
