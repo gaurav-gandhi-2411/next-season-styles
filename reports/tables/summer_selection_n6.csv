@@ -1,0 +1,128 @@
+style_key,index_group_name,product_type_name,garment_group_name,perceived_colour_master_name,graphical_appearance_name,predicted_intensity,trailing_13w_mean_intensity,growth_ratio,realised_intensity,emerging_rank,excluded
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,Ladieswear,Bikini top,Swimwear,Orange,All over pattern,37.876683521254286,19.594736918436013,1.9330029119001553,37.94044464307622,1,
+Divided || Top || Jersey Fancy || Black || Solid,Divided,Top,Jersey Fancy,Black,Solid,19.353727795252777,11.208963653840204,1.7266295433674788,11.22921533869558,2,
+Ladieswear || Bikini top || Swimwear || Blue || Stripe,Ladieswear,Bikini top,Swimwear,Blue,Stripe,61.49858554996876,35.8325958418153,1.7162749196697107,53.6438549847436,3,
+Ladieswear || Dress || Jersey Fancy || Beige || Solid,Ladieswear,Dress,Jersey Fancy,Beige,Solid,19.007823561363058,11.079896169064721,1.715523617850613,19.6067509582446,4,
+Ladieswear || Swimwear bottom || Swimwear || Blue || Stripe,Ladieswear,Swimwear bottom,Swimwear,Blue,Stripe,62.3221929850103,37.02530007104906,1.6832326237847688,51.75697496947497,5,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Menswear || Shorts || Shorts || Black || Denim,Menswear,Shorts,Shorts,Black,Denim,20.80730936691761,12.365256241601799,1.6827236702878248,13.287065284481336,6,
+Divided || Jumpsuit/Playsuit || Dresses Ladies || Black || Solid,Divided,Jumpsuit/Playsuit,Dresses Ladies,Black,Solid,23.042980080164696,14.157575757575758,1.6276077539499891,16.815086409317175,7,
+Ladieswear || Bikini top || Swimwear || Blue || All over pattern,Ladieswear,Bikini top,Swimwear,Blue,All over pattern,29.46871061718663,18.246298180002633,1.6150514655889712,20.05311262529195,8,
+Ladieswear || Swimwear bottom || Swimwear || Blue || All over pattern,Ladieswear,Swimwear bottom,Swimwear,Blue,All over pattern,20.96532988508844,13.22620232331771,1.585136033200301,15.81482166222283,9,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Ladieswear || Bikini top || Swimwear || Black || Solid,Ladieswear,Bikini top,Swimwear,Black,Solid,58.329954531085505,36.8573301960546,1.5825876215344934,39.87158145832821,10,
+Ladieswear || Swimwear bottom || Swimwear || Black || All over pattern,Ladieswear,Swimwear bottom,Swimwear,Black,All over pattern,46.29156961185551,30.36265182186235,1.5246220878020833,29.08886744770612,11,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Ladieswear || Shorts || Shorts || Black || Solid,Ladieswear,Shorts,Shorts,Black,Solid,57.76066743185094,38.54125970702304,1.4986709793848725,43.98284141476309,12,
+Divided || Dress || Dresses Ladies || Black || Solid,Divided,Dress,Dresses Ladies,Black,Solid,21.92225292385217,14.90600020470048,1.470699894190205,17.69019497409179,13,
+Menswear || T-shirt || Jersey Basic || White || Solid,Menswear,T-shirt,Jersey Basic,White,Solid,45.12218458934972,30.89739819004525,1.4603878395135392,26.216624895572266,14,
+Ladieswear || Leggings/Tights || Socks and Tights || Black || Solid,Ladieswear,Leggings/Tights,Socks and Tights,Black,Solid,29.588807306050363,20.263505431616885,1.4602018098943201,23.86024375091712,15,visual-ambiguity exclusion: 'Leggings/Tights' is not identifiable from a flat-lay without a label
+Ladieswear || Shorts || Trousers || Blue || Denim,Ladieswear,Shorts,Trousers,Blue,Denim,19.21290193813199,13.856644920267211,1.386547901651902,10.739930219419382,16,
+Ladieswear || Top || Jersey Fancy || Pink || Solid,Ladieswear,Top,Jersey Fancy,Pink,Solid,19.130186149527137,13.908502608502609,1.3754310358206632,19.534405547296792,17,
+Ladieswear || Swimwear bottom || Swimwear || Orange || All over pattern,Ladieswear,Swimwear bottom,Swimwear,Orange,All over pattern,29.496024112813522,21.73952713952714,1.356792349875145,38.79048280217309,18,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Ladieswear || Bikini top || Swimwear || Green || Solid,Ladieswear,Bikini top,Swimwear,Green,Solid,58.62818184560597,43.28416579649611,1.3544949005428673,42.603147712280844,19,
+Ladieswear || Skirt || Skirts || Black || Solid,Ladieswear,Skirt,Skirts,Black,Solid,20.763544740595847,15.371595733494049,1.350773537151577,14.016816804661325,20,
+"Ladieswear || Bra || Under-, Nightwear || Blue || Solid",Ladieswear,Bra,"Under-, Nightwear",Blue,Solid,24.889151530200234,18.454614902641218,1.3486681603222241,27.738689151471952,21,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Ladieswear || Trousers || Trousers || Blue || Stripe,Ladieswear,Trousers,Trousers,Blue,Stripe,24.824028774804745,18.668700079136183,1.3297138348988558,17.42397742951922,22,
+Ladieswear || Dress || Jersey Fancy || Green || Solid,Ladieswear,Dress,Jersey Fancy,Green,Solid,19.5207178722019,14.68352160659853,1.329430254894004,9.429332419717037,23,
+Divided || Skirt || Trousers Denim || Blue || Denim,Divided,Skirt,Trousers Denim,Blue,Denim,27.124320114972225,20.48057527691395,1.3243924913353005,16.701253561253562,24,
+Divided || Dress || Dresses Ladies || Blue || Denim,Divided,Dress,Dresses Ladies,Blue,Denim,19.34517549184694,14.751102088816426,1.311439333506716,12.70477869702126,25,
+Ladieswear || Dress || Dresses Ladies || White || All over pattern,Ladieswear,Dress,Dresses Ladies,White,All over pattern,29.144923443987597,22.36122054399262,1.3033690798160582,25.30173778844139,26,
+Ladieswear || Top || Jersey Fancy || White || Solid,Ladieswear,Top,Jersey Fancy,White,Solid,28.70426232860351,22.208728899157528,1.2924765959789974,25.583733563492892,27,
+Ladieswear || Trousers || Trousers || Grey || Denim,Ladieswear,Trousers,Trousers,Grey,Denim,19.649438492674385,15.224076168929109,1.2906818301905911,20.584896475081642,28,
+Ladieswear || Blouse || Blouses || Beige || Solid,Ladieswear,Blouse,Blouses,Beige,Solid,18.381414964406705,14.434038905710732,1.2734768892118076,23.230125464490786,29,
+"Ladieswear || Bra || Under-, Nightwear || White || Solid",Ladieswear,Bra,"Under-, Nightwear",White,Solid,33.355231883505446,26.313842312430445,1.2675926034469207,28.827496063752868,30,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Menswear || T-shirt || Jersey Basic || Black || Solid,Menswear,T-shirt,Jersey Basic,Black,Solid,41.809379780488655,33.333369722283756,1.2542800241566512,29.36984731814454,31,
+Divided || Trousers || Trousers Denim || Black || Denim,Divided,Trousers,Trousers Denim,Black,Denim,21.158366128259775,16.98857409540829,1.2454468520685622,23.946755393935323,32,
+Ladieswear || Swimsuit || Swimwear || Black || Solid,Ladieswear,Swimsuit,Swimwear,Black,Solid,35.25713302462331,28.47201488724873,1.238308323602813,28.310369391371303,33,
+Menswear || Shorts || Jersey Basic || Grey || Melange,Menswear,Shorts,Jersey Basic,Grey,Melange,37.86187629109304,30.61828449328449,1.2365773235726936,17.10817259663413,34,
+Ladieswear || Dress || Dresses Ladies || Khaki green || Solid,Ladieswear,Dress,Dresses Ladies,Khaki green,Solid,27.577930073776077,22.319353110140256,1.235606154788004,30.8785709904131,35,
+Divided || Dress || Jersey Basic || Black || Solid,Divided,Dress,Jersey Basic,Black,Solid,44.30862835492559,35.89929857733583,1.2342477460798855,25.874177073959956,36,
+Ladieswear || Bikini top || Swimwear || Black || All over pattern,Ladieswear,Bikini top,Swimwear,Black,All over pattern,44.58475366395918,36.24484386508678,1.2300992061082074,33.1866166826996,37,
+Divided || Dress || Dresses Ladies || Black || All over pattern,Divided,Dress,Dresses Ladies,Black,All over pattern,20.208365845345977,16.46984605009186,1.2269917875299912,14.940399652376689,38,
+Ladieswear || Vest top || Blouses || Black || Solid,Ladieswear,Vest top,Blouses,Black,Solid,35.020608201631795,28.546460482365656,1.226793361063642,21.70645385781328,39,
+Ladieswear || Swimwear bottom || Swimwear || White || All over pattern,Ladieswear,Swimwear bottom,Swimwear,White,All over pattern,48.46525070360113,39.903901425590384,1.2145491787056277,32.6937333759349,40,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Ladieswear || Dress || Jersey Basic || Black || Solid,Ladieswear,Dress,Jersey Basic,Black,Solid,35.965548390732735,29.993059989916752,1.1991290119388902,21.189087229802062,41,
+"Ladieswear || Bra || Under-, Nightwear || Pink || Solid",Ladieswear,Bra,"Under-, Nightwear",Pink,Solid,27.973489190201775,23.574860553039418,1.186581321542335,21.126090107204742,42,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Divided || Trousers || Trousers || Beige || Solid,Divided,Trousers,Trousers,Beige,Solid,21.097945339645058,17.79248362038643,1.185778545018373,18.04205213589829,43,
+Divided || Shirt || Blouses || White || Solid,Divided,Shirt,Blouses,White,Solid,24.746240585737784,20.87202278616306,1.1856177448284075,23.716773705178678,44,
+Ladieswear || Swimwear bottom || Swimwear || Black || Solid,Ladieswear,Swimwear bottom,Swimwear,Black,Solid,69.10057877829848,58.32489145100437,1.1847528055212275,47.43850588000253,45,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Divided || Dress || Dresses Ladies || Khaki green || Solid,Divided,Dress,Dresses Ladies,Khaki green,Solid,35.629987467237996,30.085274642401338,1.1842998905857451,25.002544303821388,46,
+Ladieswear || Trousers || Trousers || Black || Solid,Ladieswear,Trousers,Trousers,Black,Solid,30.187066430436634,25.56336783842933,1.1808720439822689,22.175853878358414,47,
+Divided || Shorts || Trousers Denim || Blue || Denim,Divided,Shorts,Trousers Denim,Blue,Denim,37.168768609436185,32.35992667141653,1.1486048465699181,19.7925582702984,48,
+Ladieswear || Trousers || Trousers || Khaki green || Solid,Ladieswear,Trousers,Trousers,Khaki green,Solid,26.522371572628852,23.153564932182583,1.1454983995040762,17.854898906714258,49,
+Ladieswear || Blouse || Blouses || Black || Solid,Ladieswear,Blouse,Blouses,Black,Solid,19.99354082191479,17.461738845462346,1.1449914008483963,18.33357812665383,50,
+Ladieswear || Top || Jersey Fancy || Black || Solid,Ladieswear,Top,Jersey Fancy,Black,Solid,29.21009172588818,25.678693164477824,1.1375225187197398,27.876262660911607,51,
+Ladieswear || Top || Jersey Fancy || Blue || Solid,Ladieswear,Top,Jersey Fancy,Blue,Solid,18.764253065716225,16.604693226251932,1.1300571958806225,19.130855343038675,52,
+Ladieswear || Skirt || Skirts || Beige || Solid,Ladieswear,Skirt,Skirts,Beige,Solid,21.951835237882683,19.426291651443474,1.1300064691580778,18.22647714604236,53,
+Divided || Dress || Dresses Ladies || Pink || Solid,Divided,Dress,Dresses Ladies,Pink,Solid,18.548365636482583,16.420048231039168,1.1296170008453574,13.75136643874784,54,
+Ladieswear || Trousers || Trousers || Beige || Solid,Ladieswear,Trousers,Trousers,Beige,Solid,36.633329576856056,32.45861850689078,1.1286164125894331,26.085626566865763,55,
+Ladieswear || Blouse || Blouses || Beige || All over pattern,Ladieswear,Blouse,Blouses,Beige,All over pattern,22.379699011469707,20.08178069915799,1.1144280154602062,24.7889630780113,56,
+Ladieswear || Blouse || Blouses || White || Solid,Ladieswear,Blouse,Blouses,White,Solid,22.091659347580265,19.942380744002477,1.1077744242860355,22.571689570134374,57,
+Ladieswear || Top || Jersey Basic || Black || Solid,Ladieswear,Top,Jersey Basic,Black,Solid,33.704504596757495,30.638865194634427,1.1000572110829983,19.724773341289175,58,
+Divided || Trousers || Trousers || Khaki green || Solid,Divided,Trousers,Trousers,Khaki green,Solid,24.216159216388437,22.246549348484333,1.0885355223882527,21.204273504273505,59,
+Ladieswear || Shorts || Shorts || Blue || Denim,Ladieswear,Shorts,Shorts,Blue,Denim,46.945777258742396,43.24385700503347,1.0856056908447838,30.972407612630292,60,
+Ladieswear || Bikini top || Swimwear || White || All over pattern,Ladieswear,Bikini top,Swimwear,White,All over pattern,41.49475853595047,38.22525555024045,1.0855325344107334,29.243193217875,61,
+"Ladieswear || Sweater || Under-, Nightwear || Black || Solid",Ladieswear,Sweater,"Under-, Nightwear",Black,Solid,26.659510873314467,24.758378160301238,1.0767874495132155,24.07702169625247,62,"category exclusion: garment group 'Under-, Nightwear'"
+Ladieswear || Belt || Accessories || Black || Solid,Ladieswear,Belt,Accessories,Black,Solid,29.140198343315518,27.122803362323136,1.0743800319621382,24.308207987919186,63,
+Divided || Dress || Dresses Ladies || White || Solid,Divided,Dress,Dresses Ladies,White,Solid,24.74600912112169,23.56358291030237,1.050180238519769,19.49154651984171,64,
+Divided || T-shirt || Jersey Basic || Black || Solid,Divided,T-shirt,Jersey Basic,Black,Solid,54.427953724465695,52.04972289756763,1.045691517543299,63.89438923649453,65,
+Sport || Vest top || Jersey Fancy || Black || Solid,Sport,Vest top,Jersey Fancy,Black,Solid,31.47863831480749,30.233619872030804,1.0411799330694256,37.919056112969166,66,
+Ladieswear || T-shirt || Jersey Fancy || Black || Solid,Ladieswear,T-shirt,Jersey Fancy,Black,Solid,22.89941207756181,22.085908133796472,1.036833619828405,15.664669090500293,67,
+"Ladieswear || Underwear bottom || Under-, Nightwear || Orange || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",Orange,Solid,22.70911007480553,22.296052992415223,1.0185260181490787,27.101508883945954,68,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+Ladieswear || Trousers || Trousers || Blue || Solid,Ladieswear,Trousers,Trousers,Blue,Solid,24.02407403859565,23.72257571713656,1.0127093417280695,14.824414214186465,69,
+"Ladieswear || Bra || Under-, Nightwear || Beige || Solid",Ladieswear,Bra,"Under-, Nightwear",Beige,Solid,27.244756087964006,26.944707212753897,1.0111357259457652,29.221718845910658,70,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Divided || Dress || Dresses Ladies || Beige || Solid,Divided,Dress,Dresses Ladies,Beige,Solid,20.846130403357044,20.64999402307095,1.0094981325450731,28.505378564371778,71,
+Divided || Trousers || Trousers || Grey || Solid,Divided,Trousers,Trousers,Grey,Solid,25.293029167148894,25.472901991171224,0.9929386599106504,20.62742614976778,72,
+Ladieswear || Trousers || Trousers || Beige || Check,Ladieswear,Trousers,Trousers,Beige,Check,23.306410741291337,23.520805263112955,0.9908848987344049,18.571292809754343,73,
+Ladieswear || Socks || Socks and Tights || Black || Solid,Ladieswear,Socks,Socks and Tights,Black,Solid,57.943597737792444,58.706459879989296,0.987005482126561,43.18797748519111,74,visual-ambiguity exclusion: 'Socks' is not identifiable from a flat-lay without a label
+"Ladieswear || Bra || Under-, Nightwear || Black || Solid",Ladieswear,Bra,"Under-, Nightwear",Black,Solid,31.552539936419336,32.27409686974096,0.9776428466384716,27.327438501817312,75,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Ladieswear || Swimwear bottom || Swimwear || Red || Solid,Ladieswear,Swimwear bottom,Swimwear,Red,Solid,72.2491375087134,74.16009279182357,0.97423202680619,50.0943012116089,76,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+"Ladieswear || Underwear bottom || Under-, Nightwear || White || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",White,Solid,28.73846348468856,30.012049425671343,0.9575641795427207,26.888461297904016,77,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+Ladieswear || Dress || Dresses Ladies || Black || Solid,Ladieswear,Dress,Dresses Ladies,Black,Solid,27.227885291065242,28.480636039762448,0.9560139476187185,22.712823172696975,78,
+Ladieswear || Blazer || Dressed || Black || Solid,Ladieswear,Blazer,Dressed,Black,Solid,19.52848900813231,20.53618125211711,0.9509308847826363,31.851780850728225,79,
+Divided || Shorts || Shorts || Black || Solid,Divided,Shorts,Shorts,Black,Solid,36.14796326488698,38.82974869133292,0.930934772517739,25.203124686340672,80,
+Ladieswear || Trousers || Trousers || Blue || Denim,Ladieswear,Trousers,Trousers,Blue,Denim,19.68324313080353,21.15521188593675,0.9304205146670388,15.432696442710164,81,
+Divided || Trousers || Trousers || Black || Solid,Divided,Trousers,Trousers,Black,Solid,37.00875922303232,39.99350264818649,0.9253692918219676,41.752764076924095,82,
+Ladieswear || T-shirt || Jersey Basic || Black || Solid,Ladieswear,T-shirt,Jersey Basic,Black,Solid,64.96630929638033,70.23328873405798,0.9250073642767699,71.01087203580516,83,
+Divided || Skirt || Trousers Denim || Black || Denim,Divided,Skirt,Trousers Denim,Black,Denim,19.101649402690445,20.658049215741524,0.9246589163963703,30.268674914828765,84,
+Ladieswear || Vest top || Jersey Basic || White || Solid,Ladieswear,Vest top,Jersey Basic,White,Solid,64.54484280892522,70.26438689515612,0.9185996727650207,44.66240443423105,85,
+"Ladieswear || Underwear bottom || Under-, Nightwear || Blue || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",Blue,Solid,18.822769246634973,20.587924361962823,0.9142625995562205,14.651593069738176,86,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+Divided || T-shirt || Jersey Basic || White || Solid,Divided,T-shirt,Jersey Basic,White,Solid,49.43782111479748,54.57954198401769,0.9057939901597958,48.504223796146874,87,
+Ladieswear || Shirt || Blouses || White || Solid,Ladieswear,Shirt,Blouses,White,Solid,43.60366530015395,48.51156106547728,0.8988303889314339,34.87240030418777,88,
+Divided || Jacket || Trousers Denim || Blue || Denim,Divided,Jacket,Trousers Denim,Blue,Denim,19.031354061689154,21.17733548502779,0.8986661270556994,12.817687440764363,89,
+Ladieswear || Dress || Dresses Ladies || Beige || Solid,Ladieswear,Dress,Dresses Ladies,Beige,Solid,20.186009109359546,22.54887376324028,0.8952114115015033,16.68095824084383,90,
+Divided || Trousers || Trousers Denim || White || Denim,Divided,Trousers,Trousers Denim,White,Denim,28.163378401343326,31.51096595546762,0.8937643625760245,19.7087965955613,91,
+Ladieswear || Dress || Jersey Fancy || Khaki green || Solid,Ladieswear,Dress,Jersey Fancy,Khaki green,Solid,23.923523349050768,27.031327882643673,0.8850295276989196,27.011055611055614,92,
+"Ladieswear || Bra || Under-, Nightwear || Black || Contrast",Ladieswear,Bra,"Under-, Nightwear",Black,Contrast,21.379166379521877,24.404824436498643,0.8760221338674438,23.62377067377067,93,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Ladieswear || Blouse || Blouses || Khaki green || Solid,Ladieswear,Blouse,Blouses,Khaki green,Solid,24.07159505926514,27.548971968202743,0.8737747124302416,13.39798139894294,94,
+Ladieswear || Vest top || Jersey Fancy || White || Solid,Ladieswear,Vest top,Jersey Fancy,White,Solid,42.9701120987497,49.20172449282744,0.8733456508219306,33.0436171287642,95,
+Ladieswear || Dress || Dresses Ladies || Green || All over pattern,Ladieswear,Dress,Dresses Ladies,Green,All over pattern,23.70257109893118,27.22459847844463,0.8706306951670177,22.924865732558036,96,
+Ladieswear || T-shirt || Jersey Fancy || White || Front print,Ladieswear,T-shirt,Jersey Fancy,White,Front print,27.490774409531156,31.614595273147906,0.8695595870202599,24.08513904166389,97,
+"Ladieswear || Underwear bottom || Under-, Nightwear || Pink || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",Pink,Solid,24.374448892216375,28.103385000702694,0.8673136311375629,21.25069277219304,98,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+"Ladieswear || Underwear bottom || Under-, Nightwear || Beige || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",Beige,Solid,25.733660268110256,29.6749444999445,0.8671847816988634,31.120428077669466,99,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+Ladieswear || T-shirt || Jersey Fancy || White || Solid,Ladieswear,T-shirt,Jersey Fancy,White,Solid,19.5553534968826,22.743189292858027,0.8598333877044899,13.306399466293186,100,
+"Ladieswear || Underwear bottom || Under-, Nightwear || Black || Solid",Ladieswear,Underwear bottom,"Under-, Nightwear",Black,Solid,31.762564308470353,37.08977611427104,0.8563698041911088,29.428975969377078,101,category exclusion: product type 'Underwear bottom' is intimates/underwear/nightwear
+Divided || Trousers || Trousers Denim || Blue || Denim,Divided,Trousers,Trousers Denim,Blue,Denim,29.629260052121182,34.85050803542897,0.8501815819155383,26.958533767724155,102,
+Ladieswear || Dress || Jersey Fancy || Black || Solid,Ladieswear,Dress,Jersey Fancy,Black,Solid,20.158542685030795,23.980955736696064,0.8406063088713288,22.728148376220865,103,
+Ladieswear || Trousers || Trousers || White || Solid,Ladieswear,Trousers,Trousers,White,Solid,22.413695225769057,26.729627202879207,0.8385337758603212,18.011666193617057,104,
+Ladieswear || Vest top || Jersey Fancy || Black || Solid,Ladieswear,Vest top,Jersey Fancy,Black,Solid,41.2323232265424,49.83368417403912,0.8273986543427667,30.22796835758335,105,
+Ladieswear || T-shirt || Jersey Basic || White || Solid,Ladieswear,T-shirt,Jersey Basic,White,Solid,66.32299000835476,80.24628735115124,0.8264929406407395,68.4032575975922,106,
+Ladieswear || Dress || Dresses Ladies || Black || All over pattern,Ladieswear,Dress,Dresses Ladies,Black,All over pattern,23.864563229903503,28.975665253178725,0.8236070862009107,27.403457164069096,107,
+Ladieswear || Dress || Dresses Ladies || Beige || All over pattern,Ladieswear,Dress,Dresses Ladies,Beige,All over pattern,25.33097086959769,31.56686833215239,0.8024543519192515,20.970184892923072,108,
+Ladieswear || Top || Jersey Fancy || Yellow || Solid,Ladieswear,Top,Jersey Fancy,Yellow,Solid,18.961972671835156,23.922964569829897,0.7926263743979614,16.718815416164162,109,
+Divided || Trousers || Trousers Denim || Grey || Denim,Divided,Trousers,Trousers Denim,Grey,Denim,32.792016081099035,42.099576949538246,0.7789155724867374,24.13054119083531,110,
+Ladieswear || Vest top || Jersey Basic || Black || Solid,Ladieswear,Vest top,Jersey Basic,Black,Solid,57.540930780066006,74.60980751492765,0.7712247584682943,60.45337195808158,111,
+Sport || Leggings/Tights || Jersey Fancy || Black || Solid,Sport,Leggings/Tights,Jersey Fancy,Black,Solid,41.57784964213863,54.18850209160383,0.7672817671145935,53.0825480030173,112,visual-ambiguity exclusion: 'Leggings/Tights' is not identifiable from a flat-lay without a label
+Ladieswear || Dress || Dresses Ladies || White || Solid,Ladieswear,Dress,Dresses Ladies,White,Solid,23.166819665415098,30.390502404937514,0.7623045962429107,20.26965239739187,113,
+Ladieswear || Blazer || Dressed || White || Solid,Ladieswear,Blazer,Dressed,White,Solid,20.814773631012066,27.52564828334059,0.7561955822711662,31.676399882169115,114,
+Ladieswear || Swimwear bottom || Swimwear || Black || Other structure,Ladieswear,Swimwear bottom,Swimwear,Black,Other structure,99.76661952553334,133.0862590401052,0.7496387699609839,49.99626655395887,115,visual-ambiguity exclusion: 'Swimwear bottom' is not identifiable from a flat-lay without a label
+Divided || Vest top || Jersey Basic || White || Solid,Divided,Vest top,Jersey Basic,White,Solid,50.64924147643572,69.03498723498724,0.7336749596843042,48.40522048900531,116,
+Ladieswear || Top || Jersey Fancy || Beige || Solid,Ladieswear,Top,Jersey Fancy,Beige,Solid,30.56869414598798,42.23618193379915,0.7237560959913765,24.77847470315116,117,
+Ladieswear || Trousers || Trousers || Pink || Solid,Ladieswear,Trousers,Trousers,Pink,Solid,18.424538339327164,25.75763200474739,0.715304044095798,8.311498682313161,118,
+Divided || Trousers || Trousers || Blue || Solid,Divided,Trousers,Trousers,Blue,Solid,28.562576782112586,40.246163025239106,0.7096968912092433,35.28830995043021,119,
+Divided || Vest top || Jersey Basic || Black || Solid,Divided,Vest top,Jersey Basic,Black,Solid,58.2390016819734,85.07890250774867,0.6845293012174106,59.77633082431845,120,
+Ladieswear || Dress || Dresses Ladies || Green || Solid,Ladieswear,Dress,Dresses Ladies,Green,Solid,21.19093414030507,31.16967631869455,0.679857369182735,18.031474708898642,121,
+Ladieswear || Sandals || Shoes || Black || Solid,Ladieswear,Sandals,Shoes,Black,Solid,20.456441414377565,30.526037018557318,0.6701309246903465,13.176834836534914,122,
+Ladieswear || Vest top || Blouses || White || Solid,Ladieswear,Vest top,Blouses,White,Solid,29.74614832342881,44.85371395823885,0.6631813889731412,31.490900138732954,123,
+Ladieswear || Trousers || Trousers || Black || All over pattern,Ladieswear,Trousers,Trousers,Black,All over pattern,24.19556876951792,36.618326264378894,0.6607502646305977,20.141958776517605,124,
+Ladieswear || Bikini top || Swimwear || Black || Other structure,Ladieswear,Bikini top,Swimwear,Black,Other structure,62.960845679238574,102.96700414969645,0.6114662284211382,47.04190458234576,125,
+Sport || Bra || Jersey Fancy || Black || Solid,Sport,Bra,Jersey Fancy,Black,Solid,23.763939056417975,45.194364077118955,0.5258164273728371,32.117687941116536,126,category exclusion: product type 'Bra' is intimates/underwear/nightwear
+Divided || Belt || Accessories || Black || Solid,Divided,Belt,Accessories,Black,Solid,28.583943108626215,102.6696146801916,0.27840703598297434,28.56357189818728,127,

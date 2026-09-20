@@ -1,35 +1,40 @@
-"""Final-three re-selection with an editorial category constraint and colour diversity (task M2).
+"""Final-three re-selection: all emerging, editorial exclusions, colour/type diversity (task N6).
 
-WHY: the earlier rule (T1 rank 1 + T2 ranks 1-2, one-per-(product_type, colour)) surfaced an
-intimates style (a red underwear bottom) and a plain black T-shirt that adds nothing over its
-category. Both are SELECTION-RULE problems, not model problems: the frozen model ranked what the
-market rewards; a merchandising judgment decides what belongs in this deliverable. The model
-surfaces, a human judges -- this is that human judgment made explicit, deterministic and auditable.
+WHY (history): M2 removed an intimates style (red underwear) and forced colour diversity, but still
+kept a T1 "incumbent" slot. That slot mechanically returns whatever sells most per product, which
+in fast fashion is a black basic: the buying plan a retailer already has, not a design brief. N6
+drops it. Both this and the earlier rules are SELECTION-RULE decisions, not model decisions: the
+frozen model ranks what the market rewards; a human judges what belongs in a design deliverable.
+The model surfaces, a human judges -- made explicit, deterministic and auditable here.
 
-RULE (fixed and documented BEFORE the output was inspected; applied in this order, no tuning):
+RULE (fixed and documented BEFORE the N6 output was inspected; applied in this order, no tuning):
 
-Inputs: the committed frozen-model leaderboards (`top_styles_t1_incumbent.csv`: guard-passing,
-ranked by predicted intensity; `top_styles_t2_emerging.csv`: guard-passing, ranked by growth ratio
-above the median-intensity floor). All existing guards are already applied there (mean active
-articles >= 10, price index >= 0.85, active >= 26 of the last 52 weeks) and so is the existing
-(product_type, colour) one-per-list diversity. No model is retrained or re-run.
+Input: the committed frozen-model emerging leaderboard `top_styles_t2_emerging.csv` (guard-passing,
+ranked by growth ratio). No model is retrained or re-run. NOTE ON PROVENANCE: the top-10 of that
+table had already been seen in the earlier M2 session; the rules below are stated in terms of
+garment categories, not of the styles that happen to fall out.
 
-1. CATEGORY EXCLUSION (editorial, human-applied on top of model output): drop any style whose
-   product type is intimates/underwear/nightwear/lingerie. Defined from the data dictionary, not by
-   eye: a product type is excluded if >= 50% of its articles sit in `product_group_name` in
-   {Underwear, Nightwear, Underwear/nightwear}, or the style's `garment_group_name` is H&M's own
-   "Under-, Nightwear". Hosiery (tights, leggings, socks: garment group "Socks and Tights") and
-   swimwear are NOT excluded (legitimate categories, rendered flat-lay).
-2. INCUMBENT SLOT (at most one): the highest-ranked remaining T1 style.
-3. EMERGING SLOTS (at least two): walk the remaining T2 list in rank order and accept a style iff
-   (a) its `perceived_colour_master_name` is not already used by a chosen style, (b) its
-   (product_type, colour) pair is not already used, (c) it is not already chosen. Accept until two.
-4. COMPOSITION: 1 incumbent + 2 emerging. Never relaxed silently: if the lists are exhausted before
-   the slots fill, the shortfall is reported, not backfilled.
+1. ALL THREE from the emerging (growth) table. No incumbent slot.
+2. ABSOLUTE-SCALE FLOOR: predicted intensity >= the median predicted intensity among guard-passing
+   styles. Satisfied BY CONSTRUCTION for every row of the T2 table (`diversity_forecast.
+   t2_absolute_intensity_floor` is exactly that median and gates T2 eligibility); the exact floor
+   value is not persisted, so it is recorded as "by construction", never re-derived by retraining.
+3. GUARDS unchanged (mean active articles >= 10, price index >= 0.85, active >= 26 of 52 weeks);
+   already applied in the T2 table.
+4. CATEGORY EXCLUSION (unchanged from M2): intimates/underwear/nightwear/lingerie product types
+   (>= 50% of articles in product group {Underwear, Nightwear, Underwear/nightwear}) or H&M garment
+   group "Under-, Nightwear". Swimwear TOPS and sets stay eligible.
+5. VISUAL-AMBIGUITY EXCLUSION (new; the same editorial judgment as 4): drop garments that cannot be
+   identified from a flat-lay without a label. Documented list (`VISUAL_AMBIGUOUS_TYPES`): swimwear
+   bottoms (a flat-lay swim bottom is indistinguishable from briefs) and hosiery / leg base layers
+   (leggings, tights, socks, leg warmers). Applies to the seasonal (summer) view too.
+6. DIVERSITY: no two chosen styles share `perceived_colour_master_name`; no two share
+   `product_type_name`. Walk the T2 list in growth-rank order and accept the first eligible style
+   that collides with nothing already chosen, until three are chosen. A shortfall is reported, never
+   backfilled.
 
 Every candidate considered is written to `final_three_selection_log.csv` with its disposition and
-reason (excluded category / colour collision / pair collision / chosen), so what was skipped and
-why is auditable.
+reason, so what was skipped and why is auditable.
 
 Usage:
     uv run python -m nss.models.reselect_final_three
@@ -41,7 +46,6 @@ from pathlib import Path
 
 import polars as pl
 
-T1_PATH = Path("reports/tables/top_styles_t1_incumbent.csv")
 T2_PATH = Path("reports/tables/top_styles_t2_emerging.csv")
 ARTICLES_PATH = Path("data/raw/articles.csv")
 FINAL_OUT = Path("reports/tables/top_styles_final_three.csv")
@@ -49,8 +53,12 @@ LOG_OUT = Path("reports/tables/final_three_selection_log.csv")
 INTIMATE_PRODUCT_GROUPS: tuple[str, ...] = ("Underwear", "Nightwear", "Underwear/nightwear")
 INTIMATE_GARMENT_GROUPS: tuple[str, ...] = ("Under-, Nightwear",)
 INTIMATE_SHARE_THRESHOLD = 0.5
-N_INCUMBENT = 1
-N_EMERGING = 2
+N_FINAL = 3
+# Product types not identifiable from a flat-lay without a label (task N6 rule 5). Chosen from the
+# H&M data dictionary's swimwear and hosiery groups; swimwear TOPS/sets are deliberately absent.
+VISUAL_AMBIGUOUS_TYPES: frozenset[str] = frozenset(
+    {"Swimwear bottom", "Leggings/Tights", "Underwear Tights", "Socks", "Leg warmers"}
+)
 COLOUR = "perceived_colour_master_name"
 TYPE = "product_type_name"
 
@@ -69,20 +77,23 @@ def exclusion_reason(row: dict, intimate_types: frozenset[str]) -> str | None:
         return f"category exclusion: product type '{row[TYPE]}' is intimates/underwear/nightwear"
     if row["garment_group_name"] in INTIMATE_GARMENT_GROUPS:
         return f"category exclusion: garment group '{row['garment_group_name']}'"
+    if row[TYPE] in VISUAL_AMBIGUOUS_TYPES:
+        return (
+            f"visual-ambiguity exclusion: '{row[TYPE]}' is not identifiable from a flat-lay "
+            "without a label"
+        )
     return None
 
 
-def reselect(
-    t1: pl.DataFrame, t2: pl.DataFrame, intimate_types: frozenset[str]
-) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Apply the rule; returns `(final_three, selection_log)` (both in decision order)."""
+def reselect(t2: pl.DataFrame, intimate_types: frozenset[str]) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Apply the N6 rule to the T2 table; returns `(final_three, selection_log)`."""
     log: list[dict] = []
     chosen: list[dict] = []
 
-    def record(table: str, rank: int, row: dict, disposition: str, reason: str) -> None:
+    def record(rank: int, row: dict, disposition: str, reason: str) -> None:
         log.append(
             {
-                "source_table": table,
+                "source_table": "T2_emerging",
                 "rank_in_table": rank,
                 "style_key": row["style_key"],
                 "predicted_intensity": row["predicted_intensity"],
@@ -92,57 +103,24 @@ def reselect(
             }
         )
 
-    def eligible(table: str, frame: pl.DataFrame) -> list[tuple[int, dict]]:
-        out = []
-        for rank, row in enumerate(frame.to_dicts(), start=1):
-            why = exclusion_reason(row, intimate_types)
-            if why:
-                record(table, rank, row, "skipped", why)
-            else:
-                out.append((rank, row))
-        return out
-
-    t1_ok = eligible("T1_incumbent", t1)
-    t2_ok = eligible("T2_emerging", t2)
-
-    used_colours: set[str] = set()
-    used_pairs: set[tuple[str, str]] = set()
-
-    def take(table: str, rank: int, row: dict, note: str) -> None:
-        used_colours.add(row[COLOUR])
-        used_pairs.add((row[TYPE], row[COLOUR]))
-        chosen.append({**row, "source_table": table, "rank_in_source_table": rank})
-        record(table, rank, row, "CHOSEN", note)
-
-    n_inc = 0
-    for rank, row in t1_ok:
-        if n_inc >= N_INCUMBENT:
-            record("T1_incumbent", rank, row, "not needed", "incumbent slot already filled")
+    for rank, row in enumerate(t2.to_dicts(), start=1):
+        if len(chosen) >= N_FINAL:
+            record(rank, row, "not needed", "three styles already chosen")
             continue
-        take("T1_incumbent", rank, row, "incumbent slot: highest-ranked T1 style after exclusion")
-        n_inc += 1
-
-    n_em = 0
-    for rank, row in t2_ok:
-        if n_em >= N_EMERGING:
-            record("T2_emerging", rank, row, "not needed", "emerging slots already filled")
-            continue
-        if row["style_key"] in {c["style_key"] for c in chosen}:
-            record("T2_emerging", rank, row, "skipped", "already chosen from T1")
+        why = exclusion_reason(row, intimate_types)
+        used_colours = {c[COLOUR] for c in chosen}
+        used_types = {c[TYPE] for c in chosen}
+        if why:
+            record(rank, row, "skipped", why)
         elif row[COLOUR] in used_colours:
-            record(
-                "T2_emerging", rank, row, "skipped", f"colour collision: {row[COLOUR]} already used"
-            )
-        elif (row[TYPE], row[COLOUR]) in used_pairs:
-            record("T2_emerging", rank, row, "skipped", "(product_type, colour) pair already used")
+            record(rank, row, "skipped", f"colour collision: {row[COLOUR]} already used")
+        elif row[TYPE] in used_types:
+            record(rank, row, "skipped", f"product-type collision: {row[TYPE]} already used")
         else:
-            take("T2_emerging", rank, row, "emerging slot: next colour-distinct T2 style")
-            n_em += 1
-    if n_inc < N_INCUMBENT or n_em < N_EMERGING:
-        print(
-            f"SHORTFALL: incumbent {n_inc}/{N_INCUMBENT}, "
-            f"emerging {n_em}/{N_EMERGING} (not backfilled)"
-        )
+            chosen.append({**row, "source_table": "T2_emerging", "rank_in_source_table": rank})
+            record(rank, row, "CHOSEN", "floor met by construction; no collision")
+    if len(chosen) < N_FINAL:
+        print(f"SHORTFALL: chose {len(chosen)}/{N_FINAL} (not backfilled)")
     return pl.DataFrame(chosen, infer_schema_length=None), pl.DataFrame(
         log, infer_schema_length=None
     )
@@ -150,11 +128,10 @@ def reselect(
 
 def main() -> None:
     """Run the rule on the committed leaderboards and write the final three + the skip log."""
-    t1 = pl.read_csv(T1_PATH)
     t2 = pl.read_csv(T2_PATH)
     intimate = intimate_product_types(pl.read_csv(ARTICLES_PATH))
     print(f"excluded product types ({len(intimate)}): {sorted(intimate)}")
-    final, log = reselect(t1, t2, intimate)
+    final, log = reselect(t2, intimate)
     final.write_csv(FINAL_OUT)
     log.write_csv(LOG_OUT)
     with pl.Config(tbl_rows=60, tbl_width_chars=220, fmt_str_lengths=70, tbl_cols=-1):
