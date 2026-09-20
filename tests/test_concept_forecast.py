@@ -66,18 +66,22 @@ def test_forecast_concept_confidence_from_judge_agreement() -> None:
     table = _table()
     same = {"product_type": "sweater", "colour_family": "beige", "graphical_treatment": "melange"}
     diff = {"product_type": "sweater", "colour_family": "beige", "graphical_treatment": "solid"}
-    high = cf.forecast_concept(Path("x"), {"a": lambda _p: same, "b": lambda _p: same}, table)
+    high = cf.forecast_concept_freetext(
+        Path("x"), {"a": lambda _p: same, "b": lambda _p: same}, table
+    )
     assert (high.style_key, high.confidence, high.rank) == ("A", "high", 2)
-    medium = cf.forecast_concept(Path("x"), {"a": lambda _p: same, "b": lambda _p: diff}, table)
+    medium = cf.forecast_concept_freetext(
+        Path("x"), {"a": lambda _p: same, "b": lambda _p: diff}, table
+    )
     assert medium.confidence == "medium"
-    single = cf.forecast_concept(Path("x"), {"a": lambda _p: same}, table)
+    single = cf.forecast_concept_freetext(Path("x"), {"a": lambda _p: same}, table)
     assert single.confidence == "low"  # one judge cannot show agreement
 
 
 def test_forecast_concept_no_match_raises() -> None:
     bad = {"product_type": "spaceship", "colour_family": "red", "graphical_treatment": "solid"}
     with pytest.raises(ValueError):
-        cf.forecast_concept(Path("x"), {"a": lambda _p: bad}, _table())
+        cf.forecast_concept_freetext(Path("x"), {"a": lambda _p: bad}, _table())
 
 
 def test_sentence_format() -> None:

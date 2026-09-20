@@ -346,3 +346,35 @@ def test_compose_final_sheet_mismatched_lengths_raises() -> None:
     """concept_paths and captions must be the same length."""
     with pytest.raises(ValueError, match="same length"):
         compose_final_sheet(["a.png", "b.png"], ["only one caption"])
+
+
+def test_forecast_concept_tool_returns_retrieval_fields(tmp_path: Path) -> None:
+    """The Q2 retrieval tool keeps the old return keys and adds top5/similarity/margin."""
+    from nss.generate.concept_forecast import ConceptForecast
+
+    image = tmp_path / "concept.png"
+    image.write_bytes(b"x")
+    fake = ConceptForecast(
+        "S",
+        12.0,
+        3,
+        1980,
+        "retrieval",
+        "medium",
+        {"clip": {"style_key": "S"}, "dino": {"style_key": "T"}},
+        top5=[{"style_key": "S", "similarity": 0.9, "forecast": 12.0, "rank": 3}],
+        similarity=0.9,
+        margin=0.01,
+    )
+    with patch("nss.generate.concept_forecast.forecast_concept", return_value=fake):
+        out = mcp_server.forecast_concept(str(image))
+    assert out["style_key"] == "S" and out["confidence"] == "medium"
+    assert out["judges"] == ["clip", "dino"] and out["unavailable_judges"] == {}
+    assert out["top5"][0]["style_key"] == "S" and out["margin"] == 0.01
+    assert out["sentence"].startswith("maps to S; forecast 12.0")
+
+
+def test_forecast_concept_tool_missing_file_raises() -> None:
+    """A nonexistent concept path is a caller error."""
+    with pytest.raises(FileNotFoundError):
+        mcp_server.forecast_concept("does/not/exist.png")
