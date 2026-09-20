@@ -11,9 +11,10 @@ forecast and says so explicitly, rather than recomputing.
 invoking image generation through this tool is a live generation request, not retraining.
 
 `score_concept` runs the shipped quality gates (`nss.generate.qc_gates`): Gate 1 (within-style
-p90), Gate 1b (nearest-reference p90, clone-validated) and, on request, Gate 2 (VLM fidelity),
-and always reports the human visual check as required. It supersedes the earlier margin-band
-scoring (task L1).
+p90), Gate 1b (nearest-reference p90, clone-validated), the GLOBAL integrity floor (per-style
+floor advisory) and, on request, Gate 2 (local SmolVLM gating, Florence-2 advisory) and Gate 3
+(briefed changes visible), and always reports the human visual check as required. It supersedes
+the earlier margin-band scoring (task L1) and the pre-N9 Gate-1/1b/Groq-Gate-2 verdict.
 
 SDK note: this module targets the installed `mcp` package (`mcp==2.2.0` at the time this was
 written). In `mcp>=2`, the high-level "define tools with a decorator, run over stdio" API that
@@ -461,30 +462,42 @@ def generate_concept(
 
 
 def score_concept(
-    concept_path: str, style_key: str, include_fidelity: bool = False
+    concept_path: str,
+    style_key: str,
+    include_fidelity: bool = False,
+    changes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Score a generated concept image against the project's SHIPPED quality gates.
 
-    Runs `nss.generate.qc_gates.score_gates` (the same functions that scored the final concepts):
+    Runs `nss.generate.qc_gates.score_gates` (the same functions that scored the final concepts,
+    against the same widened reference base):
 
     * **Gate 1** -- mean similarity to the style's screened reference photos must be at or below
       the p90 of similarity between distinct REAL articles of that style (CLIP and DINOv2).
     * **Gate 1b** -- the closest single reference must be at or below the p90 of the real
       nearest-sibling similarity; validated live by an exact-clone control that must fail.
-    * **Gate 2** -- blind VLM attribute fidelity vs the style's visible attributes, against the
-      judge's own calibrated threshold; reported with and without excluded non-visual attributes.
-      Only run when `include_fidelity=True` (one Groq call; a single reading varies by ~+/-0.21).
+    * **Integrity** -- the GLOBAL floor gates: the closest real reference (DINOv2) must be at
+      least the p10 of real nearest-sibling similarity pooled over all styles. The per-style floor
+      is reported beside it as advisory only.
+    * **Gate 2** -- blind attribute fidelity vs the style's visible attributes, each local judge
+      against its own calibrated threshold. SmolVLM gates; Florence-2 is advisory (never gates).
+      Only run when `include_fidelity=True` (loads the local VLMs; no network, no API quota).
+    * **Gate 3** -- are the briefed changes visible (one yes/no per change, strict majority, the
+      gating local judge). Runs with Gate 2; needs `changes`, else the N9 sidecar JSON / the final
+      concept registry, else it is reported `not_run` (never a pass).
     * **Human visual check** -- always `required`, never automated: the automatic gates have
       passed visibly malformed garments.
 
     Args:
         concept_path: Path to the generated concept image.
         style_key: `" || "`-joined style key the concept was generated for.
-        include_fidelity: Also make one blind judge call for Gate 2 (network).
+        include_fidelity: Also run the local judge panel for Gates 2 and 3.
+        changes: The briefed design changes (the brief's `applied_changes`) for Gate 3.
 
     Returns:
-        `{"gate1", "gate1b", "gate2", "human_visual_check", "automated_gates_pass", "verdict",
-        ...}` -- see `nss.generate.qc_gates.score_gates`.
+        `{"gate1", "gate1b", "integrity", "gate2", "gate3", "human_visual_check",
+        "automated_gates_pass", "verdict", ...}` -- see `nss.generate.qc_gates.score_gates`.
+        `automated_gates_pass` is `None` until every gate has run and never `True` on a failure.
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
@@ -492,7 +505,9 @@ def score_concept(
     """
     from nss.generate import qc_gates
 
-    return qc_gates.score_gates(concept_path, style_key, include_fidelity=include_fidelity)
+    return qc_gates.score_gates(
+        concept_path, style_key, include_fidelity=include_fidelity, changes=changes
+    )
 
 
 def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict[str, Any]:

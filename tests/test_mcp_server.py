@@ -284,7 +284,7 @@ def test_score_concept_delegates_to_qc_gates_with_flag() -> None:
     """The tool is a thin wrapper over `qc_gates.score_gates` and forwards `include_fidelity`."""
     with patch("nss.generate.qc_gates.score_gates", return_value={"verdict": "ok"}) as m:
         assert score_concept("x.png", KNOWN_STYLE_KEY, include_fidelity=True) == {"verdict": "ok"}
-    m.assert_called_once_with("x.png", KNOWN_STYLE_KEY, include_fidelity=True)
+    m.assert_called_once_with("x.png", KNOWN_STYLE_KEY, include_fidelity=True, changes=None)
 
 
 def test_score_concept_missing_concept_path_raises() -> None:
