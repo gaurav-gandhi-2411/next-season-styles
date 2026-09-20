@@ -291,8 +291,9 @@ def main() -> None:
     print(
         "\nNotes: seasonal_naive is undefined at the 2 test origins without a 52-week lag, so its "
         "rows use 10 origins.\nSpearman is undefined (NaN) for global_mean, which predicts one "
-        "value for every style.\nThe global_mean and random_floor rows can differ slightly between runs (both depend on row "
-        "order: tied predictions, and the seeded permutation); the other rows are reproducible."
+        "value for every style.\nThe global_mean and random_floor rows can differ slightly between "
+        "runs (both depend on row order: tied predictions, and the seeded permutation); the other "
+        "rows are reproducible."
     )
     print(f"\nDone in {time.perf_counter() - t0:.1f}s (synthetic data, generator seed {SEED}).")
 
