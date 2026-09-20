@@ -1,0 +1,8 @@
+metric,control,treatment,diff,ci_lo,ci_hi,decision_rule,decision
+hit_at_3_in_top20,0.5277777777777778,0.611111111111111,0.08333333333333333,-0.08333333333333333,0.25,adopt iff paired diff CI lower bound > 0 on hit_at_3_in_top20 (decides),REJECT (keep current model)
+hit_at_3_in_top10,0.3055555555555555,0.2777777777777778,-0.027777777777777776,-0.08333333333333333,0.0,reported only (not decision-bearing),REJECT (keep current model)
+precision_at_3,0.05555555555555555,0.05555555555555555,0.0,0.0,0.0,reported only (not decision-bearing),REJECT (keep current model)
+precision_at_10,0.19166666666666665,0.15833333333333335,-0.03333333333333333,-0.049999999999999996,-0.016666666666666666,reported only (not decision-bearing),REJECT (keep current model)
+ndcg_at_10,0.872256644946305,0.8548459792929294,-0.01741066565337543,-0.03171393126278662,0.0019987524889938193,reported only (not decision-bearing),REJECT (keep current model)
+spearman_rho,0.7116101344258935,0.7151848980742445,0.003574763648350951,-0.0025632245218356916,0.006908058079464712,reported only (not decision-bearing),REJECT (keep current model)
+wmape,0.16958631286859085,0.16977529844311198,0.00018898557452113698,-0.0028033423873921512,0.004053899083402837,reported only (not decision-bearing),REJECT (keep current model)
