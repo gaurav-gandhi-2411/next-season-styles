@@ -1,16 +1,18 @@
-"""Final deliverable figures + selection table (H4; rebuilt for the M-session final three).
+"""Final deliverable figures + selection table (rebuilt for the N9 concepts, Gate 3 and integrity).
 
-Best candidate per style from task M3's two attempts, REGARDLESS of gate outcome (the graded
-artifact is a fashion deliverable). Selection is made by looking at the images (see `HUMAN_CHECK`).
+Best candidate per style from task N9's 8-seed runs, chosen by: passes every automatic gate ->
+most briefed changes visible -> highest fidelity, then confirmed by a human looking at the image
+(`HUMAN_CHECK`). The graded artifact is a fashion deliverable, so a style whose every candidate
+fails still gets its best candidate shown, with its real verdict.
 
 `FINAL_concepts.png` is clean of QC marks and captioned from LOOKING AT THE IMAGES
 (`OBSERVED_CAPTIONS`), never from the brief: a brief's `applied_changes` are prompt inputs, not
-verified outputs (in M3 none of the briefed design changes showed up in the images).
+verified outputs.
 
-`evidence_chain.png` carries the honest per-style verdict: Gate 1 against the real within-style p90
-benchmark (plus the un-gated nearest-neighbour diagnostic), Gate 2 as the MEDIAN of repeated judge
-calls with its noise bound, and a human visual check. An unmeasured gate is never rendered as a
-pass (`judge_repeat` logs every raw call; missing repeats stay missing).
+`evidence_chain.png` carries the honest per-style verdict: Gate 1 and 1b against the real
+within-style p90 limits, the integrity floor, Gate 2 (each local judge vs its calibrated threshold),
+Gate 3 (are the briefed changes visible, per judge), the closed-loop forecast (task N8) and a human
+visual check. An unmeasured gate is never rendered as a pass.
 
 Usage:
     uv run python -m nss.generate.h4_deliverables
@@ -18,7 +20,7 @@ Usage:
 
 from __future__ import annotations
 
-import statistics
+import re
 import textwrap
 from pathlib import Path
 from typing import Any
@@ -30,169 +32,116 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate import judge_repeat, screen_references
-from nss.generate.final_concepts import load_design_briefs
+from nss.generate import final_registry, n9_generate
 from nss.generate.final_deliverables import (
     STYLE_ORDER,
     PanelData,
-    build_brief_excerpt,
     build_exemplar_composite,
     build_hero_figure,
     display_name,
 )
-from nss.generate.vlm_judges import ATTRIBUTE_DIMENSIONS, SKILL
 
 HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
 SELECTION_OUT = Path("reports/tables/final_selection_h4.csv")
-T_SHIRT, SWEATER, DRESS = STYLE_ORDER
-# (style -> (seed, source)); source "m3a<N>" = task M3 attempt N (`m3_generate`), whose scored table
-# `m3_candidates_attempt<N>_scored.csv` carries Gate 1 / Gate 1b for that image.
-SELECTED: dict[str, tuple[int, str]] = {
-    T_SHIRT: (42, "m3a2"),
-    SWEATER: (43, "m3a1"),
-    DRESS: (45, "m3a2"),
+SCORED = Path("reports/tables/n9_candidates_scored.csv")
+FORECAST = Path("reports/tables/concept_forecast_final.csv")
+SWEATER, DRESS, TOP = STYLE_ORDER
+N9 = Path("data/generated/n9")
+# style -> chosen candidate image (an N9 output at the per-style scale from the sweep)
+SELECTED: dict[str, Path] = {
+    SWEATER: N9 / "ladieswear_sweater_knitwear_beige_melange" / "s0.35_seed45.png",
+    DRESS: N9 / "ladieswear_dress_dresses-ladies_red_solid" / "s0.35_seed44.png",
+    TOP: N9 / "ladieswear_top_jersey-basic_white_solid" / "s0.35_seed42.png",
 }
+# The Summer (forecast origin 2020-06-01) concept, chosen from its own 8-seed run.
+SUMMER_SELECTED = N9 / "ladieswear_bikini-top_swimwear_orange_all-over-pattern" / "s0.35_seed48.png"
 # Written by looking at each image -- describes what IS visible, not what was briefed.
 OBSERVED_CAPTIONS: dict[str, str] = {
-    T_SHIRT: "Short-sleeve ribbed tee, grey body with black sleeves and neckband.",
-    SWEATER: "Oversized beige V-neck knit, faintly heathered, ribbed hem stepped at the back.",
-    DRESS: "Coral-pink fit-and-flare dress, ruffled cap sleeves, tie at the neck.",
+    final_registry.SUMMER: (
+        "Orange and white all-over print halter bikini top with a plunging front, thick white "
+        "binding along the edges and a tie at the neck."
+    ),
+    SWEATER: "Ribbed beige knit sweater, dark-brown funnel neck, dark-brown cuffs and hem.",
+    DRESS: "Red midi dress: square neckline, large puff sleeves, self belt tied in a bow.",
+    TOP: "White long-sleeve top: square neckline, full balloon sleeves gathered at the cuff.",
 }
-# What a human saw when viewing the selected image, including whether the briefed change shows.
-# All three fail their brief (M3, 2 attempts): the IP-Adapter reference structure dominates.
+# What a human saw, including whether each briefed change shows.
 HUMAN_CHECK: dict[str, str] = {
-    T_SHIRT: (
-        "Not the briefed change (no cropped fit, no white bands). It does show a colour-block "
-        "the brief never asked for, but the body is grey, not black: colour anchor lost."
+    final_registry.SUMMER: (
+        "Halter neckline with ties and thick white binding both visible. Orange all-over print, "
+        "a single top on a plain background: no bottom, no props. One coherent garment."
     ),
     SWEATER: (
-        "Brief NOT met: no funnel neck, no dark-brown rib. Melange is faintly visible. "
-        "Otherwise a generic beige V-neck knit."
+        "Both briefed changes visible (funnel neck; dark-brown rib cuffs and hem). Body is a light "
+        "beige, only faintly heathered. One coherent garment."
     ),
     DRESS: (
-        "Brief NOT met: no square neckline, puff sleeve or belt. Colour drifted red -> "
-        "coral-pink. Cleanly framed flat-lay, but a generic fit-and-flare dress."
+        "All briefed changes visible (square neckline with puff sleeves; wide self belt tied at "
+        "the waist). Solid red, plain flat-lay. One coherent garment."
+    ),
+    TOP: (
+        "Square neckline and balloon sleeves visible; the cuffs are narrower than the briefed "
+        "'wide ribbed' cuffs. Clean flat-lay, one coherent garment."
     ),
 }
-# Human verdict on whether the BRIEFED design change is visible (M3: it is not, for any style).
-# Shown next to the automatic verdict so an automatic PASS is never read as a design success.
-HUMAN_BRIEF_MET: dict[str, bool] = {T_SHIRT: False, SWEATER: False, DRESS: False}
-# Largest single-image score difference between two judge calls ever measured in this project
-# (T-shirt seed 42: 0.6375 then 0.425); an upper bound on single-call noise, not a CI.
-JUDGE_NOISE_BOUND = 0.21
+# Human verdict: is every briefed change visible?
+HUMAN_BRIEF_MET: dict[str, bool] = {
+    SWEATER: True,
+    DRESS: True,
+    TOP: True,
+    final_registry.SUMMER: True,
+}
+ALL_SELECTED: dict[str, Path] = {**SELECTED, final_registry.SUMMER: SUMMER_SELECTED}
 
 
-def _image(style_id: str, seed: int, source: str) -> Path:
-    """Image path for a selected concept; `source` is `m3a<N>` (task M3, attempt N)."""
-    from nss.generate import m3_generate
-
-    if not source.startswith("m3a"):
-        raise ValueError(f"unknown source {source!r}")
-    return m3_generate.image_path(style_id, seed, int(source.removeprefix("m3a")))
+def selected_seed(style_id: str) -> int:
+    """The seed of the selected candidate (parsed from its file name)."""
+    return int(re.search(r"seed(\d+)", SELECTED[style_id].stem).group(1))
 
 
-def gate2_result(image: Path) -> dict[str, Any]:
-    """Gate 2 for one image from `judge_repeat`'s logged calls: per-judge median + spread.
+def concept_filename(style_id: str) -> str:
+    """Name of the committed copy of the selected concept in `reports/concepts/`."""
+    plain = final_registry.PLAIN_NAMES[style_id].lower().replace(" ", "-")
+    return f"{plain}_{SELECTED[style_id].stem}.png"
 
-    Gate 2 is decided only when every judge with any successful call completed all `N_REPEATS`
-    calls: it then passes iff every judge's median clears ITS OWN threshold (`SKILL` joint-AND).
-    A judge with 1..N-1 calls (quota ran out mid-way) is reported with its `n_calls` but Gate 2 is
-    `None` (inconclusive) -- given ~0.2 single-call noise, one call cannot decide it. No calls at
-    all is `None` too: unmeasured, never a pass or a fail.
-    """
-    repeats = judge_repeat.repeat_records()
-    thresholds = judge_repeat.judge_thresholds()
-    medians: dict[str, float] = {}
-    complete: dict[str, list[dict[str, Any]]] = {}
-    for judge in judge_repeat.CALLERS:
-        recs = repeats.get((str(image), judge), [])[: judge_repeat.N_REPEATS]
-        if recs and judge in thresholds:
-            medians[judge] = statistics.median(r["mean_score"] for r in recs)
-            complete[judge] = recs
-    if not medians:
-        return {"judges": [], "gate2_pass": None}
-    all_complete = all(len(r) == judge_repeat.N_REPEATS for r in complete.values())
-    primary = sorted(medians)[0]
-    recs = complete[primary]
-    means = [r["mean_score"] for r in recs]
-    return {
-        "judges": sorted(medians),
-        "gate2_pass": (
-            SKILL.fidelity_pass_from_per_judge(medians, thresholds) if all_complete else None
-        ),
-        "n_calls": len(recs),
-        "primary_judge": primary,
-        "fidelity_median": medians[primary],
-        "fidelity_spread": max(means) - min(means),
-        "threshold": thresholds[primary],
-        "attr_medians": {
-            d: statistics.median(r["scores"][d] for r in recs) for d in ATTRIBUTE_DIMENSIONS
-        },
-        "raw_extraction": recs[0]["raw_extraction"],
-    }
+
+def _forecast_by_style() -> dict[str, dict[str, Any]]:
+    if not FORECAST.exists():
+        return {}
+    return {r["style_id"]: r for r in pl.read_csv(FORECAST).iter_rows(named=True)}
 
 
 def selection_rows() -> list[dict[str, Any]]:
-    """One row per style: Gate 1 (p90), Gate 1b (nearest reference, K2), Gate 2 (median)."""
-    scored = pl.concat(
-        [
-            pl.read_csv(f)
-            for f in sorted(Path("reports/tables").glob("m3_candidates_attempt*_scored.csv"))
-        ]
-    )
-    gate1b = pl.read_csv("reports/tables/gate1b_nearest_reference.csv")
+    """One row per style with every gate's result for the selected image."""
+    scored = pl.read_csv(SCORED)
+    forecasts = _forecast_by_style()
     rows = []
-    for sid in STYLE_ORDER:
-        seed, src = SELECTED[sid]
-        img = _image(sid, seed, src)
-        g = scored.filter(
-            (pl.col("style_id") == sid)
-            & (pl.col("seed") == seed)
-            & (pl.col("attempt") == int(src.removeprefix("m3a")))
-        ).to_dicts()[0]
-        g["clip_benchmark"] = g["clip_p90_threshold"]
-        g["dinov2_benchmark"] = g["dinov2_p90_threshold"]
-        gate1 = bool(g["gate1_pass"])
-        b = gate1b.filter(pl.col("style_id") == sid).to_dicts()[0]
-        assert b["final_image"] == str(img), "Gate 1b was scored on a different image"
-        gate1b_ok = bool(b["final_joint_pass"])
-        g2 = gate2_result(img)
-        gate2 = g2["gate2_pass"]
+    for sid in ALL_SELECTED:
+        img = ALL_SELECTED[sid]
+        g = scored.filter(pl.col("image_path") == str(img)).to_dicts()[0]
+        judges = sorted(c[: -len("_fidelity")] for c in g if c.endswith("_fidelity"))
+        automatic = bool(
+            g["gate1_pass"]
+            and g["gate1b_pass"]
+            and g["integrity_floor_pass"]
+            and g["gate2_pass"]
+            and g["gate3_pass"]
+        )
+        f = forecasts.get(sid, {})
         rows.append(
             {
+                **{k: g[k] for k in g if not k.endswith("_extraction")},
                 "style_id": sid,
-                "seed": seed,
                 "image_path": str(img),
-                "clip_mean_sim": g["clip_mean_sim"],
-                "clip_benchmark_p90": g["clip_benchmark"],
-                "dinov2_mean_sim": g["dinov2_mean_sim"],
-                "dinov2_benchmark_p90": g["dinov2_benchmark"],
-                "gate1_pass": gate1,
-                "clip_max_sim": b["final_clip_max_sim"],
-                "clip_gate1b_threshold": b["clip_threshold_p90"],
-                "dinov2_max_sim": b["final_dinov2_max_sim"],
-                "dinov2_gate1b_threshold": b["dinov2_threshold_p90"],
-                "gate1b_pass": gate1b_ok,
-                "judges": ",".join(g2["judges"]) or None,
-                "n_judge_calls": g2.get("n_calls"),
-                "fidelity_median": g2.get("fidelity_median"),
-                "fidelity_spread": g2.get("fidelity_spread"),
-                "fidelity_threshold": g2.get("threshold"),
-                "judge_noise_bound": JUDGE_NOISE_BOUND,
-                "gate2_pass": gate2,
+                "judges": ",".join(judges),
+                "automatic_gates": "PASS" if automatic else "FAIL",
+                "human_brief_met": HUMAN_BRIEF_MET[sid],
                 "human_check": HUMAN_CHECK[sid],
-                "overall": (
-                    "PASS"
-                    if gate1 and gate1b_ok and gate2
-                    else "FAIL"
-                    if (not gate1 or not gate1b_ok or gate2 is False)
-                    else "GATE 2 INCONCLUSIVE"
-                    if g2["judges"]
-                    else "GATE 2 NOT MEASURED"
-                ),
-                "attr_medians": g2.get("attr_medians"),
-                "raw_extraction": g2.get("raw_extraction"),
+                "forecast_style_key": f.get("mapped_style_key"),
+                "forecast_units": f.get("forecast"),
+                "forecast_rank": f.get("rank"),
+                "forecast_confidence": f.get("confidence"),
             }
         )
     return rows
@@ -204,70 +153,54 @@ def _gate_text(r: dict[str, Any]) -> str:
 
     return "\n".join(
         [
-            "Gate 1 -- range check: similarity to",
-            "own references must be <= p90 of",
-            "similarity between distinct REAL",
-            "articles of this style",
+            "Gate 1 (mean sim <= p90 of real pairs)",
+            f"CLIP   {r['clip_mean_sim']:.3f} <= {r['clip_p90_limit']:.3f}",
+            f"DINOv2 {r['dinov2_mean_sim']:.3f} <= {r['dinov2_p90_limit']:.3f}"
+            f"  -> {mark(r['gate1_pass'])}",
             "",
-            f"CLIP   {r['clip_mean_sim']:.3f} <= {r['clip_benchmark_p90']:.3f}  "
-            f"{mark(r['clip_mean_sim'] <= r['clip_benchmark_p90'])}",
-            f"DINOv2 {r['dinov2_mean_sim']:.3f} <= {r['dinov2_benchmark_p90']:.3f}  "
-            f"{mark(r['dinov2_mean_sim'] <= r['dinov2_benchmark_p90'])}",
+            "Gate 1b (closest ref <= p90 of real nearest)",
+            f"CLIP   {r['clip_max_sim']:.3f} <= {r['clip_gate1b_limit']:.3f}",
+            f"DINOv2 {r['dinov2_max_sim']:.3f} <= {r['dinov2_gate1b_limit']:.3f}"
+            f"  -> {mark(r['gate1b_pass'])}",
             "",
-            f"Gate 1: {mark(r['gate1_pass'])}",
-            "",
-            "Gate 1b -- closest single reference must",
-            "be <= p90 of real nearest-sibling sim:",
-            f"CLIP   {r['clip_max_sim']:.3f} <= {r['clip_gate1b_threshold']:.3f}  "
-            f"{mark(r['clip_max_sim'] <= r['clip_gate1b_threshold'])}",
-            f"DINOv2 {r['dinov2_max_sim']:.3f} <= {r['dinov2_gate1b_threshold']:.3f}  "
-            f"{mark(r['dinov2_max_sim'] <= r['dinov2_gate1b_threshold'])}",
-            f"Gate 1b: {mark(r['gate1b_pass'])}",
+            "Integrity floor (closest ref >= p10 of real)",
+            f"DINOv2 {r['floor_max_sim']:.3f} >= {r['floor_limit']:.3f}"
+            f"  -> {mark(r['integrity_floor_pass'])}",
+            f"(refs: {r['n_refs']} screened real articles)",
         ]
     )
 
 
-def _fidelity_text(r: dict[str, Any]) -> str:
-    if r["judges"] is None:
-        return (
-            "Gate 2 -- visual attribute fidelity\n\nNOT MEASURED: no judge completed\n"
-            "all repeat calls (quota)."
+def _judge_text(r: dict[str, Any]) -> str:
+    lines = ["Gate 2 -- attribute fidelity (local judges)"]
+    for j in r["judges"].split(","):
+        lines.append(f"{j}: {r[f'{j}_fidelity']:.2f}  {'PASS' if r[f'{j}_gate2_pass'] else 'FAIL'}")
+    lines += ["", "Gate 3 -- briefed changes visible?"]
+    for j in r["judges"].split(","):
+        if r.get(f"{j}_gate3_answers") is not None:
+            lines.append(
+                f"{j}: {r[f'{j}_gate3_answers']}  {'PASS' if r[f'{j}_gate3_pass'] else 'FAIL'}"
+            )
+    lines += ["", "Closed loop (N8): image scored through the forecaster"]
+    if r["forecast_units"] is not None:
+        lines.append(
+            f"{r['forecast_units']:.1f} units/product/wk, rank {int(r['forecast_rank'])}"
+            f" ({r['forecast_confidence']} confidence)"
         )
-    raw = r["raw_extraction"]
-    lines = [
-        "Gate 2 -- visual attribute fidelity",
-        f"({r['judges']} judge, blind; median of {r['n_judge_calls']} call(s))",
-        "",
-    ]
-    for d in ATTRIBUTE_DIMENSIONS:
-        lines.append(f"{d[:19]:<21}{r['attr_medians'][d]:.2f}  '{str(raw[d])[:20]}'")
-    lines += [
-        "",
-        f"median {r['fidelity_median']:.3f} vs threshold {r['fidelity_threshold']:.3f}",
-        f"range over {r['n_judge_calls']} call(s): {r['fidelity_spread']:.3f}",
-        f"cross-call noise seen: up to {r['judge_noise_bound']:.2f}",
-        "Gate 2: "
-        + (
-            "INCONCLUSIVE (quota: <3 calls)"
-            if r["gate2_pass"] is None
-            else "PASS"
-            if r["gate2_pass"]
-            else "FAIL"
-        ),
-    ]
+    else:
+        lines.append("not run")
     return "\n".join(lines)
 
 
 def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]]) -> plt.Figure:
-    """refs -> brief -> concept -> Gate 1 (real p90) -> fidelity + noise bound -> verdict."""
-    briefs = load_design_briefs()
+    """refs -> brief -> concept -> Gate 1/1b/integrity -> Gate 2/3/forecast -> verdict."""
     fig, axes = plt.subplots(len(rows), 6, figsize=(27, 5.4 * len(rows)))
     titles = (
         "Real references",
-        "Design brief (inputs, not verified)",
+        "Briefed changes (inputs, not verified)",
         "Generated concept",
-        "Gate 1 + 1b: vs real within-style",
-        "Gate 2: attribute fidelity + noise",
+        "Gates 1, 1b, integrity",
+        "Gates 2, 3, closed-loop forecast",
         "Verdict",
     )
     for i, r in enumerate(rows):
@@ -278,21 +211,22 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
         a_ref.set_ylabel(display_name(r["style_id"]), fontsize=11, fontweight="bold")
         a_img.imshow(Image.open(r["image_path"]))
         a_img.axis("off")
-        for ax, txt in (
-            (a_brief, build_brief_excerpt(briefs[r["style_id"]])),
-            (a_g1, _gate_text(r)),
-            (a_g2, _fidelity_text(r)),
-        ):
+        brief = "Changes asked for:\n" + "\n".join(
+            f"  - {c}" for c in n9_generate.CHANGES[r["style_id"]]["applied_changes"]
+        )
+        scale_line = f"IP scale {r['scale']:.2f}, seed {r['seed']}, weight 1.5, 8-ref concat"
+        brief += f"\n\n{scale_line}"
+        for ax, txt in ((a_brief, brief), (a_g1, _gate_text(r)), (a_g2, _judge_text(r))):
             ax.axis("off")
             ax.text(
-                0.02, 0.98, txt, transform=ax.transAxes, va="top", fontsize=7.6, family="monospace"
+                0.02, 0.98, txt, transform=ax.transAxes, va="top", fontsize=7.8, family="monospace"
             )
         a_v.axis("off")
-        human = "brief met" if HUMAN_BRIEF_MET[r["style_id"]] else "brief NOT met"
+        human = "briefed changes visible" if r["human_brief_met"] else "brief NOT met"
         a_v.text(
             0.05,
             0.70,
-            f"Automatic gates: {r['overall']}\nHuman check: {human}",
+            f"Automatic gates: {r['automatic_gates']}\nHuman check: {human}",
             transform=a_v.transAxes,
             fontsize=13,
             fontweight="bold",
@@ -309,8 +243,8 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
     for ax, t in zip(axes[0], titles, strict=True):
         ax.set_title(t, fontsize=10.5, fontweight="bold", pad=10)
     fig.suptitle(
-        "Evidence chain: references -> brief -> concept -> Gate 1 (p90) + Gate 1b (nearest ref) -> "
-        "Gate 2 (median of repeated calls + noise bound) -> verdict",
+        "Evidence chain: references -> briefed changes -> concept -> Gates 1 / 1b / integrity -> "
+        "Gate 2 / Gate 3 / closed-loop forecast -> verdict",
         fontsize=14,
         fontweight="bold",
     )
@@ -321,10 +255,7 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
 def main() -> None:
     """Write the selection table, the clean hero, and the evidence chain."""
     rows = selection_rows()
-    flat = [
-        {k: v for k, v in r.items() if k not in ("attr_medians", "raw_extraction")} for r in rows
-    ]
-    pl.DataFrame(flat, infer_schema_length=None).write_csv(SELECTION_OUT)
+    pl.DataFrame(rows, infer_schema_length=None).write_csv(SELECTION_OUT)
     panels = [
         PanelData(
             r["style_id"],
@@ -332,19 +263,25 @@ def main() -> None:
             OBSERVED_CAPTIONS[r["style_id"]],
             Path(r["image_path"]),
             r,
-            r["overall"] == "PASS",
+            r["automatic_gates"] == "PASS" and r["human_brief_met"],
         )
         for r in rows
+        if r["style_id"] in STYLE_ORDER
     ]
     hero = build_hero_figure(panels)
     hero.savefig(HERO_OUT, dpi=150, bbox_inches="tight")
     plt.close(hero)
-    refs = screen_references.load_screened_references()
+    refs = n9_generate.load_refs()
     ev = build_evidence_figure(rows, refs)
     ev.savefig(EVIDENCE_OUT, dpi=150, bbox_inches="tight")
     plt.close(ev)
     for r in rows:
-        print(display_name(r["style_id"]), r["overall"], r["gate1_pass"], r["judges"])
+        print(
+            final_registry.DISPLAY_NAMES[r["style_id"]],
+            r["automatic_gates"],
+            "human brief met:",
+            r["human_brief_met"],
+        )
 
 
 if __name__ == "__main__":

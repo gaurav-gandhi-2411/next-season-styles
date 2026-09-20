@@ -23,39 +23,42 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate.h4_deliverables import OBSERVED_CAPTIONS, SELECTED, T_SHIRT, _image
-from nss.generate.seasonal_concept import SELECTED_SEED, candidate_path
+from nss.generate import final_registry
+from nss.generate.h4_deliverables import OBSERVED_CAPTIONS, SELECTED, SUMMER_SELECTED
 
 OUT_PATH = Path("reports/figures/seasonal_comparison.png")
 T = Path("reports/tables")
-SUMMER_CAPTION = (
-    "Black high-waisted swimwear bottom in a ribbed, structured fabric, with a folded-over "
-    "waistband and a small picot-edged trim along the leg openings. Solid colour."
-)
 INK, ACCENT, MUTED = "#15181e", "#2a3fd0", "#5f646d"
 
 
 def main() -> Path:
     """Render and save the figure."""
-    aw = pl.read_csv(T / "top_styles_final_three.csv").filter(pl.col("style_key") == T_SHIRT)
-    aw_row = aw.to_dicts()[0]
-    summer = pl.read_csv(T / "seasonal_summer_forecast.csv").to_dicts()[0]
-    seed, src = SELECTED[T_SHIRT]
+    aw_style = final_registry.SWEATER
+    aw_row = (
+        pl.read_csv(T / "top_styles_final_three.csv")
+        .filter(pl.col("style_key") == aw_style)
+        .to_dicts()[0]
+    )
+    summer = (
+        pl.read_csv(T / "summer_selection_n6.csv")
+        .filter(pl.col("excluded").is_null())
+        .to_dicts()[0]
+    )
     panels = [
         (
             "Autumn / winter 2020",
-            "Black jersey T-shirt",
-            _image(T_SHIRT, seed, src),
+            final_registry.PLAIN_NAMES[aw_style].capitalize(),
+            SELECTED[aw_style],
             f"Model forecast from 21 Sep 2020: {aw_row['predicted_intensity']:.1f} units per product per week",
-            OBSERVED_CAPTIONS[T_SHIRT],
+            OBSERVED_CAPTIONS[aw_style],
         ),
         (
             "Summer 2020",
-            "Black swimwear bottom",
-            candidate_path(SELECTED_SEED),
+            final_registry.PLAIN_NAMES[final_registry.SUMMER].capitalize(),
+            SUMMER_SELECTED,
             f"Model forecast from 1 Jun 2020: {summer['predicted_intensity']:.1f} units per product per week"
             f" (realised {summer['realised_intensity']:.1f})",
-            SUMMER_CAPTION,
+            OBSERVED_CAPTIONS[final_registry.SUMMER],
         ),
     ]
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 7.4), facecolor="white")

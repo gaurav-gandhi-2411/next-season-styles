@@ -78,19 +78,22 @@ concepts, how each traces back to its forecast, the model evidence and the seaso
 for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to which requirement is
 `reports/SUBMISSION_CHECKLIST.md`.
 
-**Generation QC, honestly:** the concept-QC gate rejected every concept until it was re-anchored
-on how similar two *real, distinct* H&M articles of the same style are (Section 6). Under the
-final gates the dress passes every automatic check, while the T-shirt and the sweater fail
-Gate 2 (the second judge scores them 0.333 and 0.617 vs a 0.667 threshold). **None of the three
-final concepts shows the design change its brief asked for** (the generator's reference structure
-dominated; two rounds of four tries per style), and the human check says so per concept. Fidelity
-scores are noisy (about +/-0.21 across sessions). The automatic checks also passed visibly
-malformed candidates in earlier runs, so a human check is required. Details:
-`reports/tables/final_selection_h4.csv`, `reports/figures/evidence_chain.png`.
+**Generation, honestly:** an earlier round produced no briefed design change in 12 images. The
+cause was measured, not assumed (`reports/tables/n1_levers_summary.md`): an attribute-first prompt
+plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
+multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
+of four final concepts (sweater, dress) pass every automatic gate (1, 1b, integrity floor, 2, 3) and
+a human check; the white top fails the integrity floor by mechanism (its 19 real articles are
+near-identical, so a design change necessarily falls below the floor) and the summer bikini top
+fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
+too easily), so a human check decides. Details: `reports/tables/final_selection_h4.csv`,
+`reports/figures/evidence_chain.png`.
 
-**Leakage control:** retraining the same model on shuffled labels collapses to chance (0 hits in
-108 picks; `reports/tables/label_shuffle_control.csv`), while the unshuffled control reproduces the
-headline Hit@3-in-top20 of 0.722.
+**Evaluation correction:** the shipped walk-forward headline (Hit@3-in-top20 0.722) trained on
+labels that overlap the test window. With a 13-week gap it is **0.528** (paired drop 0.194, CI
+[0.111, 0.250]); see `reports/tables/backtest_embargo_check.csv` and WRITEUP section 3. The
+label-shuffle control (0 hits in 108 picks) does not detect this leak. COVID: a second model
+without COVID-overlapping training rows was no better (`covid_two_model_comparison.csv`).
 
 ## Project layout
 
@@ -98,7 +101,7 @@ headline Hit@3-in-top20 of 0.722.
   style_key construction, causal feature set, style-key validation), `models/` (backtest harness,
   baselines, LightGBM, final forecast + selection), `generate/` (SDXL/IP-Adapter + Gemini
   generation, CLIP/DINOv2 margin scoring, VLM judges, QC pipeline), `viz/` (EDA + diagram figures),
-  and `mcp_server.py` (the 7-tool MCP server)
+  and `mcp_server.py` (the 8-tool MCP server)
 - `skills/` — 2 reusable, dataset-agnostic Claude Agent Skills: `style-brief/` (style profile ->
   design brief) and `concept-qc/` (Gate 1 within-style range + Gate 1b nearest-reference + blind
   VLM fidelity + mandatory human check -> verdict + retry strategy)
@@ -168,242 +171,12 @@ uv run --no-sync python scripts/mcp_smoke_test.py
 
 Expected output (captured from a real run; long lists are elided by the script and say so; paths
 under `<your checkout>` are yours). `score_concept` runs the shipped gates on the committed
-T-shirt concept: Gate 1 passes, Gate 1b fails by 0.0018 on DINOv2 (the exact-clone control fails
-as required), Gate 2 is not run by default, and the human visual check is always required:
+sweater concept: Gate 1 and Gate 1b pass (the exact-clone control fails as required), Gate 2 is
+not run by default, and the human visual check is always required:
 
 ```
-[09/20/26 02:41:43] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/co                
-                             nfig.json "HTTP/1.1 307 Temporary                 
-                             Redirect"                                         
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-                    WARNING  Warning: You are sending              _http.py:993
-                             unauthenticated requests to the HF                
-                             Hub. Please set a HF_TOKEN to enable              
-                             higher rate limits and faster                     
-                             downloads.                                        
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/config.json?%2Fop                
-                             enai%2Fclip-vit-large-patch14%2Fre                
-                             solve%2Fmain%2Fconfig.json=&etag=%                
-                             222c19f6666e0e163c7954df66cb901353                
-                             fcad088e%22 "HTTP/1.1 200 OK"                     
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/co                
-                             nfig.json "HTTP/1.1 307 Temporary                 
-                             Redirect"                                         
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/config.json?%2Fop                
-                             enai%2Fclip-vit-large-patch14%2Fre                
-                             solve%2Fmain%2Fconfig.json=&etag=%                
-                             222c19f6666e0e163c7954df66cb901353                
-                             fcad088e%22 "HTTP/1.1 200 OK"                     
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/mo                
-                             del.safetensors "HTTP/1.1 302                     
-                             Found"                                            
-
-Loading weights:   0%|          | 0/590 [00:00<?, ?it/s]
-Loading weights:   5%|5         | 30/590 [00:00<00:01, 294.00it/s]
-Loading weights:  10%|#         | 60/590 [00:00<00:02, 230.43it/s]
-Loading weights:  14%|#4        | 84/590 [00:00<00:02, 184.89it/s]
-Loading weights:  18%|#7        | 104/590 [00:00<00:03, 155.73it/s]
-Loading weights:  21%|##        | 121/590 [00:00<00:03, 150.90it/s]
-Loading weights:  23%|##3       | 137/590 [00:00<00:03, 135.11it/s]
-Loading weights:  26%|##5       | 151/590 [00:00<00:03, 134.35it/s]
-Loading weights:  28%|##7       | 165/590 [00:01<00:03, 135.21it/s]
-Loading weights:  30%|###       | 179/590 [00:01<00:04, 102.55it/s]
-Loading weights:  34%|###3      | 199/590 [00:01<00:03, 124.35it/s]
-Loading weights: 100%|##########| 590/590 [00:01<00:00, 407.74it/s]
-[09/20/26 02:41:46] INFO     HTTP Request: GET                  _client.py:1025
-                             https://huggingface.co/api/models/                
-                             openai/clip-vit-large-patch14/tree                
-                             /main/additional_chat_templates?re                
-                             cursive=false&expand=false                        
-                             "HTTP/1.1 404 Not Found"                          
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/pr                
-                             ocessor_config.json "HTTP/1.1 404                 
-                             Not Found"                                        
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/ch                
-                             at_template.json "HTTP/1.1 404 Not                
-                             Found"                                            
-[09/20/26 02:41:47] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/ch                
-                             at_template.jinja "HTTP/1.1 404                   
-                             Not Found"                                        
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/au                
-                             dio_tokenizer_config.json                         
-                             "HTTP/1.1 404 Not Found"                          
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/pr                
-                             ocessor_config.json "HTTP/1.1 404                 
-                             Not Found"                                        
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/pr                
-                             eprocessor_config.json "HTTP/1.1                  
-                             307 Temporary Redirect"                           
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/preprocessor_conf                
-                             ig.json?%2Fopenai%2Fclip-vit-large                
-                             -patch14%2Fresolve%2Fmain%2Fprepro                
-                             cessor_config.json=&etag=%225a12a1                
-                             eb250987a4eee0e3e7d7338c4b22724be1                
-                             %22 "HTTP/1.1 200 OK"                             
-[09/20/26 02:41:48] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/pr                
-                             ocessor_config.json "HTTP/1.1 404                 
-                             Not Found"                                        
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/pr                
-                             eprocessor_config.json "HTTP/1.1                  
-                             307 Temporary Redirect"                           
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/preprocessor_conf                
-                             ig.json?%2Fopenai%2Fclip-vit-large                
-                             -patch14%2Fresolve%2Fmain%2Fprepro                
-                             cessor_config.json=&etag=%225a12a1                
-                             eb250987a4eee0e3e7d7338c4b22724be1                
-                             %22 "HTTP/1.1 200 OK"                             
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/co                
-                             nfig.json "HTTP/1.1 307 Temporary                 
-                             Redirect"                                         
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/config.json?%2Fop                
-                             enai%2Fclip-vit-large-patch14%2Fre                
-                             solve%2Fmain%2Fconfig.json=&etag=%                
-                             222c19f6666e0e163c7954df66cb901353                
-                             fcad088e%22 "HTTP/1.1 200 OK"                     
-[09/20/26 02:41:49] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/openai/clip                
-                             -vit-large-patch14/resolve/main/to                
-                             kenizer_config.json "HTTP/1.1 307                 
-                             Temporary Redirect"                               
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/openai/clip-vit-larg                
-                             e-patch14/32bd64288804d66eefd0ccbe                
-                             215aa642df71cc41/tokenizer_config.                
-                             json?%2Fopenai%2Fclip-vit-large-pa                
-                             tch14%2Fresolve%2Fmain%2Ftokenizer                
-                             _config.json=&etag=%22702bb12920b2                
-                             91cade3706cf215c1604d2255d93%22                   
-                             "HTTP/1.1 200 OK"                                 
-                    INFO     HTTP Request: GET                  _client.py:1025
-                             https://huggingface.co/api/models/                
-                             openai/clip-vit-large-patch14/tree                
-                             /main/additional_chat_templates?re                
-                             cursive=false&expand=false                        
-                             "HTTP/1.1 404 Not Found"                          
-                    INFO     HTTP Request: GET                  _client.py:1025
-                             https://huggingface.co/api/models/                
-                             openai/clip-vit-large-patch14/tree                
-                             /main?recursive=true&expand=false                 
-                             "HTTP/1.1 200 OK"                                 
-[09/20/26 02:41:56] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/config.json                
-                              "HTTP/1.1 307 Temporary Redirect"                
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/facebook/dinov2-base                
-                             /f9e44c814b77203eaa57a6bdbbd535f21                
-                             ede1415/config.json?%2Ffacebook%2F                
-                             dinov2-base%2Fresolve%2Fmain%2Fcon                
-                             fig.json=&etag=%225df0129f878aa42d                
-                             71fa74d27a50f382d13ed71e%22                       
-                             "HTTP/1.1 200 OK"                                 
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/config.json                
-                              "HTTP/1.1 307 Temporary Redirect"                
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/facebook/dinov2-base                
-                             /f9e44c814b77203eaa57a6bdbbd535f21                
-                             ede1415/config.json?%2Ffacebook%2F                
-                             dinov2-base%2Fresolve%2Fmain%2Fcon                
-                             fig.json=&etag=%225df0129f878aa42d                
-                             71fa74d27a50f382d13ed71e%22                       
-                             "HTTP/1.1 200 OK"                                 
-
-Loading weights:   0%|          | 0/223 [00:00<?, ?it/s]
-Loading weights:  12%|#2        | 27/223 [00:00<00:00, 265.86it/s]
-Loading weights:  29%|##9       | 65/223 [00:00<00:00, 316.65it/s]
-Loading weights:  43%|####3     | 97/223 [00:00<00:00, 299.15it/s]
-Loading weights: 100%|##########| 223/223 [00:00<00:00, 665.25it/s]
-[09/20/26 02:41:57] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/processor_c                
-                             onfig.json "HTTP/1.1 404 Not                      
-                             Found"                                            
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/preprocesso                
-                             r_config.json "HTTP/1.1 307                       
-                             Temporary Redirect"                               
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/facebook/dinov2-base                
-                             /f9e44c814b77203eaa57a6bdbbd535f21                
-                             ede1415/preprocessor_config.json?%                
-                             2Ffacebook%2Fdinov2-base%2Fresolve                
-                             %2Fmain%2Fpreprocessor_config.json                
-                             =&etag=%22ff5b47c2edcd1d3556d63c01                
-                             a65d93b58b9efce1%22 "HTTP/1.1 200                 
-                             OK"                                               
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/processor_c                
-                             onfig.json "HTTP/1.1 404 Not                      
-                             Found"                                            
-[09/20/26 02:41:58] INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/facebook/di                
-                             nov2-base/resolve/main/preprocesso                
-                             r_config.json "HTTP/1.1 307                       
-                             Temporary Redirect"                               
-                    INFO     HTTP Request: HEAD                 _client.py:1025
-                             https://huggingface.co/api/resolve                
-                             -cache/models/facebook/dinov2-base                
-                             /f9e44c814b77203eaa57a6bdbbd535f21                
-                             ede1415/preprocessor_config.json?%                
-                             2Ffacebook%2Fdinov2-base%2Fresolve                
-                             %2Fmain%2Fpreprocessor_config.json                
-                             =&etag=%22ff5b47c2edcd1d3556d63c01                
-                             a65d93b58b9efce1%22 "HTTP/1.1 200                 
-                             OK"                                               
 launching: uv run --no-sync python -m nss.mcp_server  (cwd=<your checkout>)
-tools: ['compose_final_sheet', 'forecast_styles', 'generate_concept', 'get_reference_images', 'get_style_profile', 'query_transactions', 'score_concept']
+tools: ['compose_final_sheet', 'forecast_concept', 'forecast_styles', 'generate_concept', 'get_reference_images', 'get_style_profile', 'query_transactions', 'score_concept']
 forecast_styles -> [
   {
     "rank": 1,
@@ -471,7 +244,7 @@ get_style_profile -> {
     "recent_mean_revenue": 19.329864406779663
   },
   "shap_drivers": {
-    "source": "reports\\tables\\final_three_shap_verdict.csv",
+    "source": "reports\\tables\\top_styles_t1_incumbent.csv",
     "style_specific": true,
     "drivers": [
       {
@@ -488,34 +261,34 @@ get_style_profile -> {
   }
 }
 score_concept -> {
-  "concept_path": "<your checkout>\\reports\\concepts\\black-jersey-basic-tshirt_seed43.png",
-  "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
-  "n_references": 6,
+  "concept_path": "<your checkout>\reports\\concepts\\beige-knit-sweater_s0.35_seed45.png",
+  "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange",
+  "n_references": 17,
   "gate1": {
     "pass": true,
     "clip": {
-      "similarity": 0.9450633327166239,
-      "limit_p90_of_real_pairs": 0.969795036315918,
+      "similarity": 0.925444294424618,
+      "limit_p90_of_real_pairs": 0.9664748013019562,
       "pass": true
     },
     "dinov2": {
-      "similarity": 0.8819671074549357,
-      "limit_p90_of_real_pairs": 0.896066951751709,
+      "similarity": 0.829064362189349,
+      "limit_p90_of_real_pairs": 0.9041306674480438,
       "pass": true
     }
   },
   "gate1b": {
-    "pass": false,
+    "pass": true,
     "clone_control_failed_as_required": true,
     "clip": {
-      "closest_reference_similarity": 0.9710571765899658,
-      "limit_p90_of_real_nearest_sibling": 0.9781906008720398,
+      "closest_reference_similarity": 0.949120283126831,
+      "limit_p90_of_real_nearest_sibling": 0.9825984597206116,
       "pass": true
     },
     "dinov2": {
-      "closest_reference_similarity": 0.9130043387413025,
-      "limit_p90_of_real_nearest_sibling": 0.9112358093261719,
-      "pass": false
+      "closest_reference_similarity": 0.90105801820755,
+      "limit_p90_of_real_nearest_sibling": 0.9469841361045838,
+      "pass": true
     }
   },
   "gate2": {
@@ -527,8 +300,8 @@ score_concept -> {
     "status": "not automated",
     "note": "REQUIRED and never automated: look at the image. The automatic gates have passed visibly malformed garments (cut-out defects, pattern drift, straps on a bottom)."
   },
-  "automated_gates_pass": false,
-  "verdict": "REJECT: failed gate1b"
+  "automated_gates_pass": null,
+  "verdict": "Gate 1 and Gate 1b passed; Gate 2 not run; human visual check REQUIRED"
 }
 forecast_styles returned 3 rows (only the first is shown above)
 MCP smoke test: OK

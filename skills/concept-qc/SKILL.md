@@ -779,3 +779,33 @@ the reference structure in 24 of 24 images: passing Gate 1/1b/2 does not show a 
 so record a per-concept human judgment of whether the briefed change is visible. The red
 underwear examples above are historical: the final selection excludes intimates by an
 editorial rule (see WRITEUP section 8).
+
+## Update (N-session): Gate 3, the integrity floor and local judges
+
+**Gate 3 -- design-change verification (first-class gate).** Gates 1/1b test "not a copy" and Gate 2
+tests "still the style"; nothing tested "implements the brief". For each briefed change ask every
+judge one binary question ("Does this garment have <change>?"); a judge passes iff a strict majority
+of changes are present; the panel passes iff every judge does. `nss.generate.gate3`. Validate the
+judge first: the local SmolVLM-500M scored accuracy 0.74, recall 0.95, specificity 0.58 on 46
+human-labelled questions (`evals/fixtures/gate3_sweater_labels.json`), i.e. it says yes too easily;
+Gate 3 supports the human check, it does not replace it.
+
+**Integrity.** A generic "is this a coherent garment?" question to a small VLM caught 0 of the 3
+known-malformed images (`evals/fixtures/integrity_labels.json`): a check that does not fail known-bad
+cases does not work. The operative check is a reference-based FLOOR: the closest real reference
+(DINOv2) must be at least as close as the 10th percentile of real nearest-sibling similarity
+(`gate3.integrity_floor`): 3/3 malformed and 5/5 known-bad caught, 8/9 known-good passed. It cannot
+be met by a design that departs from a style whose real articles are near-identical (the white top:
+floor 0.922); report that as a mechanism, do not loosen it.
+
+**Local judges.** Free-tier API judges are quota-limited and can disappear (Gemini 401, Groq daily
+token limit). `nss.generate.local_vlm` runs SmolVLM-500M and Florence-2-base locally; calibrate them
+exactly as the API judges (positive minus negative mean >= 0.3; threshold 0.75 x positive mean):
+SmolVLM gap 0.338, Florence-2 gap 0.373. Greedy decoding is deterministic, so repeated readings are
+identical (spread 0): one reading per judge. Also check the framing screen itself: the small judge
+answered "yes" to "is this one complete garment?" for 100% of candidates, so a fabric close-up got
+into the reference base until a border-variance check was added.
+
+**The prompt is part of the gate's surface.** The token budget and an attribute-first prompt (texture
+words, attribute-only second-encoder prompt) hid every briefed change; a plain sentence naming the
+garment and its changes on both text encoders fixed it (`n1_levers_summary.md`).

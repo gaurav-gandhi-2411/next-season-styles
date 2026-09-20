@@ -17,7 +17,6 @@ from __future__ import annotations
 import base64
 import html
 import io
-import json
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -29,10 +28,9 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate import final_registry
+from nss.generate import final_registry, n9_generate
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h4_deliverables import HUMAN_CHECK, JUDGE_NOISE_BOUND, OBSERVED_CAPTIONS
-from nss.generate.screen_references import load_screened_references
+from nss.generate.h4_deliverables import OBSERVED_CAPTIONS
 
 OUT_PATH = Path("reports/DEMO.html")
 T = Path("reports/tables")
@@ -228,25 +226,17 @@ def spotcheck_chart() -> str:
 
 def _load_concepts() -> list[dict]:
     sel = {r["style_id"]: r for r in pl.read_csv(T / "final_selection_h4.csv").to_dicts()}
-    g1b = {r["style_id"]: r for r in pl.read_csv(T / "gate1b_nearest_reference.csv").to_dicts()}
     top = {r["style_key"]: r for r in pl.read_csv(T / "top_styles_final_three.csv").to_dicts()}
-    j4 = pl.read_csv(T / "j4_judge_repeats.csv").filter(pl.col("judge") == "groq")
-    briefs = {
-        b["style_id"]: b for b in json.loads((T / "design_briefs.json").read_text(encoding="utf-8"))
-    }
-    refs = load_screened_references()
+    refs = n9_generate.load_refs()
     out = []
-    for sid in STYLE_ORDER:
-        r = sel[sid]
+    for sid in (*STYLE_ORDER, final_registry.SUMMER):
         out.append(
             {
                 "sid": sid,
                 "name": PLAIN_NAMES[sid],
-                "sel": r,
-                "g1b": g1b[sid],
-                "top": top[sid],
-                "calls": j4.filter(pl.col("image_path") == r["image_path"]).to_dicts()[0]["scores"],
-                "brief": briefs[sid],
+                "sel": sel[sid],
+                "top": top.get(sid),
+                "asked": n9_generate.CHANGES[sid]["applied_changes"],
                 "refs": refs[sid],
             }
         )
@@ -254,20 +244,22 @@ def _load_concepts() -> list[dict]:
 
 
 def hero(concepts: list[dict]) -> str:
-    """The three concepts as the opening image strip, then the three-sentence orientation."""
+    """The concepts as the opening image strip, then the three-sentence orientation."""
+    aw = [c for c in concepts if c["sid"] in STYLE_ORDER]
     figs = "".join(
         f'<figure><img src="{_b64_image(Path(c["sel"]["image_path"]), jpeg=True)}" alt="{_e(c["name"])} concept">'
         f'<figcaption><b>{_e(c["name"])}</b><span>{_e(OBSERVED_CAPTIONS[c["sid"]])}</span></figcaption></figure>'
-        for c in concepts
+        for c in aw
     )
-    passed = sum(1 for c in concepts if c["sel"]["overall"] == "PASS")
+    met = sum(1 for c in concepts if c["sel"]["human_brief_met"])
+    auto = sum(1 for c in concepts if c["sel"]["automatic_gates"] == "PASS")
     return f"""<header class=masthead><p class=site>next-season-styles</p>
 <h1>Three garments a forecast chose, and the pictures made from them.</h1></header>
 <div class=strip>{figs}</div>
 <section class=first><h2>What to look at first</h2>
-<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020, and its top picks, after a human editorial rule that removed intimates and required three different colours, were a black jersey T-shirt, a beige knit sweater and a red dress.</p>
-<p><b>What was generated from it.</b> For each style, an image generator was given real H&amp;M product photos of that style as a guide and asked for a new garment; the three pictures above are the best of eight tries each (two rounds of four).</p>
-<p><b>How to judge whether it worked.</b> Two questions: does each picture look like a believable, new product of its style (section 1: {passed} of 3 passed every automatic check, and none of the three shows the design change that was asked for), and does the forecast beat guessing and simple rules of thumb (section 3, where it names the right neighbourhood about 72% of the time against 0.4% for chance)?</p></section>"""
+<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020. Its emerging risers, after a human editorial rule that removed intimates and garments that cannot be told apart in a flat photo, and required different colours and product types, were a beige knit sweater, a red dress and a white jersey top.</p>
+<p><b>What was generated from it.</b> For each style an image generator was given several real H&amp;M photos of the style as a guide, plus a sentence naming two design changes, and asked for a new garment. The pictures above are the best of eight tries each, chosen by a set of automatic checks and then by a person looking.</p>
+<p><b>How to judge whether it worked.</b> Does each picture show the design change that was asked for, and is it still a believable product of its style (section 1: the person judged {met} of {len(concepts)} concepts to show every requested change; {auto} of {len(concepts)} pass every automatic check)? Then, scored back through the same forecaster, what does the model say about the garment it made (section 3)?</p></section>"""
 
 
 def _check_row(title: str, verdict: str, body: str, gloss: str) -> str:
@@ -279,78 +271,104 @@ def _check_row(title: str, verdict: str, body: str, gloss: str) -> str:
 
 def concept_sections(concepts: list[dict]) -> str:
     """Section 1: each concept large, with every check in words, numbers and one-line glosses."""
-    tee_note = (
-        "<aside class=callout><h4>Why this failure is meaningful, not noise</h4>"
-        "<p>The limit was built from real T-shirts (how close do two genuine H&amp;M black tees get to each other?) and tested on a control: an exact copy of a reference photo fails it in every style. "
-        "It flagged this concept, and a person comparing the picture with the design brief reached the same conclusion from a different direction: the brief asked for charcoal stitching and a cropped, dropped-shoulder cut, and neither is visible. This is a plain black tee like the ones already on sale.</p>"
-        "<p>Two independent checks agreeing is the evidence that the check works. We did not loosen the limit to make this pass. "
-        "What it does <em>not</em> show is a copy of one particular photo: next to its closest reference photo the concept has a different cut. It is a basic that adds nothing over what exists, which is exactly the kind of concept the check exists to flag.</p></aside>"
-    )
     out = [
-        "<section id=concepts><h2>The three concepts</h2><p class=lede>Each block: the picture, what it shows, and four checks. Every number is followed by what it means. The measures behind the checks are explained once, after the third concept.</p>"
+        "<section id=concepts><h2>The concepts</h2><p class=lede>Each block: the picture, what it shows, and the checks. Every number is followed by what it means. The measures behind the checks are explained once, after the last concept.</p>"
     ]
     for c in concepts:
-        r, b = c["sel"], c["g1b"]
-        overall = r["overall"]
-        if overall == "PASS":
-            headline = "Passed every automatic check, and looks like a coherent garment."
-        else:
-            headline = "Did not pass one check: its closest reference photo is a shade closer than any two real products of this style are."
-        refs_html = "".join(
-            f'<img src="{_b64_image(p, max_side=420)}" alt="reference photo">' for p in c["refs"]
+        r = c["sel"]
+        judges = r["judges"].split(",")
+        g2 = "; ".join(
+            f"{j}: <b>{_num(r[f'{j}_fidelity'], 2)}</b> ({'pass' if r[f'{j}_gate2_pass'] else 'below its pass mark'})"
+            for j in judges
         )
-        margin = r["fidelity_median"] - r["fidelity_threshold"]
+        g3 = "; ".join(
+            f"{j}: answers <b>{r[f'{j}_gate3_answers']}</b> (Y = change visible) ({'pass' if r[f'{j}_gate3_pass'] else 'fail'})"
+            for j in judges
+            if r.get(f"{j}_gate3_answers") is not None
+        )
+        auto = r["automatic_gates"] == "PASS"
+        human = bool(r["human_brief_met"])
+        headline = (
+            "Passes every automatic check. "
+            if auto
+            else "Fails at least one automatic check (below). "
+        ) + (
+            "A person confirms the requested changes are visible."
+            if human
+            else "A person finds a requested change missing."
+        )
+        refs_html = "".join(
+            f'<img src="{_b64_image(p, max_side=420)}" alt="reference photo">'
+            for p in c["refs"][:12]
+        )
+        changes = "; ".join(_e(x) for x in c["asked"])
+        forecast = (
+            f"maps to <b>{_e(str(r['forecast_style_key']).replace(' || ', ' · '))}</b>; forecast <b>{r['forecast_units']:.1f}</b> units per product per week, rank <b>{int(r['forecast_rank'])}</b>; confidence <b>{_e(r['forecast_confidence'])}</b>"
+            if r["forecast_units"] is not None
+            else "not run"
+        )
         checks = "".join(
             [
                 _check_row(
-                    "Fits in with real products of its style",
+                    "The requested design changes are visible (human)",
+                    verdict_word(human),
+                    f"Asked for: {changes}. " + _e(r["human_check"]),
+                    "A person looked at the image. This is the check that decides whether the picture is a new design or just a picture of the style.",
+                ),
+                _check_row(
+                    "The requested changes are visible (automatic, Gate 3)",
+                    verdict_word(bool(r["gate3_pass"])),
+                    "An image reader was asked, one yes-or-no question per change, whether the garment has it. "
+                    + g3
+                    + ".",
+                    "Passing means most requested changes were seen. The reader says yes too easily (in validation it was right about 'no' only 58% of the time), so this can pass what a person would fail.",
+                ),
+                _check_row(
+                    "Fits in with real products of its style (Gate 1)",
                     verdict_word(bool(r["gate1_pass"])),
-                    f'Average similarity to its reference photos: <b>{_num(r["clip_mean_sim"])}</b> on the CLIP measure (limit {_num(r["clip_benchmark_p90"])}) and <b>{_num(r["dinov2_mean_sim"])}</b> on the DINOv2 measure (limit {_num(r["dinov2_benchmark_p90"])}).',
-                    "The limit is how alike real products of this style are to each other: only 1 in 10 real pairs is more alike. Passing means the picture is not stranger, or blander, than a real sibling.",
+                    f'Average similarity to {r["n_refs"]} real reference photos: <b>{_num(r["clip_mean_sim"])}</b> on CLIP (limit {_num(r["clip_p90_limit"])}) and <b>{_num(r["dinov2_mean_sim"])}</b> on DINOv2 (limit {_num(r["dinov2_p90_limit"])}).',
+                    "The limit is how alike real products of this style are to each other: only 1 in 10 real pairs is more alike.",
                 ),
                 _check_row(
-                    "Not a copy of any single photo",
-                    verdict_word(bool(b["final_joint_pass"])),
-                    f'Closest single reference photo: <b>{_num(b["final_clip_max_sim"])}</b> on CLIP (limit {_num(b["clip_threshold_p90"])}) and <b>{_num(b["final_dinov2_max_sim"])}</b> on DINOv2 (limit {_num(b["dinov2_threshold_p90"])}). '
-                    f'A pixel-exact copy scores {_num(b["clone_clip_max_sim"])} and fails this test in all three styles.',
-                    "The limit is how close real products of this style get to their nearest sibling. A copy of one photo would sit above it."
-                    + (
-                        " Here the DINOv2 score is over by "
-                        + f'{b["final_dinov2_max_sim"] - b["dinov2_threshold_p90"]:.4f}'
-                        + ", which is small but is a fail; the limit was set before the pictures were scored and not moved."
-                        if not b["final_joint_pass"]
-                        else ""
-                    ),
+                    "Not a copy of any single photo (Gate 1b)",
+                    verdict_word(bool(r["gate1b_pass"])),
+                    f'Closest single reference: <b>{_num(r["clip_max_sim"])}</b> on CLIP (limit {_num(r["clip_gate1b_limit"])}) and <b>{_num(r["dinov2_max_sim"])}</b> on DINOv2 (limit {_num(r["dinov2_gate1b_limit"])}). An exact copy fails this test in every style.',
+                    "The limit is how close real products get to their nearest sibling.",
                 ),
                 _check_row(
-                    "Matches the style's attributes",
+                    "Looks like a real garment (integrity floor)",
+                    verdict_word(bool(r["integrity_floor_pass"])),
+                    f'The closest real reference must be at least as close as 9 in 10 real products are to their own nearest sibling: <b>{_num(r["floor_max_sim"])}</b> against a floor of {_num(r["floor_limit"])} (DINOv2).',
+                    "This catches malformed garments (cut-outs, folded objects, fabric swatches: all three known-malformed test images fail it). It cannot be met by a design that differs from near-identical real products, which is why it fails the white top."
+                    if c["sid"] == final_registry.TOP
+                    else "This catches malformed garments (cut-outs, folded objects, fabric swatches: all three known-malformed test images fail it).",
+                ),
+                _check_row(
+                    "Matches the style's attributes (Gate 2)",
                     verdict_word(bool(r["gate2_pass"])),
-                    f'An AI image reader, shown only the picture, was asked for product type, colour and pattern, three times. Its answers scored {_e(c["calls"])}; the middle value is <b>{_num(r["fidelity_median"])}</b> against a pass mark of {_num(r["fidelity_threshold"])} (1.0 would be a perfect match). Counting all three attributes or only the visible ones gives the same figure here, because no attribute is excluded for this style.',
-                    f"The same picture scored differently across earlier sessions by up to ±{JUDGE_NOISE_BOUND:.2f}, so treat this as coarse; here it clears the pass mark by {margin:+.3f}."
-                    + (
-                        " One attribute, the melange (flecked) texture, scored 0: the reader saw a plain solid."
-                        if c["sid"] == final_registry.SWEATER
-                        else ""
-                    ),
+                    "Two local image readers, shown only the picture, were asked for product type, colour and pattern: "
+                    + g2
+                    + ".",
+                    "Both readers must clear their own pass mark. A reader that sees a brown trim on a beige sweater will say 'brown': a real limit of scoring colour from a single word.",
                 ),
                 _check_row(
-                    "Looks like a coherent garment (human check)",
-                    '<span class="v pass">Passed</span>',
-                    _e(HUMAN_CHECK[c["sid"]]).capitalize() + ".",
-                    "A person looked at the image. This check exists because the automatic ones cannot see a malformed garment (see section 5).",
+                    "Scored back through the forecaster (closed loop)",
+                    '<span class="v inconclusive">Reported</span>',
+                    forecast + ".",
+                    "This is the forecast for the style the picture reads as, not a prediction that this exact design would sell.",
                 ),
             ]
         )
         out.append(
             f"""<article class=concept><h3>{_e(c["name"])}</h3>
 <div class=cols><div class=pic><img src="{_b64_image(Path(r['image_path']), jpeg=True)}" alt="{_e(c['name'])} concept, full size"></div>
-<div class=body><p class=headline>{headline}</p>{tee_note if c['sid'] == final_registry.TSHIRT else ''}{checks}</div></div>
-<details class=refs><summary>The {len(c['refs'])} real H&amp;M photos it was guided by</summary><div class=refgrid>{refs_html}</div></details></article>"""
+<div class=body><p class=headline>{headline}</p>{checks}</div></div>
+<details class=refs><summary>{len(c['refs'])} of the real H&amp;M photos it was guided by (first 12 shown)</summary><div class=refgrid>{refs_html}</div></details></article>"""
         )
     out.append(
         """<aside class=explain><h3>What the measures mean</h3>
-<p><b>CLIP</b> and <b>DINOv2</b> are two pretrained image models that turn a picture into numbers so pictures can be compared; 1.0 means identical, and real product photos of one style score around 0.85 to 0.97 because they share the same studio setup. CLIP compares overall look; DINOv2 compares shape and texture. A check passes only if both measures pass.</p>
-<p>A <b>limit</b> here is the <b>90th percentile</b> of the same measure taken between real H&amp;M products of that style: 9 in 10 real pairs fall below it. With only 4 to 6 real reference photos per style these limits are rough.</p></aside></section>"""
+<p><b>CLIP</b> and <b>DINOv2</b> are two pretrained image models that turn a picture into numbers so pictures can be compared; 1.0 means identical. CLIP compares overall look; DINOv2 compares shape and texture. A check passes only if both pass.</p>
+<p>A <b>limit</b> here is the <b>90th percentile</b> of the same measure between real H&amp;M products of that style. The reference base was widened from 4 to 6 photos per style to as many as 25 (the white top has only 19 real articles in the whole catalogue), which cut the uncertainty of these limits by 2 to 4 times.</p></aside></section>"""
     )
     return "\n".join(out)
 
@@ -364,32 +382,108 @@ def trace_back(concepts: list[dict]) -> str:
         r["style_key"]: r for r in pl.read_csv(T / "final_three_shap_verdict.csv").to_dicts()
     }
     for c in concepts:
-        top, brief = c["top"], c["brief"]
-        role = (
-            "an established seller (top of the 'incumbent' list)"
-            if top["source_table"] == "T1_incumbent"
-            else "an emerging riser (top of the 'emerging' list)"
-        )
-        growth = (
-            f' Its forecast is {top["growth_ratio"]:.2f}× its recent level.'
-            if top["growth_ratio"] is not None
-            else ""
-        )
+        if c["top"] is None:
+            continue
+        top = c["top"]
         drivers = [top[f"shap_driver_{i}_feature"] for i in range(1, 4)]
         why = ", then ".join(_plain_driver(d) for d in drivers)
-        asked = "".join(f"<li>{_e(x)}</li>" for x in brief["applied_changes"])
+        asked = "".join(f"<li>{_e(x)}</li>" for x in c["asked"])
         v = verdicts[c["sid"]]
         out.append(
             f"""<article class=trace><h3>{_e(c['name'])}</h3><ol class=chain>
-<li><h4>Forecast</h4><p>Predicted <b>{top['predicted_intensity']:.1f}</b> units per product on sale per week for the 13 weeks after 21 Sep 2020; {role}.{growth}</p>
+<li><h4>Forecast</h4><p>Predicted <b>{top['predicted_intensity']:.1f}</b> units per product on sale per week for the 13 weeks after 21 Sep 2020; an emerging riser. Its forecast is {top['growth_ratio']:.2f}× its recent level.</p>
 <p class=gloss>"Intensity" means units sold per product on sale, so a style is not ranked highly just for having many products.</p></li>
 <li><h4>Why the model liked it</h4><p>Biggest influences, in order: {_e(why)}.</p><p class=gloss>These come from an explanation method called SHAP, which shows which inputs pushed this forecast up or down. {_e(v['dominant_mechanism'].split(':')[0].capitalize())}.</p></li>
-<li><h4>Guided by</h4><div class=thumbs>{"".join(f'<img src="{_b64_image(p, max_side=420)}" alt="reference">' for p in c['refs'][:3])}</div><p class=gloss>The first photo is the one the generator actually copies structure from.</p></li>
-<li><h4>What the brief asked for</h4><ul>{asked}</ul><p class=gloss>These were instructions to the generator, not results.</p></li>
-<li><h4>What the picture shows</h4><img class=final src="{_b64_image(Path(c['sel']['image_path']), jpeg=True)}" alt="concept"><p>{_e(OBSERVED_CAPTIONS[c['sid']])}</p><p class=gloss>Described by looking at the image. None of the requested changes is visible in these three pictures; the human check for each is in section 1.</p></li></ol></article>"""
+<li><h4>Guided by</h4><div class=thumbs>{"".join(f'<img src="{_b64_image(p, max_side=420)}" alt="reference">' for p in c['refs'][:3])}</div><p class=gloss>The generator was shown up to 8 of the best-selling real photos at once, so they set the type of garment and colour without any one photo being copied.</p></li>
+<li><h4>What the brief asked for</h4><ul>{asked}</ul><p class=gloss>These were instructions to the generator, written as one plain sentence, not results.</p></li>
+<li><h4>What the picture shows</h4><img class=final src="{_b64_image(Path(c['sel']['image_path']), jpeg=True)}" alt="concept"><p>{_e(OBSERVED_CAPTIONS[c['sid']])}</p><p class=gloss>Described by looking at the image.</p></li></ol></article>"""
         )
     out.append("</section>")
     return "\n".join(out)
+
+
+def closed_loop_section(concepts: list[dict]) -> str:
+    """Section: predict -> generate -> score the generation through the same predictor."""
+    val = pl.read_csv(T / "concept_forecast_validation.csv")
+    per_judge = val.group_by("judge").agg(
+        pl.len().alias("n"),
+        pl.col("type_ok").mean().alias("type"),
+        pl.col("colour_ok").mean().alias("colour"),
+        pl.col("pattern_ok").mean().alias("pattern"),
+        pl.col("triple_ok").mean().alias("triple"),
+        pl.col("exact_style_key").mean().alias("exact"),
+    )
+    vrows = "".join(
+        f"<tr><td>{_e(r['judge'])}</td><td class=n>{r['n']}</td><td class=n>{r['type']:.0%}</td><td class=n>{r['colour']:.0%}</td><td class=n>{r['pattern']:.0%}</td><td class=n>{r['triple']:.0%}</td><td class=n>{r['exact']:.0%}</td></tr>"
+        for r in per_judge.to_dicts()
+    )
+    rows = ""
+    for c in concepts:
+        r = c["sel"]
+        rows += (
+            f"<tr><td>{_e(c['name'])}</td><td>{_e(str(r['forecast_style_key']).replace(' || ', ' · '))}</td>"
+            f"<td class=n>{r['forecast_units']:.1f}</td><td class=n>{int(r['forecast_rank'])}</td><td>{_e(r['forecast_confidence'])}</td></tr>"
+        )
+    return f"""<section id=loop><h2>Closing the loop: scoring the pictures with the same forecaster</h2>
+<p class=lede>Predict, generate, then score the generated picture through the same predictor: an image reader names its type, colour and pattern, that is matched to the nearest real catalogue style, and the model's forecast for that style is looked up.</p>
+<div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Read as this catalogue style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th></tr></thead><tbody>{rows}</tbody></table></div>
+<p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among the styles forecast from 1 Jun 2020. Confidence comes from how well the readers agree with each other, never from the forecast.</p>
+<h3>How often is the style read correctly?</h3>
+<p>Measured on {val.filter(pl.col('judge') == val['judge'][0]).height} real catalogue photos of randomly chosen styles, whose true style is known:</p>
+<div class=scroll><table class=metrics><thead><tr><th>Reader</th><th>Photos</th><th>Product type right</th><th>Colour right</th><th>Pattern right</th><th>All three right</th><th>Exact style right</th></tr></thead><tbody>{vrows}</tbody></table></div>
+<p class=gloss>The exact style also needs the department and garment group, which no picture shows, so it is filled in with the most common catalogue variant; that makes the last column a floor, not a ceiling. Where the readers are wrong the forecast belongs to a different style, which is why the confidence label matters. This is a forecast for the archetype the picture reads as, not for the new design itself: nothing here tests demand for the design.</p></section>"""
+
+
+def seasonal_section(concepts: list[dict]) -> str:
+    """Section: autumn/winter vs summer, both from the same rules and pipeline."""
+    d = pl.read_csv(T / "summer_selection_n6.csv")
+    first = d.filter(pl.col("excluded").is_null()).to_dicts()[0]
+    excl = d.filter(pl.col("excluded").is_not_null()).head(3).to_dicts()
+    fig = ""
+    if SEASONAL_FIG.exists():
+        fig = f'<figure class=seasonfig><img src="{_b64_image(SEASONAL_FIG, max_side=1500)}" alt="Autumn/winter 2020 concept beside the summer concept"><figcaption>The same pipeline, run for two seasons with the same selection rules.</figcaption></figure>'
+    skipped = "; ".join(
+        f"#{r['emerging_rank']} {_e(r['style_key'].replace(' || ', ' · '))} ({_e(r['excluded'].split(':')[0])})"
+        for r in excl
+    )
+    s = next(c for c in concepts if c["sid"] == final_registry.SUMMER)["sel"]
+    return f"""<section id=seasons><h2>Seasonal view</h2>
+<p class=lede>Same forecaster, same selection rules, a different forecast date: summer picks a different garment.</p>
+<p>For summer the model was re-run as of 1 June 2020, using only sales whose 13-week outcome was already known by then. Its top emerging style, after the same editorial exclusions (swimwear bottoms are excluded because a flat photo of one cannot be told from underwear; skipped here: {skipped}), is <b>{_e(first['style_key'].replace(' || ', ' · '))}</b>: predicted <b>{first['predicted_intensity']:.1f}</b> units per product per week for June to August, against <b>{first['realised_intensity']:.1f}</b> realised. One style is one data point: the match is encouraging, not a measure of accuracy.</p>
+{fig}
+<p>The summer picture: {_e(OBSERVED_CAPTIONS[final_registry.SUMMER])} Automatic gates: <b>{_e(s['automatic_gates'])}</b>; human check: the requested changes are {'visible' if s['human_brief_met'] else 'not all visible'}.</p></section>"""
+
+
+def limits_section() -> str:
+    """What could not be verified, said plainly (after the N-session fixes)."""
+    return """<section id=limits><h2>What we could not verify</h2>
+<ul class=limits>
+<li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
+<li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
+<li><b>The image readers are small and were checked on few images.</b> The two Groq and Gemini readers used earlier were unavailable this session (a daily limit and an invalid key), so the panel is two small local models. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
+<li><b>Automatic integrity is a proxy.</b> Asking a small model whether a garment is coherent caught none of the three known-malformed test images; a similarity floor caught all three, but it also fails the white top, whose real products are near-identical, so the human check remains necessary.</li>
+<li><b>The limits behind the checks still rest on a modest number of real photos:</b> 8 to 25 per style (the white top has 19 in the whole catalogue).</li>
+<li><b>The exact top three.</b> The model finds a useful neighbourhood but not the exact order, because the leaders are nearly tied.</li>
+</ul></section>"""
+
+
+def embargo_box() -> str:
+    """Correction box: the backtest's missing 13-week gap, and the COVID two-model answer."""
+    e = pl.read_csv(T / "backtest_embargo_check.csv").filter(pl.col("split") == "pooled")
+    h = {r["metric"]: r for r in e.to_dicts()}
+    top20, sp = h["hit_at_3_in_top20"], h["spearman_rho"]
+    c = pl.read_csv(T / "covid_two_model_comparison.csv")
+    purged = c.filter(
+        (pl.col("design") == "purged")
+        & (pl.col("split") == "all_noncovid")
+        & pl.col("metric").is_in(["spearman_rho", "wmape"])
+    ).to_dicts()
+    ctext = "; ".join(
+        f"{r['metric']}: {r['diff']:+.3f} ({r['ci_lo']:+.3f} to {r['ci_hi']:+.3f})" for r in purged
+    )
+    return f"""<aside class=callout><h3>A correction to the table above</h3>
+<p>The table trains each test date on every earlier date, but the last three of those have 13-week answers that run into the test window, so their answers include what the model is then asked to forecast. Re-run with a 13-week gap (train only on dates whose answers were already known), the headline Hit@3 in top 20 falls from <b>{top20['shipped']:.3f}</b> to <b>{top20['embargoed']:.3f}</b> (paired drop {top20['diff']:.3f}, {top20['ci_lo']:.3f} to {top20['ci_hi']:.3f}) and the rank correlation from <b>{sp['shipped']:.3f}</b> to <b>{sp['embargoed']:.3f}</b>. Six of seven measures are lower; the model is still well above guessing (0.004), but the honest headline is about {top20['embargoed']:.2f}, not {top20['shipped']:.2f}.</p>
+<p><b>Did COVID data help?</b> Training a second model that leaves out every date whose answer window touches March to June 2020, and scoring both on the same non-COVID dates (each scored out of sample), leaving COVID data out made rank correlation and calibration slightly worse ({_e(ctext)}, model without minus model with) and the top-k measures no different. So COVID data did not hurt, and mildly helped. Only 13 dates are available and the second model has about 40% fewer rows, so the size of the effect is not separable from simply having more data.</p></aside>"""
 
 
 def model_section() -> str:
@@ -458,80 +552,7 @@ def model_section() -> str:
     if not SPOT_PATH.exists():
         build_spotcheck_table()
     spot = f'<h3>A spot-check you can see</h3><img class=chart src="{spotcheck_chart()}" alt="forecast spot-check"><p class=gloss>Both panels share one vertical scale. The dark line is what each style actually sold per product on sale over the last 26 weeks of data; the blue bar is the model\'s forecast for the following 13 weeks (unobserved; the data ends 21 Sep 2020). The top-ranked style sells several times more than one ranked 1,500th, and the forecast reflects that. It also shows the forecast pulling back from a late-summer spike rather than extrapolating it.</p>'
-    return f"<section id=model><h2>Does the model actually predict?</h2><p class=lede>The model is scored on {n_orig} past dates: at each, it trains only on earlier data and forecasts the next 13 weeks, and we compare with what happened.</p>{glosses}{table}{shuffle_box}{spot}</section>"
-
-
-def summer_block() -> str:
-    """The summer concept's four tries and its checks, from the committed summer tables."""
-    scored = pl.read_csv(T / "seasonal_summer_scored.csv")
-    fid = (
-        pl.read_csv(T / "fidelity_both_figures.csv")
-        .filter(pl.col("season") == "Summer")
-        .to_dicts()[0]
-    )
-    from nss.generate.seasonal_concept import SELECTED_SEED, candidate_path
-
-    cards = []
-    for r in scored.to_dicts():
-        chosen = r["seed"] == SELECTED_SEED
-        cards.append(
-            f'<figure class="try{" chosen" if chosen else ""}"><img src="{_b64_image(candidate_path(r["seed"]), max_side=520)}" alt="summer try {r["seed"]}">'
-            f'<figcaption><b>{"Chosen" if chosen else "Not chosen"}</b> {_e(r["visual_qc"].split(": ", 1)[1])}</figcaption></figure>'
-        )
-    sel = scored.filter(pl.col("seed") == SELECTED_SEED).to_dicts()[0]
-    g2 = (
-        f"three readings; the middle value is <b>{fid['fidelity_visual_only']:.3f}</b> counting only the visible attributes (product type and colour) against a pass mark of {fid['threshold']:.3f}, "
-        f"and <b>{fid['fidelity_all_attributes']:.3f}</b> if the catalogue label \"{_e(fid['pattern_label'])}\" is also counted. Both figures are shown; the visible-only one is the rule."
-    )
-    return f"""<h3>The summer concept: four tries, one chosen</h3>
-<div class=tries>{"".join(cards)}</div>
-<p class=gloss>Chosen by eye. Two of the other three passed the automatic similarity checks anyway: one drifted to a grey pinstripe, one has straps sewn onto a bottom.</p>
-<div class=check><div class=chk-head><span class=chk-title>Fits in with real products of its style</span>{verdict_word(bool(sel["gate1_pass"]))}</div>
-<p class=chk-body>CLIP {_num(sel["clip_mean_sim"])} (limit {_num(sel["clip_p90_threshold"])}), DINOv2 {_num(sel["dinov2_mean_sim"])} (limit {_num(sel["dinov2_p90_threshold"])}).</p></div>
-<div class=check><div class=chk-head><span class=chk-title>Not a copy of any single photo</span>{verdict_word(bool(sel["gate1b_pass"]))}</div>
-<p class=chk-body>Closest reference photo: CLIP {_num(sel["clip_max_sim"])} (limit {_num(sel["clip_gate1b_threshold"])}), DINOv2 {_num(sel["dinov2_max_sim"])} (limit {_num(sel["dinov2_gate1b_threshold"])}). An exact copy fails this test.</p></div>
-<div class=check><div class=chk-head><span class=chk-title>Matches the style's visible attributes</span>{verdict_word(bool(fid['pass_visual_only']))}</div>
-<p class=chk-body>{g2}</p><p class=gloss>"Other structure" is an internal catalogue catch-all, not a pattern a viewer can name, so it is excluded from the check (the same fix as for "Jersey Basic" earlier); the image reader described the picture correctly as "solid, ribbed". The pass is narrow: 0.049 over the mark, well inside the ±0.21 noise between readings. The reference photos were screened by eye because the automatic framing check was out of free quota.</p></div>"""
-
-
-def seasonal_section() -> str:
-    """Section 4: the four seasonal top-3 tables and the Summer vs autumn/winter comparison."""
-    d = pl.read_csv(T / "top_styles_by_season_v2.csv")
-    blocks = []
-    for season in d["season"].unique(maintain_order=True).to_list():
-        rows = d.filter(pl.col("season") == season).sort("rank").head(3).to_dicts()
-        body = "".join(
-            f"<tr><td>{r['rank']}</td><td>{_e(r['style_key'].replace(' || ', ' · '))}</td><td class=n>{r['season_mean_intensity']:.1f}</td></tr>"
-            for r in rows
-        )
-        blocks.append(
-            f"<div class=season><h3>{season.title()}</h3><table><thead><tr><th>#</th><th>Style</th><th>Average weekly intensity</th></tr></thead><tbody>{body}</tbody></table></div>"
-        )
-    fig = ""
-    if SEASONAL_FIG.exists():
-        fig = f'<figure class=seasonfig><img src="{_b64_image(SEASONAL_FIG, max_side=1500)}" alt="Autumn/winter 2020 rank-1 concept beside summer rank-1 concept"><figcaption>The same pipeline, run for two seasons. The left picture is the forecast for the coming autumn and winter; the right is the summer winner.</figcaption></figure>'
-    text = ""
-    p = T / "seasonal_summer_forecast.csv"
-    if p.exists():
-        f = pl.read_csv(p).to_dicts()[0]
-        text = f'<p>For summer, the model was re-run as of 1 June 2020 (using only earlier data). It ranked swimwear bottoms {f["predicted_rank_among_eligible"]} of {f["n_eligible_styles"]:,} and predicted <b>{f["predicted_intensity"]:.1f}</b> units per product per week for June to August; the realised figure was <b>{f["realised_intensity"]:.1f}</b>, so the model got the ranking right but overshot the level by about {f["predicted_intensity"] / f["realised_intensity"] - 1:.0%}.</p><p class=gloss>The tables show each season\'s historical average weekly intensity among styles that pass the three sanity guards (enough products on sale, no heavy discounting, sold in most recent weeks).</p>'
-    return f'<section id=seasons><h2>Seasonal view</h2><p class=lede>Summer is led by swimwear; autumn and winter by black basics, knitwear and tights.</p><div class=seasons>{"".join(blocks)}</div>{text}{fig}{summer_block() if (T / "seasonal_summer_scored.csv").exists() else ""}</section>'
-
-
-def limits_section() -> str:
-    """Section 5: what could not be verified, said plainly."""
-    return f"""<section id=limits><h2>What we could not verify</h2>
-<ul class=limits>
-<li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
-<li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
-<li><b>The AI image reader is noisy and there is only one.</b> The same picture scored differently by up to ±{JUDGE_NOISE_BOUND:.2f} across sessions, every fidelity score comes from one model, and a second reader was unavailable (free-tier limits). The sweater's \"melange\" scored 0 although the flecking is visible: that is a genuine reader error and stays in its score.</li>
-<li><b>Automatic checks miss broken garments.</b> In an earlier exploration (red underwear, since retired as a final concept because intimates are excluded by an editorial rule) three of the four regenerated candidates were visibly malformed (a cut-out defect, sheer mesh, an unrecognisable folded object) and still passed every automatic check. A human check is required.</li>
-<li><b>None of the three concepts shows its briefed design change.</b> After two rounds of four tries per style, the generator kept the structure of the first reference photo and ignored the requested changes (cropped fit and white bands, funnel neck and brown rib, puff sleeves and belt). The T-shirt is a grey-bodied colour-block tee the brief never asked for, the sweater is a generic beige V-neck and the dress drifted from red to coral-pink. Passing the automatic checks did not make them new designs.</li>
-<li><b>The limits behind the checks are rough.</b> Each rests on only 4 to 6 real reference photos per style.</li>
-<li><b>The exact top three.</b> The model finds the right neighbourhood (72% in the true top 20) but not the exact order (5.6% exactly right), because the leaders are nearly tied.</li>
-<li><b>COVID.</b> The test window includes spring 2020; results are reported pooled and split, but the splits are too small to be more than directional.</li>
-<li><b>The summer concept's reference photos were screened by eye</b>, because the automatic framing judges were out of free quota that day.</li>
-</ul></section>"""
+    return f"<section id=model><h2>Does the model actually predict?</h2><p class=lede>The model is scored on {n_orig} past dates: at each, it trains only on earlier data and forecasts the next 13 weeks, and we compare with what happened.</p>{embargo_box()}{glosses}{table}{shuffle_box}{spot}</section>"
 
 
 CSS = """
@@ -595,14 +616,15 @@ def main() -> None:
     if "--refresh" in sys.argv or not SPOT_PATH.exists():
         build_spotcheck_table()
     concepts = _load_concepts()
-    nav = '<nav class=top aria-label="Sections"><a href="#concepts">The three concepts</a><a href="#trace">Trace-back</a><a href="#model">Does the model predict</a><a href="#seasons">Seasonal view</a><a href="#limits">What we could not verify</a></nav>'
+    nav = '<nav class=top aria-label="Sections"><a href="#concepts">The concepts</a><a href="#trace">Trace-back</a><a href="#loop">Closing the loop</a><a href="#model">Does the model predict</a><a href="#seasons">Seasonal view</a><a href="#limits">What we could not verify</a></nav>'
     body = (
         hero(concepts)
         + nav
         + concept_sections(concepts)
         + trace_back(concepts)
+        + closed_loop_section(concepts)
         + model_section()
-        + seasonal_section()
+        + seasonal_section(concepts)
         + limits_section()
         + "<footer>Numbers on this page are read from the CSV tables in <code>reports/tables/</code>. The full argument is in WRITEUP.md; how every file was produced is in SUBMISSION_CHECKLIST.md.</footer>"
     )

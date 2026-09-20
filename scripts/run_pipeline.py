@@ -138,7 +138,7 @@ from nss.generate import (
 )
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h4_deliverables import SELECTED
+from nss.generate.h4_deliverables import concept_filename, selected_seed
 from nss.generate.scale_sweep import free_sdxl_pipeline
 from nss.models import diversity_forecast, final_forecast, final_three_shap_verdict
 
@@ -160,17 +160,13 @@ DEFAULT_GENERATED_IMAGES_DIR = Path("data/generated/pipeline_run")
 # --- Dry-run mode (task K4) ---------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # The three final concepts, committed so a reviewer without a GPU (or without data/generated/) can
-# still run every stage: style order matches `final_deliverables.STYLE_ORDER` (T-shirt, sweater,
-# dress); the seed and attempt are the ones `h4_deliverables.SELECTED` records.
+# still run every stage: style order matches `final_deliverables.STYLE_ORDER` (sweater, dress,
+# top); the files are the ones `h4_deliverables.SELECTED` records.
 DRY_RUN_CONCEPTS_DIR = Path("reports/concepts")
 DRY_RUN_CONCEPT_FILES: dict[str, str] = dict(
     zip(
         STYLE_ORDER,
-        (
-            f"black-jersey-basic-tshirt_{SELECTED[STYLE_ORDER[0]][1]}_seed{SELECTED[STYLE_ORDER[0]][0]}.png",
-            f"beige-melange-sweater_{SELECTED[STYLE_ORDER[1]][1]}_seed{SELECTED[STYLE_ORDER[1]][0]}.png",
-            f"red-dress_{SELECTED[STYLE_ORDER[2]][1]}_seed{SELECTED[STYLE_ORDER[2]][0]}.png",
-        ),
+        tuple(concept_filename(sid) for sid in STYLE_ORDER),
         strict=True,
     )
 )
@@ -251,7 +247,7 @@ def build_dry_run_candidates(
         path = concepts_dir / DRY_RUN_CONCEPT_FILES[style_id]
         if not path.exists():
             raise FileNotFoundError(f"committed final concept image missing: {path}")
-        out[style_id] = [final_concepts.Candidate(style_id, SELECTED[style_id][0], path)]
+        out[style_id] = [final_concepts.Candidate(style_id, selected_seed(style_id), path)]
     return out
 
 
