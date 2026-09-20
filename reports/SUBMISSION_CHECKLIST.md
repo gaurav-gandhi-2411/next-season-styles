@@ -46,8 +46,9 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 ## Known limits a reviewer should weigh
 
 - Two of four final concepts pass every automatic gate. The white top fails the integrity floor by mechanism (19 near-identical real articles) and the summer bikini top fails Gate 2 on one reader's pattern answer; a human confirmed every requested change is visible except that the top's cuffs are narrower than briefed.
-- The walk-forward headline Hit@3-in-top20 is 0.528 with a 13-week gap, not 0.722 (`reports/tables/backtest_embargo_check.csv`).
-- The image readers are two small local models; Groq and Gemini were unavailable this session. The design-change reader over-says yes; the human check decides.
+- The walk-forward headline Hit@3-in-top20 is 0.528 with a 13-week gap, not 0.722 (`reports/tables/backtest_embargo_check.csv`). Post-embargo, paired: comparable to seasonal naive on top-k (top-20 +0.233, CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and better than persistence and the naive means on every metric (`backtest_embargo_paired_diff.csv`).
+- The image readers are two small local models (SmolVLM gates, Florence-2 is advisory: kappa 0.36-0.48 vs API judges); Groq's daily budget is spent and Gemini's key returns 401. The design-change reader over-says yes; the human check decides.
+- A global integrity floor was tested and rejected (it misses one known-malformed image): `integrity_global_validation.csv`. The summer prediction (37.88) matches the realised value (37.94) by luck: typical error is 6 units (`p4_summer_check.csv`).
 - The closed-loop style extraction is poor on real photos (exact style 12.5%); outputs are labelled low-confidence.
 - COVID data did not hurt and mildly helped (13 non-COVID origins, second model has ~40% fewer rows).
 - Full-mode generation is reproducible with `python -m nss.generate.n9_generate`; the dry run covers wiring.

@@ -91,9 +91,12 @@ too easily), so a human check decides. Details: `reports/tables/final_selection_
 
 **Evaluation correction:** the shipped walk-forward headline (Hit@3-in-top20 0.722) trained on
 labels that overlap the test window. With a 13-week gap it is **0.528** (paired drop 0.194, CI
-[0.111, 0.250]); see `reports/tables/backtest_embargo_check.csv` and WRITEUP section 3. The
-label-shuffle control (0 hits in 108 picks) does not detect this leak. COVID: a second model
-without COVID-overlapping training rows was no better (`covid_two_model_comparison.csv`).
+[0.111, 0.250]); see `reports/tables/backtest_embargo_check.csv`. Re-done as a paired comparison
+(`backtest_embargo_paired_diff.csv`), the embargoed model is comparable to seasonal naive on top-k
+(top-20 +0.233, CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and better than
+persistence and the naive means on every metric. The label-shuffle control (0 hits in 108 picks)
+does not detect this leak. COVID: a second model without COVID-overlapping training rows was no
+better (`covid_two_model_comparison.csv`).
 
 ## Project layout
 

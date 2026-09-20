@@ -31,6 +31,8 @@ from PIL import Image
 from nss.generate import final_registry, n9_generate
 from nss.generate.final_deliverables import STYLE_ORDER
 from nss.generate.h4_deliverables import OBSERVED_CAPTIONS
+from nss.generate.n9_score import ADVISORY_JUDGES
+from nss.viz import demo_explorer
 
 OUT_PATH = Path("reports/DEMO.html")
 T = Path("reports/tables")
@@ -244,11 +246,13 @@ def _load_concepts() -> list[dict]:
 
 
 def hero(concepts: list[dict]) -> str:
-    """The concepts as the opening image strip, then the three-sentence orientation."""
+    """The concepts large, each with its briefed changes called out, then the orientation."""
     aw = [c for c in concepts if c["sid"] in STYLE_ORDER]
     figs = "".join(
         f'<figure><img src="{_b64_image(Path(c["sel"]["image_path"]), jpeg=True)}" alt="{_e(c["name"])} concept">'
-        f'<figcaption><b>{_e(c["name"])}</b><span>{_e(OBSERVED_CAPTIONS[c["sid"]])}</span></figcaption></figure>'
+        f'<figcaption><b>{_e(c["name"])}</b><span>{_e(OBSERVED_CAPTIONS[c["sid"]])}</span>'
+        f'<ul class=chg aria-label="Design changes asked for">{"".join(f"<li>{_e(x)}</li>" for x in c["asked"])}</ul>'
+        f'<em class="{"ok" if c["sel"]["human_brief_met"] else "no"}">{"Changes confirmed by eye" if c["sel"]["human_brief_met"] else "Changes not all visible"}</em></figcaption></figure>'
         for c in aw
     )
     met = sum(1 for c in concepts if c["sel"]["human_brief_met"])
@@ -257,9 +261,9 @@ def hero(concepts: list[dict]) -> str:
 <h1>Three garments a forecast chose, and the pictures made from them.</h1></header>
 <div class=strip>{figs}</div>
 <section class=first><h2>What to look at first</h2>
-<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020. Its emerging risers, after a human editorial rule that removed intimates and garments that cannot be told apart in a flat photo, and required different colours and product types, were a beige knit sweater, a red dress and a white jersey top.</p>
-<p><b>What was generated from it.</b> For each style an image generator was given several real H&amp;M photos of the style as a guide, plus a sentence naming two design changes, and asked for a new garment. The pictures above are the best of eight tries each, chosen by a set of automatic checks and then by a person looking.</p>
-<p><b>How to judge whether it worked.</b> Does each picture show the design change that was asked for, and is it still a believable product of its style (section 1: the person judged {met} of {len(concepts)} concepts to show every requested change; {auto} of {len(concepts)} pass every automatic check)? Then, scored back through the same forecaster, what does the model say about the garment it made (section 3)?</p></section>"""
+<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020. Its emerging risers, after a human rule that removed intimates and garments that cannot be told apart in a flat photo, were a beige knit sweater, a red dress and a white jersey top.</p>
+<p><b>What was generated from it.</b> For each style an image generator was given several real H&amp;M photos of the style as a guide, plus a sentence naming two design changes (listed under each picture). Each picture is the best of eight tries, chosen by automatic checks and then by a person looking.</p>
+<p><b>How to judge whether it worked.</b> Is each requested change visible, and is the picture still a believable product of its style? A person confirmed the changes on {met} of {len(concepts)} concepts (three autumn and winter, one summer); {auto} pass every automatic check. To find your own category, browse the forecast below.</p></section>"""
 
 
 def _check_row(title: str, verdict: str, body: str, gloss: str) -> str:
@@ -278,7 +282,7 @@ def concept_sections(concepts: list[dict]) -> str:
         r = c["sel"]
         judges = r["judges"].split(",")
         g2 = "; ".join(
-            f"{j}: <b>{_num(r[f'{j}_fidelity'], 2)}</b> ({'pass' if r[f'{j}_gate2_pass'] else 'below its pass mark'})"
+            f"{j}{' (advisory)' if j in ADVISORY_JUDGES else ''}: <b>{_num(r[f'{j}_fidelity'], 2)}</b> ({'pass' if r[f'{j}_gate2_pass'] else 'below its pass mark'})"
             for j in judges
         )
         g3 = "; ".join(
@@ -349,7 +353,7 @@ def concept_sections(concepts: list[dict]) -> str:
                     "Two local image readers, shown only the picture, were asked for product type, colour and pattern: "
                     + g2
                     + ".",
-                    "Both readers must clear their own pass mark. A reader that sees a brown trim on a beige sweater will say 'brown': a real limit of scoring colour from a single word.",
+                    "SmolVLM gates; Florence-2 is advisory because its agreement with the API readers was too low to carry a verdict. A reader that sees a brown trim on a beige sweater will say 'brown': a real limit of scoring colour from a single word.",
                 ),
                 _check_row(
                     "Scored back through the forecaster (closed loop)",
@@ -460,99 +464,88 @@ def limits_section() -> str:
 <ul class=limits>
 <li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
 <li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
-<li><b>The image readers are small and were checked on few images.</b> The two Groq and Gemini readers used earlier were unavailable this session (a daily limit and an invalid key), so the panel is two small local models. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
+<li><b>The image readers are small and were checked on few images.</b> The two Groq and Gemini readers used earlier were unavailable this session (a daily limit and an invalid key), so the panel is two small local models, one of them advisory. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
 <li><b>Automatic integrity is a proxy.</b> Asking a small model whether a garment is coherent caught none of the three known-malformed test images; a similarity floor caught all three, but it also fails the white top, whose real products are near-identical, so the human check remains necessary.</li>
 <li><b>The limits behind the checks still rest on a modest number of real photos:</b> 8 to 25 per style (the white top has 19 in the whole catalogue).</li>
 <li><b>The exact top three.</b> The model finds a useful neighbourhood but not the exact order, because the leaders are nearly tied.</li>
 </ul></section>"""
 
 
-def embargo_box() -> str:
-    """Correction box: the backtest's missing 13-week gap, and the COVID two-model answer."""
-    e = pl.read_csv(T / "backtest_embargo_check.csv").filter(pl.col("split") == "pooled")
-    h = {r["metric"]: r for r in e.to_dicts()}
-    top20, sp = h["hit_at_3_in_top20"], h["spearman_rho"]
-    c = pl.read_csv(T / "covid_two_model_comparison.csv")
-    purged = c.filter(
+def model_section() -> str:
+    """Does the model work? Embargoed table with paired differences, controls, spot-check."""
+    summ = {
+        r["method"]: r
+        for r in pl.read_csv(T / "backtest_embargo_summary.csv")
+        .filter(pl.col("split") == "pooled")
+        .to_dicts()
+    }
+    paired = pl.read_csv(T / "backtest_embargo_paired_diff.csv").filter(pl.col("split") == "pooled")
+    old = {
+        r["metric"]: r
+        for r in pl.read_csv(T / "backtest_embargo_check.csv")
+        .filter(pl.col("split") == "pooled")
+        .to_dicts()
+    }
+    shuf = pl.read_csv(T / "label_shuffle_control.csv").filter(
+        pl.col("variant") == "shuffled_train_true_test"
+    )
+    keys = [
+        ("hit_at_3_in_top20", "Hit@3 in top 20"),
+        ("hit_at_3_in_top10", "Hit@3 in top 10"),
+        ("ndcg_at_10", "NDCG@10"),
+        ("spearman_rho", "Spearman"),
+        ("wmape", "WMAPE (lower is better)"),
+    ]
+    lg, fl = summ["lightgbm"], summ["random_floor"]
+    top20 = old["hit_at_3_in_top20"]
+    cov = pl.read_csv(T / "covid_two_model_comparison.csv")
+    cv = cov.filter(
         (pl.col("design") == "purged")
         & (pl.col("split") == "all_noncovid")
         & pl.col("metric").is_in(["spearman_rho", "wmape"])
     ).to_dicts()
     ctext = "; ".join(
-        f"{r['metric']}: {r['diff']:+.3f} ({r['ci_lo']:+.3f} to {r['ci_hi']:+.3f})" for r in purged
+        f"{r['metric'].replace('_rho', '')} {r['diff']:+.3f} ({r['ci_lo']:+.3f} to {r['ci_hi']:+.3f})"
+        for r in cv
     )
-    return f"""<aside class=callout><h3>A correction to the table above</h3>
-<p>The table trains each test date on every earlier date, but the last three of those have 13-week answers that run into the test window, so their answers include what the model is then asked to forecast. Re-run with a 13-week gap (train only on dates whose answers were already known), the headline Hit@3 in top 20 falls from <b>{top20['shipped']:.3f}</b> to <b>{top20['embargoed']:.3f}</b> (paired drop {top20['diff']:.3f}, {top20['ci_lo']:.3f} to {top20['ci_hi']:.3f}) and the rank correlation from <b>{sp['shipped']:.3f}</b> to <b>{sp['embargoed']:.3f}</b>. Six of seven measures are lower; the model is still well above guessing (0.004), but the honest headline is about {top20['embargoed']:.2f}, not {top20['shipped']:.2f}.</p>
-<p><b>Did COVID data help?</b> Training a second model that leaves out every date whose answer window touches March to June 2020, and scoring both on the same non-COVID dates (each scored out of sample), leaving COVID data out made rank correlation and calibration slightly worse ({_e(ctext)}, model without minus model with) and the top-k measures no different. So COVID data did not hurt, and mildly helped. Only 13 dates are available and the second model has about 40% fewer rows, so the size of the effect is not separable from simply having more data.</p></aside>"""
-
-
-def model_section() -> str:
-    """Section 3: does the model actually predict? Table, shuffle control, spot-check."""
-    summ = pl.read_csv(T / "backtest_summary_v2.csv").filter(pl.col("split") == "pooled")
-    paired = pl.read_csv(T / "backtest_paired_diff.csv").filter(pl.col("split") == "pooled")
-    oracle = pl.read_csv(T / "g1_diagnostics_summary.csv").filter(
-        pl.col("diagnostic") == "a_persistence_oracle"
-    )
-    shuf = pl.read_csv(T / "label_shuffle_control.csv")
-    n_eval = pl.read_csv(T / "backtest_per_origin_lightgbm.csv")["n_eval_set"].mean()
-    row = {r["method"]: r for r in summ.to_dicts()}
-    lg, fl = row["lightgbm"], row["random_floor"]
-    n_orig = lg["n_origins"]
-
-    glosses = f"""<dl class=metricgloss>
-<dt>Hit@3 in top 20 = {lg['hit_at_3_in_top20_mean']:.3f}</dt><dd>When the model names its three best styles, they land in the true top 20 (of about {round(n_eval, -2):,.0f} styles) about {lg['hit_at_3_in_top20_mean']:.0%} of the time. Random guessing scores {fl['hit_at_3_in_top20_mean']:.1%}. This is the headline number.</dd>
-<dt>Hit@3 in top 10 = {lg['hit_at_3_in_top10_mean']:.3f}</dt><dd>The same, against the true top 10: {lg['hit_at_3_in_top10_mean']:.0%} for the model, {fl['hit_at_3_in_top10_mean']:.1%} for guessing.</dd>
-<dt>Precision@3 = {lg['precision_at_3_mean']:.3f}</dt><dd>How often the three named styles are exactly the true top three, in any order: {lg['precision_at_3_mean']:.1%}, guessing {fl['precision_at_3_mean']:.1%}. This is low for every method because the true #3 and #4 styles differ by about half a percent of sales, so the model finds the right neighbourhood, not the exact order.</dd>
-<dt>NDCG@10 = {lg['ndcg_at_10_mean']:.3f}</dt><dd>Scores the model's top 10 by how much real demand they carry (1.0 is perfect). Even random picks score {fl['ndcg_at_10_mean']:.2f}, because most styles sell similar amounts, so read {lg['ndcg_at_10_mean']:.2f} against {fl['ndcg_at_10_mean']:.2f}.</dd>
-<dt>Spearman = {lg['spearman_rho_mean']:.3f}</dt><dd>How closely the model's full ranking of all styles matches the true ranking: 1 is identical, 0 is unrelated. Guessing gives {fl['spearman_rho_mean']:.3f}.</dd></dl>"""
-
-    head = "".join(f"<th>{lab}</th>" for _, lab in METRICS)
+    head = "".join(f"<th>{lab}</th>" for _, lab in keys)
     rows = []
     for method, (label, gloss) in METHODS.items():
-        s = row[method]
+        m = summ[method]
         cells = []
-        for key, _ in METRICS:
-            cell = _ci(s[f"{key}_mean"], s[f"{key}_ci_low"], s[f"{key}_ci_high"])
-            if method != "lightgbm":
-                p = paired.filter(
-                    (pl.col("method_b") == method) & (pl.col("metric") == key)
+        for k, _ in keys:
+            cell = _ci(m[f"{k}_mean"], m.get(f"{k}_ci_low"), m.get(f"{k}_ci_high"))
+            if method not in ("lightgbm", "random_floor"):
+                q = paired.filter(
+                    (pl.col("method_b") == method) & (pl.col("metric") == k)
                 ).to_dicts()
-                if p and p[0]["mean_diff"] == p[0]["mean_diff"]:
-                    q = p[0]
+                if q and q[0]["mean_diff"] == q[0]["mean_diff"]:
+                    q = q[0]
                     cell += f'<span class=paired>model minus this: {q["mean_diff"]:+.3f} ({q["diff_ci_low"]:+.3f} to {q["diff_ci_high"]:+.3f})</span>'
             cells.append(f"<td>{cell}</td>")
         cls = " class=me" if method == "lightgbm" else ""
         rows.append(
             f'<tr{cls}><th scope=row>{label}<span class=gloss>{gloss}</span></th>{"".join(cells)}</tr>'
         )
-    o = {r["metric"]: r for r in oracle.to_dicts()}
-    ocells = "".join(
-        f"<td>{_ci(o[k]['value'], o[k]['ci_low'], o[k]['ci_high'])}</td>"
-        if k in o
+    sc = "".join(
+        f"<td><span class=big>{sum(shuf[k].to_list()) / shuf.height:.3f}</span></td>"
+        if k in shuf.columns
         else "<td>not measured</td>"
-        for k, _ in METRICS
+        for k, _ in keys
     )
     rows.append(
-        f'<tr><th scope=row>Cheating check: a "persistence" forecast that only uses data available at the time<span class=gloss>Tests the idea that the model just repeats recent sales; it does worse than the model.</span></th>{ocells}</tr>'
+        f"<tr class=shuffle><th scope=row>Leakage test: the model retrained on scrambled answers<span class=gloss>Same model and data, but which sales figure belongs to which style is shuffled before training. It should collapse to chance, and it does.</span></th>{sc}</tr>"
     )
-    seeds = shuf.filter(pl.col("variant") == "shuffled_train_true_test")
-    scells = "".join(
-        f"<td><span class=big>{sum(seeds[k].to_list()) / seeds.height:.3f}</span> <span class=ci>({min(seeds[k].to_list()):.3f} to {max(seeds[k].to_list()):.3f})</span></td>"
-        for k, _ in METRICS
-    )
-    rows.append(
-        f"<tr class=shuffle><th scope=row>Leakage test: the model retrained on scrambled answers<span class=gloss>Same model, same data, but which sales figure belongs to which style was shuffled before training.</span></th>{scells}</tr>"
-    )
-    ctrl = shuf.filter(pl.col("variant") == "unshuffled_positive_control").to_dicts()[0]
-    table = f'<div class=scroll><table class=metrics><thead><tr><th>Method</th>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div><p class=gloss>Each cell is the average over {n_orig} test dates the model never saw, with a 95% interval in brackets. "Model minus this" is the model advantage over that method on the same dates; an interval entirely above zero means the advantage is reliable.</p>'
-    hits = sum(round(x * 36) for x in seeds["hit_at_3_in_top20"].to_list())
-    shuffle_box = f"""<aside class=callout><h3>How do we know the forecast isn't cheating?</h3>
-<p>We scrambled which sales figure belongs to which style, retrained the same model three times, and scored it on the real answers. It collapsed to chance: <b>{hits} hits in 108 picks</b> (Hit@3 in top 20 = {seeds['hit_at_3_in_top20'].mean():.3f}, guessing scores {fl['hit_at_3_in_top20_mean']:.3f}). Run through the same code without scrambling, it reproduces {ctrl['hit_at_3_in_top20']:.3f}. If information from the future had leaked into the inputs, the scrambled model could not have fallen to chance.</p></aside>"""
-
+    table = f'<div class=scroll><table class=metrics><thead><tr><th>Method</th>{head}</tr></thead><tbody>{"".join(rows)}</tbody></table></div><p class=gloss>Each cell is the average over 12 past dates, with a 95% interval from a block bootstrap. "Model minus this" is the paired difference on the same dates. Seasonal naive is undefined at 2 of the 12 dates (no year-ago sales), so its paired rows use 10.</p>'
     if not SPOT_PATH.exists():
         build_spotcheck_table()
-    spot = f'<h3>A spot-check you can see</h3><img class=chart src="{spotcheck_chart()}" alt="forecast spot-check"><p class=gloss>Both panels share one vertical scale. The dark line is what each style actually sold per product on sale over the last 26 weeks of data; the blue bar is the model\'s forecast for the following 13 weeks (unobserved; the data ends 21 Sep 2020). The top-ranked style sells several times more than one ranked 1,500th, and the forecast reflects that. It also shows the forecast pulling back from a late-summer spike rather than extrapolating it.</p>'
-    return f"<section id=model><h2>Does the model actually predict?</h2><p class=lede>The model is scored on {n_orig} past dates: at each, it trains only on earlier data and forecasts the next 13 weeks, and we compare with what happened.</p>{embargo_box()}{glosses}{table}{shuffle_box}{spot}</section>"
+    spot = f'<h3>A spot-check you can see</h3><img class=chart src="{spotcheck_chart()}" alt="forecast spot-check"><p class=gloss>The best-ranked style and the style ranked 1,500th, both on one scale: the dark line is what each style actually sold, the coloured line is what the model forecast from earlier data.</p>'
+    return f"""<section id=model><h2>Does the model actually work?</h2>
+<p class=lede>Scored on 12 past dates: at each, the model is trained only on dates whose 13-week answers were already known, then forecasts the next 13 weeks, and we compare with what happened.</p>
+<aside class=callout><h3>The honest headline</h3>
+<p>Hit@3 in top 20 is <b>{lg['hit_at_3_in_top20_mean']:.3f}</b> (guessing: {fl['hit_at_3_in_top20_mean']:.3f}). An earlier version of this page showed {top20['shipped']:.3f}: that run trained on dates whose answers overlapped the test window. Closing the leak lowers it by {top20['diff']:.3f} (paired, {top20['ci_lo']:.3f} to {top20['ci_hi']:.3f}). Against the naive baselines the lead holds; against "same as last year" it is a lead on ranking quality (NDCG, Spearman, WMAPE) but not demonstrably on picking the top three.</p>
+<p><b>Did COVID data help?</b> A second model without training rows whose answers touch March to June 2020, scored out of sample on 13 non-COVID dates, was worse on rank correlation and calibration ({_e(ctext)}, without minus with) and no different on top-k. COVID data did not hurt and mildly helped; the second model also has about 40% fewer rows.</p></aside>
+{table}{spot}</section>"""
 
 
 CSS = """
@@ -604,6 +597,7 @@ h3{font:600 1.15rem/1.3 var(--sans);margin:0 0 10px}h4{font:600 .95rem/1.3 var(-
 .seasons{display:grid;grid-template-columns:repeat(2,1fr);gap:32px 40px}.season table{font-size:.9rem}.season th,.season td{padding:8px 8px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}.season thead th{border-top:0;border-bottom:2px solid var(--ink);font-size:.8rem}.season .n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .seasonfig{margin:48px 0 0}.seasonfig img{width:100%;height:auto;display:block}.seasonfig figcaption{color:var(--muted);font-size:.92rem;margin-top:8px;max-width:70ch}
 .tries{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:12px 0}.try{margin:0}.try img{width:100%;display:block;background:var(--wash)}.try figcaption{font-size:.82rem;line-height:1.4;color:var(--muted);padding-top:6px}.try.chosen img{outline:3px solid var(--accent);outline-offset:2px}.try b{color:var(--ink)}\n.limits{max-width:74ch;padding-left:1.1em}.limits li{margin:0 0 14px;line-height:1.55}
+.chg{margin:8px 0 6px;padding-left:1.1em;font-size:.88rem;color:var(--ink)}.strip em{font-style:normal;font-size:.8rem;font-weight:600}.strip em.ok{color:var(--accent)}.strip em.no{color:var(--muted)}
 nav.top{display:flex;flex-wrap:wrap;gap:6px 22px;padding:14px 0;border-bottom:1px solid var(--rule);font-size:.92rem}
 footer{margin-top:96px;color:var(--muted);font-size:.85rem;max-width:72ch}
 @media(max-width:900px){.tries{grid-template-columns:1fr 1fr}.cols{grid-template-columns:1fr}.chain{grid-template-columns:1fr 1fr}.strip{grid-template-columns:1fr}.seasons{grid-template-columns:1fr}h2{margin-top:80px}}
@@ -616,10 +610,20 @@ def main() -> None:
     if "--refresh" in sys.argv or not SPOT_PATH.exists():
         build_spotcheck_table()
     concepts = _load_concepts()
-    nav = '<nav class=top aria-label="Sections"><a href="#concepts">The concepts</a><a href="#trace">Trace-back</a><a href="#loop">Closing the loop</a><a href="#model">Does the model predict</a><a href="#seasons">Seasonal view</a><a href="#limits">What we could not verify</a></nav>'
+    nav = (
+        '<nav class=top aria-label="Sections"><a href="#explorer">Browse the forecast</a>'
+        '<a href="#concepts">Evidence</a><a href="#model">Does the model work</a>'
+        '<a href="#seasons">Seasonal view</a><a href="#limits">Limits</a></nav>'
+    )
+    concept_images = {
+        c["sid"]: _b64_image(Path(c["sel"]["image_path"]), jpeg=True, max_side=520)
+        for c in concepts
+        if c["sid"] in STYLE_ORDER
+    }
     body = (
         hero(concepts)
         + nav
+        + demo_explorer.section(concept_images)
         + concept_sections(concepts)
         + trace_back(concepts)
         + closed_loop_section(concepts)
@@ -631,7 +635,7 @@ def main() -> None:
     doc = (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         '<meta name=viewport content="width=device-width,initial-scale=1">'
-        f"<title>next-season-styles demo</title><style>{CSS}</style></head><body><main>{body}</main></body></html>"
+        f"<title>next-season-styles demo</title><style>{CSS}{demo_explorer.CSS}</style></head><body><main>{body}</main></body></html>"
     )
     OUT_PATH.write_text(doc, encoding="utf-8")
     print(f"Wrote {OUT_PATH} ({len(doc) / 1e6:.1f} MB)")

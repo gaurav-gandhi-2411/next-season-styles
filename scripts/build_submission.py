@@ -88,8 +88,18 @@ def verify() -> list[str]:
                 im.verify()
         elif name.endswith(".html"):
             html = f.read_text(encoding="utf-8")
-            if re.search(r"""(?:src|href)=["']https?://""", html) or "<script" in html:
-                problems.append(f"{name} has an external reference or a script")
+            # The interactive demo carries INLINE script (its data is embedded JSON); what must never
+            # appear is anything that leaves the file: a script/link/img with a URL, any http(s) URL
+            # (the SVG namespace string is an identifier, not a request), fetch/XHR/import().
+            bare = html.replace("http://www.w3.org/2000/svg", "")
+            if (
+                re.search(r"<script[^>]*\bsrc=", html)
+                or re.search(r"<(?:link|iframe|embed|object)\b", html)
+                or re.search(r"https?://", bare)
+                or re.search(r"\b(?:fetch|XMLHttpRequest|importScripts|WebSocket)\s*\(", html)
+                or re.search(r"\bimport\s*\(", html)
+            ):
+                problems.append(f"{name} has an external reference")
             if html.count("data:image/") < 10:
                 problems.append(f"{name} has fewer inlined images than expected")
         elif f.stat().st_size < 500:
