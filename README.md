@@ -44,6 +44,16 @@ Uses [uv](https://github.com/astral-sh/uv); `uv.lock` is committed. The install 
 uv sync
 ```
 
+**macOS or CPU-only machines:** `pyproject.toml` pins `torch` and `torchvision` to the CUDA 13.0 index (`pytorch-cu130`), and I have only verified `uv sync` as written on Windows. If it does not resolve on your platform, skip those two packages and install CPU builds yourself; nothing below needs CUDA except full generation. On macOS drop the `--index-url` option so PyPI's build is used. Afterwards run commands with `uv run --no-sync` so uv does not reinstall the pinned builds:
+
+```
+uv sync --frozen --no-install-package torch --no-install-package torchvision
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+uv run --no-sync python -m nss.demo_backtest
+```
+
+I ran exactly this on Windows (CPU torch 2.14.0; demo and 83 tests passed); I have not run it on macOS or Linux.
+
 **1. No dataset, no GPU: run the real evaluation harness on synthetic data (about 15 seconds on my machine).**
 
 ```
@@ -81,6 +91,10 @@ uv run --no-sync python scripts/run_pipeline.py --dry-run   # every stage on CPU
 Generation needed real work: an earlier round produced no briefed design change in 12 images, and the cause was measured rather than assumed (`reports/tables/prompt_lever_summary.md`).
 
 Commands here were developed with Git Bash from PowerShell on Windows 11; `make` targets and `uv` commands are shell-agnostic.
+
+## Corrections since submission
+
+The random-permutation floor in the backtest tables was not stable across processes. `build_predictions_frame` did not fix row order, and the floor permutes the true values in row order, so its Hit@3-in-top20 came out anywhere from 0.004 to 0.011 between runs (0.0111 in the tables I submitted). Rows are now sorted by origin and style key; three separate processes produce byte-identical output, and the floor is 0.0069. The conclusion is unchanged: about 0.01 against the model's 0.528. LightGBM, EWMA persistence, seasonal-naive and parent-category-mean numbers did not move. The `global_mean` baseline predicts a single value per origin, so its top-10 metrics depend only on how ties are ordered: its NDCG@10 is now 0.203 where an arbitrary order gave 0.403, and it carries no ranking information either way. The write-up and the submission bundle quote neither number and are unchanged. Regenerated: `backtest_embargo_*`, `backtest_summary_v2`, `backtest_paired_diff`, `label_shuffle_control`, `lambdarank_vs_l2_comparison`. Not regenerated, so their floor and global-mean comparator rows are still the earlier draws: `neighbourhood_*`, `buyer_price_*` (both rejected-feature experiments) and the pre-Hit@k `backtest_per_origin.csv` / `backtest_summary.csv`. One cell of `backtest_paired_diff.csv` differs by a last-digit float step (about 1e-17) between two full reruns; I did not track down its source.
 
 ## MCP server
 
