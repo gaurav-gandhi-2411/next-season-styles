@@ -10,7 +10,7 @@ persisted to `data/generated/judge_cache.jsonl`, and both the old (4-attribute) 
 a paired, exact before/after. Never re-called for a cached image.
 
 Usage:
-    uv run python -m nss.generate.h2_rejudge
+    uv run python -m nss.generate.judge_rescore
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ from nss.generate.concept_qc_pipeline import (
 )
 
 CACHE_PATH = Path("data/generated/judge_cache.jsonl")
-RESCORE_PATH = Path("reports/tables/h2_judge_rescore.csv")
-CALIBRATION_H2_PATH = Path("reports/tables/h2_calibration_recomputed.csv")
+RESCORE_PATH = Path("reports/tables/judge_rescore.csv")
+CALIBRATION_H2_PATH = Path("reports/tables/judge_calibration_recomputed.csv")
 F5_TABLE_PATH = Path("reports/tables/final_concepts_v3.csv")
 TRANSIENT_RETRIES = 3
 TRANSIENT_SLEEP_SECONDS = 20.0

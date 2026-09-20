@@ -7,8 +7,8 @@ from `screen_references.load_screened_references` (best-selling full-garment pho
 goes to `data/generated/final_concepts_m3/attempt<N>/`.
 
 Usage:
-    uv run python -m nss.generate.m3_generate generate <attempt>
-    uv run python -m nss.generate.m3_generate score <attempt>
+    uv run python -m nss.generate.reselection_generate generate <attempt>
+    uv run python -m nss.generate.reselection_generate score <attempt>
 """
 
 from __future__ import annotations

@@ -17,7 +17,7 @@ LEAVE-OUT (critical): the 40 evaluation `article_id`s are dropped from every sty
 the style means are formed. A style left with no photo is UNCOVERED, can never be retrieved, and
 counts as a MISS at every k (reported as `coverage`, and every metric is reported both over all 40
 photos and over the covered subset only). The index only holds photos already on disk plus a
-time-budgeted fetch (`scripts/q2_fetch_index_images.py`), so coverage of the ~2,000 forecast styles
+time-budgeted fetch (`scripts/fetch_index_images.py`), so coverage of the ~2,000 forecast styles
 is partial by construction; top-k accuracy over all 40 is bounded above by coverage.
 
 TWO INDEX CONDITIONS (declared before any 40-photo number was computed; a 6-photo debugging run of
@@ -44,7 +44,7 @@ by confidence label (calibration). Top-5 is the fair headline (styles are near-t
 construction); top-1 is reported too. Baseline: the N8 free-text route, 12.5% exact style
 (SmolVLM), 2.5% (Florence-2) (`reports/tables/concept_forecast_validation.csv`, untouched).
 
-Output: `reports/tables/q2_retrieval_validation.csv` (`condition` = `deployment_coverage` |
+Output: `reports/tables/retrieval_validation_partial_index.csv` (`condition` = `deployment_coverage` |
 `gallery_covers_eval` | `loo_deployment_index`; `row_type` = `photo` | `summary_*`;
 `config` = `clip` | `dino` | `avg`; summary rows have `style_key` = `ALL`).
 
@@ -65,9 +65,9 @@ from nss.generate import concept_forecast_index as cfi
 N8_VALIDATION = Path("reports/tables/concept_forecast_validation.csv")  # the baseline's 40 styles
 IMAGES_DIR = Path("data/images")
 EVAL_FETCH_DIR = Path("data/images_q2_eval")
-OUT = Path("reports/tables/q2_retrieval_validation.csv")
+OUT = Path("reports/tables/retrieval_validation_partial_index.csv")
 OLD_OUT = OUT  # the 415-style results (kept untouched); the full-catalogue run writes FULL_OUT
-FULL_OUT = Path("reports/tables/q2_retrieval_validation_full.csv")
+FULL_OUT = Path("reports/tables/retrieval_validation.csv")
 N_STYLES = 40
 GALLERY_PER_STYLE = 2
 
@@ -231,7 +231,7 @@ def _summary_rows(
 
 def gallery_article_ids(per_style: int = GALLERY_PER_STYLE) -> list[int]:
     """Up to `per_style` OTHER articles (lowest ids) of each evaluation style: the gallery photos
-    (`scripts/q2_fetch_validation_photos.py` fetches them; never an evaluation photo)."""
+    (`scripts/fetch_validation_photos.py` fetches them; never an evaluation photo)."""
     reps = _sample_reps()
     art = cfi.load_article_styles()
     out: list[int] = []
@@ -404,7 +404,7 @@ def main_full() -> None:
 
     pl.concat(parts, how="vertical_relaxed").write_csv(FULL_OUT)
     pl.DataFrame({"style_key": uncovered}, schema={"style_key": pl.String}).write_csv(
-        FULL_OUT.with_name("q2_full_index_uncovered_styles.csv")
+        FULL_OUT.with_name("retrieval_uncovered_styles.csv")
     )
     with pl.Config(tbl_rows=60, tbl_width_chars=220, float_precision=3):
         print(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from nss.generate import final_registry
-from nss.generate.h4_deliverables import CLOSED_LOOP_LABEL, SWEATER, TOP, closed_loop_view
+from nss.generate.final_selection_figures import CLOSED_LOOP_LABEL, SWEATER, TOP, closed_loop_view
 
 DRESS = final_registry.STYLE_ORDER[1]
 

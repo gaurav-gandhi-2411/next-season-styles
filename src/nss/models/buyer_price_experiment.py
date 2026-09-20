@@ -5,7 +5,7 @@ Arms (both retrained here on the same 12 embargoed test origins, seed 42, same `
 - control:   `build_model_frame` features with `final_forecast.FINAL_MODEL_CONFIG` (the shipped
              model under the embargo protocol);
 - treatment: control features + `CUSTOMER_FEATURE_COLS` + `PRICE_FEATURE_COLS`, with the config
-             chosen by U3 (`reports/tables/u3_selected_config.csv`, the row with `selected`).
+             chosen by U3 (`reports/tables/embargoed_retune_selected.csv`, the row with `selected`).
 
 Baselines (seasonal_naive, ewma_persistence, global_mean, parent_category_mean) come from
 `backtest.run_backtest` on the same origins. Paired per-origin differences (block bootstrap: block
@@ -41,7 +41,7 @@ test origins with a block-bootstrap CI.
 In-sample SHAP says what the model uses, not that the use generalises; the paired out-of-sample
 table decides adoption.
 
-ERRATUM (added AFTER the run; the code, the recorded rule and `u4_hypothesis.csv` are unchanged):
+ERRATUM (added AFTER the run; the code, the recorded rule and `buyer_price_hypothesis.csv` are unchanged):
 "falling age concentration" means RISING age dispersion, so the expected sign for the four
 `cust_age_std_*` / `cust_age_gini_*` slopes should have been +1, not -1 as coded in
 `HYPOTHESIS_FEATURES`. As declared (age signs -1) 4 of 10 features are SHAP-consistent and 6 of 10
@@ -57,12 +57,12 @@ scored at the forecast origin, and passed through the SAME selection guards as t
 config) must reproduce the committed `top_styles_final_three.csv`, otherwise the comparison is
 flagged.
 
-Outputs (new files only): u4_per_origin.csv, u4_paired_diff.csv, u4_decision.csv, u4_shap.csv,
-u4_hypothesis.csv, u4_new_top3.csv under `reports/tables/`; the last-fold booster goes to the
+Outputs (new files only): buyer_price_per_origin.csv, buyer_price_paired_diff.csv, buyer_price_decision.csv, buyer_price_shap.csv,
+buyer_price_hypothesis.csv, buyer_price_new_top3.csv under `reports/tables/`; the last-fold booster goes to the
 gitignored `models_scratch/`.
 
 Usage:
-    python -m nss.models.u4_train_decide
+    python -m nss.models.buyer_price_experiment
 """
 
 from __future__ import annotations
@@ -112,17 +112,17 @@ BASELINES = ("seasonal_naive", "ewma_persistence", "global_mean", "parent_catego
 PRIMARY_METRIC = "hit_at_3_in_top20"
 CONTROL_TOL = 0.0006
 EMBARGO_SUMMARY = Path("reports/tables/backtest_embargo_summary.csv")
-U3_SELECTED = Path("reports/tables/u3_selected_config.csv")
+U3_SELECTED = Path("reports/tables/embargoed_retune_selected.csv")
 COMMITTED_FINAL_THREE = Path("reports/tables/top_styles_final_three.csv")
-COMMITTED_T2 = Path("reports/tables/top_styles_t2_emerging.csv")
+COMMITTED_T2 = Path("reports/tables/top_styles_emerging.csv")
 SCRATCH_DIR = Path("models_scratch")
 OUT_DIR = Path("reports/tables")
-PER_ORIGIN_OUT = OUT_DIR / "u4_per_origin.csv"
-PAIRED_OUT = OUT_DIR / "u4_paired_diff.csv"
-DECISION_OUT = OUT_DIR / "u4_decision.csv"
-SHAP_OUT = OUT_DIR / "u4_shap.csv"
-HYPOTHESIS_OUT = OUT_DIR / "u4_hypothesis.csv"
-TOP3_OUT = OUT_DIR / "u4_new_top3.csv"
+PER_ORIGIN_OUT = OUT_DIR / "buyer_price_per_origin.csv"
+PAIRED_OUT = OUT_DIR / "buyer_price_paired_diff.csv"
+DECISION_OUT = OUT_DIR / "buyer_price_decision.csv"
+SHAP_OUT = OUT_DIR / "buyer_price_shap.csv"
+HYPOTHESIS_OUT = OUT_DIR / "buyer_price_hypothesis.csv"
+TOP3_OUT = OUT_DIR / "buyer_price_new_top3.csv"
 
 RULE_TEXT = (
     "ADOPT iff the pooled paired treatment-minus-control difference (12 origins, block bootstrap "

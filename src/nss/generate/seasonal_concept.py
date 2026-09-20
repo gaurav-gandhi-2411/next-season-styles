@@ -292,7 +292,7 @@ def judge_selected(n_repeats: int = 3) -> list[float]:
     """
     import json
 
-    from nss.generate import h2_rejudge, vlm_judges
+    from nss.generate import judge_rescore, vlm_judges
     from nss.generate.concept_qc_pipeline import parse_style_attributes
     from nss.generate.vlm_judges import SKILL
 
@@ -321,7 +321,7 @@ def judge_selected(n_repeats: int = 3) -> list[float]:
             print("judge unavailable:", str(res["excluded_reason"])[:200])
             break
         scores.append(res["mean_score"])
-    _, _, thresholds = h2_rejudge.recompute_calibration()
+    _, _, thresholds = judge_rescore.recompute_calibration()
     print("judge scores:", scores, "threshold:", thresholds["groq"])
     # Committed record of the readings (the raw log lives under git-ignored data/).
     pl.DataFrame(

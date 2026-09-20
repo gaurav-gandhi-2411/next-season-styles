@@ -59,8 +59,8 @@ SHAP_GLOBAL_IMPORTANCE_PATH = Path("reports/tables/shap_global_importance.csv")
 N_GLOBAL_SHAP_FALLBACK = 5
 
 FORECAST_TABLES: dict[str, Path] = {
-    "incumbent": Path("reports/tables/top_styles_t1_incumbent.csv"),
-    "emerging": Path("reports/tables/top_styles_t2_emerging.csv"),
+    "incumbent": Path("reports/tables/top_styles_incumbent.csv"),
+    "emerging": Path("reports/tables/top_styles_emerging.csv"),
 }
 # The only forecast actually computed on disk (nss.models.final_forecast.FORECAST_ORIGIN + the
 # project's fixed 13-week guard/target window). See module docstring -- modelling is frozen, so
@@ -348,8 +348,8 @@ def forecast_styles(
 ) -> list[dict[str, Any]]:
     """Top `top_n` styles from an already-computed forecast table.
 
-    Never retrains or recomputes -- reads `reports/tables/top_styles_t1_incumbent.csv`
-    (`table="incumbent"`) or `reports/tables/top_styles_t2_emerging.csv`
+    Never retrains or recomputes -- reads `reports/tables/top_styles_incumbent.csv`
+    (`table="incumbent"`) or `reports/tables/top_styles_emerging.csv`
     (`table="emerging"`). If `origin_date`/`horizon_weeks` don't match the only forecast actually
     computed (`PRECOMPUTED_FORECAST_ORIGIN`, `PRECOMPUTED_FORECAST_HORIZON_WEEKS`), the closest
     (only) available data is returned anyway, with an explicit `_note` field on every row.

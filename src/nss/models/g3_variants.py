@@ -4,7 +4,7 @@ UNDERPERFORMS the existing L2 model on both headline Hit@3-in-topN metrics (see
 order the task specifies, each scored through the SAME `nss.models.metrics.score_predictions` /
 `nss.models.backtest.block_bootstrap_ci` machinery over the SAME 12 walk-forward test origins
 (`nss.models.backtest_v2.identify_lightgbm_origins`) as L2/lambdarank, so every number here is
-directly, honestly comparable to `reports/tables/g2_lambdarank_vs_l2.csv`.
+directly, honestly comparable to `reports/tables/lambdarank_vs_l2_comparison.csv`.
 
 FIXED TREE HYPERPARAMETERS (JUDGMENT CALL, same precedent as `nss.models.lambdarank_model`): every
 variant below reuses `nss.models.final_forecast.FINAL_MODEL_CONFIG` (the L2 model's own winning

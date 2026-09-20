@@ -28,10 +28,14 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate import final_registry, n9_generate
+from nss.generate import concept_generation, final_registry
+from nss.generate.concept_scoring import ADVISORY_JUDGES
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h4_deliverables import CLOSED_LOOP_LABEL, OBSERVED_CAPTIONS, closed_loop_view
-from nss.generate.n9_score import ADVISORY_JUDGES
+from nss.generate.final_selection_figures import (
+    CLOSED_LOOP_LABEL,
+    OBSERVED_CAPTIONS,
+    closed_loop_view,
+)
 from nss.viz import demo_explorer
 
 OUT_PATH = Path("reports/DEMO.html")
@@ -227,9 +231,9 @@ def spotcheck_chart() -> str:
 
 
 def _load_concepts() -> list[dict]:
-    sel = {r["style_id"]: r for r in pl.read_csv(T / "final_selection_h4.csv").to_dicts()}
+    sel = {r["style_id"]: r for r in pl.read_csv(T / "final_selection.csv").to_dicts()}
     top = {r["style_key"]: r for r in pl.read_csv(T / "top_styles_final_three.csv").to_dicts()}
-    refs = n9_generate.load_refs()
+    refs = concept_generation.load_refs()
     out = []
     for sid in (*STYLE_ORDER, final_registry.SUMMER):
         out.append(
@@ -238,7 +242,7 @@ def _load_concepts() -> list[dict]:
                 "name": PLAIN_NAMES[sid],
                 "sel": sel[sid],
                 "top": top.get(sid),
-                "asked": n9_generate.CHANGES[sid]["applied_changes"],
+                "asked": concept_generation.CHANGES[sid]["applied_changes"],
                 "refs": refs[sid],
             }
         )
@@ -432,8 +436,8 @@ def closed_loop_section(concepts: list[dict]) -> str:
     old_exact = float(old_sm["exact_style_key"].mean())
     old_type = float(old_sm["type_ok"].mean())
     old_colour = float(old_sm["colour_ok"].mean())
-    q415 = pl.read_csv(T / "q2_retrieval_validation.csv")
-    qf = pl.read_csv(T / "q2_retrieval_validation_full.csv")
+    q415 = pl.read_csv(T / "retrieval_validation_partial_index.csv")
+    qf = pl.read_csv(T / "retrieval_validation.csv")
 
     def pick(df: pl.DataFrame, cond: str, row: str = "summary_all") -> dict:
         return df.filter(
@@ -484,7 +488,7 @@ def closed_loop_section(concepts: list[dict]) -> str:
 
 def seasonal_section(concepts: list[dict]) -> str:
     """Section: autumn/winter vs summer, both from the same rules and pipeline."""
-    d = pl.read_csv(T / "summer_selection_n6.csv")
+    d = pl.read_csv(T / "summer_selection_log.csv")
     first = d.filter(pl.col("excluded").is_null()).to_dicts()[0]
     excl = d.filter(pl.col("excluded").is_not_null()).head(3).to_dicts()
     fig = ""
@@ -508,7 +512,7 @@ def limits_section() -> str:
 <ul class=limits>
 <li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
 <li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
-<li><b>The image readers are small and were checked on few images.</b> Groq's daily limit and Gemini's free quota were spent this session (Gemini's replacement key authenticates and passes calibration, but no concept could be re-read), so the panel is two small local models, one of them advisory. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
+<li><b>The image readers are small and were checked on few images.</b> Groq's daily limit and Gemini's free quota ran out (Gemini's replacement key authenticates and passes calibration, but no concept could be re-read), so the panel is two small local models, one of them advisory. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
 <li><b>Automatic integrity is a proxy.</b> Asking a small model whether a garment is coherent caught none of the three known-malformed test images; a global similarity floor gates and passes every known-good image but misses one of the three (sheer mesh); the within-style floor, reported as advisory, catches all three but cannot be met by a design change in a near-identical style. The human check remains necessary.</li>
 <li><b>The limits behind the checks still rest on a modest number of real photos:</b> 8 to 25 per style (the white top has 19 in the whole catalogue).</li>
 <li><b>The exact top three.</b> The model finds a useful neighbourhood but not the exact order, because the leaders are nearly tied.</li>

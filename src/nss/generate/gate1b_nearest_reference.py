@@ -75,7 +75,7 @@ def gate1b_pass(
 
 def final_concept_paths() -> dict[str, Path]:
     """The three final selected concept images, by style id."""
-    from nss.generate.h4_deliverables import SELECTED
+    from nss.generate.final_selection_figures import SELECTED
 
     return dict(SELECTED)
 

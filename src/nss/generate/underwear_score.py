@@ -6,7 +6,7 @@ the report). Visual QC verdicts below come from reading all four images
 (`reports/figures/`-independent, recorded here so the selection is auditable).
 
 Usage:
-    uv run python -m nss.generate.h3_score
+    uv run python -m nss.generate.underwear_score
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ from typing import Any
 
 import polars as pl
 
-from nss.generate import clip_scoring, dino_scoring, h2_rejudge
-from nss.generate.h3_generate import OUTPUT_DIR, SEEDS, reference_paths
-from nss.generate.h3_underwear_refs import STYLE_ID
+from nss.generate import clip_scoring, dino_scoring, judge_rescore
+from nss.generate.underwear_generate import OUTPUT_DIR, SEEDS, reference_paths
+from nss.generate.underwear_refs import STYLE_ID
 from nss.generate.within_style_benchmark import (
     GATE1_STAT,
     concept_similarity,
@@ -26,7 +26,7 @@ from nss.generate.within_style_benchmark import (
     style_benchmark,
 )
 
-OUT_PATH = Path("reports/tables/h3_underwear_scored.csv")
+OUT_PATH = Path("reports/tables/underwear_scored.csv")
 # From reading every generated image (task H3 step: visual inspection of ALL candidates).
 VISUAL_QC: dict[int, str] = {
     42: "reject: malformed halter/cut-out garment, not a brief",
@@ -45,20 +45,20 @@ def main(rejudge: bool = True) -> None:
     """Score the 4 candidates: Gate 1 (new benchmark), judge panel (H2 checklist), visual QC.
 
     `rejudge=False` re-derives Gate 1 only and reads the persisted judge scores
-    (`h2_judge_rescore.csv`) instead of calling any judge -- used when only the threshold changed.
+    (`judge_rescore.csv`) instead of calling any judge -- used when only the threshold changed.
     """
     refs = reference_paths()
     embedders = {"clip": clip_scoring.embed_image, "dinov2": dino_scoring.embed_image}
     ref_embs = {s: [fn(p) for p in refs] for s, fn in embedders.items()}
     bench = {s: style_benchmark(e) for s, e in ref_embs.items()}
 
-    _, old_t, new_t = h2_rejudge.recompute_calibration()
+    _, old_t, new_t = judge_rescore.recompute_calibration()
     if rejudge:
-        cache = h2_rejudge.judge_images([(STYLE_ID, sd, image_path(sd)) for sd in SEEDS])
-        rescore = h2_rejudge.build_rescore_table(cache, old_t, new_t)
-        rescore.write_csv(h2_rejudge.RESCORE_PATH)
+        cache = judge_rescore.judge_images([(STYLE_ID, sd, image_path(sd)) for sd in SEEDS])
+        rescore = judge_rescore.build_rescore_table(cache, old_t, new_t)
+        rescore.write_csv(judge_rescore.RESCORE_PATH)
     else:
-        rescore = pl.read_csv(h2_rejudge.RESCORE_PATH)
+        rescore = pl.read_csv(judge_rescore.RESCORE_PATH)
 
     rows: list[dict[str, Any]] = []
     for seed in SEEDS:

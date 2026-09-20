@@ -8,8 +8,8 @@ import numpy as np
 import polars as pl
 import pytest
 
-from nss.generate import h2_rejudge, vlm_judges
-from nss.generate.h3_underwear_refs import is_plain_description
+from nss.generate import judge_rescore, vlm_judges
+from nss.generate.underwear_refs import is_plain_description
 from nss.generate.within_style_benchmark import (
     concept_similarity,
     gate1_within_style,
@@ -73,10 +73,10 @@ def test_mean_over_recomputes_from_stored_scores() -> None:
         "graphical_treatment": 0.85,
         "garment_group": 0.0,
     }
-    assert h2_rejudge.mean_over(scores, vlm_judges.LEGACY_ATTRIBUTE_DIMENSIONS) == pytest.approx(
+    assert judge_rescore.mean_over(scores, vlm_judges.LEGACY_ATTRIBUTE_DIMENSIONS) == pytest.approx(
         0.675
     )
-    assert h2_rejudge.mean_over(scores, vlm_judges.ATTRIBUTE_DIMENSIONS) == pytest.approx(0.9)
+    assert judge_rescore.mean_over(scores, vlm_judges.ATTRIBUTE_DIMENSIONS) == pytest.approx(0.9)
 
 
 def test_recompute_calibration_thresholds_move_as_expected(tmp_path: Path) -> None:
@@ -116,7 +116,7 @@ def test_recompute_calibration_thresholds_move_as_expected(tmp_path: Path) -> No
         )
     p = tmp_path / "cal.csv"
     pl.DataFrame(rows).write_csv(p)
-    _, old_t, new_t = h2_rejudge.recompute_calibration(p)
+    _, old_t, new_t = judge_rescore.recompute_calibration(p)
     assert old_t["j"] == pytest.approx(0.75 * 0.75)
     assert new_t["j"] == pytest.approx(0.75 * 1.0)
 

@@ -15,12 +15,12 @@ Every step is labelled in the transcript as one of:
   summer forecast, the recorded closed-loop table). Concept GENERATION is always a replay: no GPU
   is touched by this driver, `generate_concept` is never called.
 - **HUMAN (recorded)**: the human visual check. It is a person's judgment, recorded in
-  `nss.generate.h4_deliverables.HUMAN_CHECK`; this driver cannot perform it and says so.
+  `nss.generate.final_selection_figures.HUMAN_CHECK`; this driver cannot perform it and says so.
 
 The critic's retry loop is REPLAYED over the recorded N9 candidates of each style in seed order
 with `agents/critic.md`'s rules (stop at the first candidate that clears every gating gate; at most
 1 original + 2 retries). Nothing is fabricated: each verdict is derived from the recorded gate
-columns of `reports/tables/n9_candidates_scored.csv`, and the shipped images plus the rejected
+columns of `reports/tables/candidates_scored.csv`, and the shipped images plus the rejected
 candidates are also re-scored LIVE through `score_concept` and compared to the recorded columns.
 
 Run standalone, from the repo root (or any directory holding `data/`, `reports/`, `models/`; set
@@ -44,8 +44,8 @@ import polars as pl
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from nss.generate import final_registry, n9_generate
-from nss.generate.h4_deliverables import ALL_SELECTED, HUMAN_BRIEF_MET, HUMAN_CHECK
+from nss.generate import concept_generation, final_registry
+from nss.generate.final_selection_figures import ALL_SELECTED, HUMAN_BRIEF_MET, HUMAN_CHECK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # Working directory of the MCP server and of this driver: the tools read `data/` and `reports/`
@@ -53,9 +53,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORK_DIR = Path(os.environ.get("NSS_DEMO_CWD", REPO_ROOT))
 TRANSCRIPT_PATH = REPO_ROOT / "reports" / "agent_run_transcript.md"
 AGENTS_DIR = REPO_ROOT / "agents"
-SCORED_PATH = Path("reports/tables/n9_candidates_scored.csv")
-SELECTION_PATH = Path("reports/tables/final_selection_h4.csv")
-CLOSED_LOOP_PATH = Path("reports/tables/q2_concept_forecast_retrieval.csv")
+SCORED_PATH = Path("reports/tables/candidates_scored.csv")
+SELECTION_PATH = Path("reports/tables/final_selection.csv")
+CLOSED_LOOP_PATH = Path("reports/tables/concept_forecast_retrieval.csv")
 SUMMER_FORECAST_PATH = Path("reports/tables/seasonal_summer_forecast.csv")
 
 USER_REQUEST = "what should we make more of next autumn, and show me a design for it"
@@ -184,7 +184,7 @@ def project_closed_loop(fc: dict[str, Any], style_id: str) -> dict[str, Any]:
 
 
 def failed_gates(row: dict[str, Any]) -> list[str]:
-    """Names of the GATING gates a recorded `n9_candidates_scored.csv` row fails, in gate order.
+    """Names of the GATING gates a recorded `candidates_scored.csv` row fails, in gate order.
 
     A missing or null gate result counts as failed: an unmeasured gate is never a pass.
     """
@@ -412,8 +412,8 @@ def _shipped_seed(style_id: str) -> int:
 
 def _brief_lines(style_id: str) -> tuple[list[str], str]:
     """The briefed changes (human design decisions) and the natural-language prompt of a style."""
-    changes = n9_generate.CHANGES[style_id]["applied_changes"]
-    return list(changes), n9_generate.natural_prompt(style_id, changes, None)
+    changes = concept_generation.CHANGES[style_id]["applied_changes"]
+    return list(changes), concept_generation.natural_prompt(style_id, changes, None)
 
 
 async def run_demo() -> str:
@@ -526,7 +526,7 @@ async def run_demo() -> str:
             "\n## Step 3 -- orchestrator delegates to `style-profiler` (once per style)\n\n"
             "Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` "
             "(its only allowed tool). The design brief itself is a human design decision recorded "
-            "in code (`nss.generate.n9_generate.CHANGES`: concrete, visually checkable changes "
+            "in code (`nss.generate.concept_generation.CHANGES`: concrete, visually checkable changes "
             "with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** "
             "from that table and the N9 prompt builder (`natural_prompt`), not recomputed.\n"
         )
@@ -563,7 +563,7 @@ async def run_demo() -> str:
             "**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is "
             "`generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per "
             "style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded "
-            "in `reports/tables/n9_candidates_scored.csv` with sidecar JSONs. The candidates below "
+            "in `reports/tables/candidates_scored.csv` with sidecar JSONs. The candidates below "
             "are those recorded images; the run makes no claim to have generated anything. "
             "Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; "
             "Step 5 replays the critic loop over them in seed order.\n"
@@ -618,7 +618,7 @@ async def run_demo() -> str:
             else:
                 extra = (
                     f"Shipped image is seed {shipped['seed']} (selected by "
-                    "`h4_deliverables`: passes every automatic gate, then most briefed changes "
+                    "`final_selection_figures`: passes every automatic gate, then most briefed changes "
                     "visible, then highest fidelity, then a human look); it also clears every "
                     "gating gate on its recorded row.\n"
                 )
@@ -683,7 +683,7 @@ async def run_demo() -> str:
             "\n## Step 6 -- the human visual check\n\n"
             "**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward "
             "`PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they "
-            "looked at the shipped images is recorded in `nss.generate.h4_deliverables."
+            "looked at the shipped images is recorded in `nss.generate.final_selection_figures."
             "HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in "
             "`reports/concepts/`.\n"
         )
@@ -732,7 +732,7 @@ async def run_demo() -> str:
                 f"{fc['forecast_units_per_product_per_week']:.1f} units/product/week, rank "
                 f"{fc['rank']} of {fc['n_styles']}, confidence {fc['confidence']}. Intended style "
                 f"{'is ' + where + ' of the top 5' if pos else 'is OUTSIDE the top 5'}. Recorded "
-                f"table (`q2_concept_forecast_retrieval.csv`): top-1 `{recorded_top1}`, rank "
+                f"table (`concept_forecast_retrieval.csv`): top-1 `{recorded_top1}`, rank "
                 f"{rec.get('rank')}, confidence {rec.get('confidence')} -> live {same} the "
                 f"recorded top-1 and {same_rank} the recorded rank.\n"
             )
@@ -743,7 +743,7 @@ async def run_demo() -> str:
             "Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a "
             "failing concept is a failed item, not fatal to the request. Verdicts below are the "
             "LIVE `score_concept` results on the shipped images, beside the recorded "
-            "`final_selection_h4.csv` verdict.\n\n"
+            "`final_selection.csv` verdict.\n\n"
             "| Concept | live automatic gates | failed gates (live) | recorded (h4) | "
             "human: briefed changes visible |\n|---|---|---|---|---|"
         )
@@ -774,8 +774,8 @@ async def run_demo() -> str:
                 "reported as failing by mechanism (integrity floor and Gate 3), and the shipped "
                 f"image (seed {_shipped_seed(TOP)}) does fail both. But the recorded candidate "
                 "seed 47 (and 48) at the same scale clears every gating gate on "
-                "`n9_candidates_scored.csv`, and the live `score_concept` call above confirms it "
-                "for seed 47. `h4_deliverables.SELECTED` pins seed 42 for the white top, so "
+                "`candidates_scored.csv`, and the live `score_concept` call above confirms it "
+                "for seed 47. `final_selection_figures.SELECTED` pins seed 42 for the white top, so "
                 "the written selection rule (passes every automatic gate first) does not "
                 "produce the shipped image. Whether seed 47 passes the human check has not been "
                 "looked at by a person in this run. The owner of the write-up should decide "
@@ -797,7 +797,7 @@ async def run_demo() -> str:
         + ", ".join(sorted(set(live_calls)))
         + ". REPLAYED from recorded tables: concept generation (no GPU, no `generate_concept` "
         "call), the design briefs, the summer forecast, and the critic's retry sequence "
-        "(derived from `n9_candidates_scored.csv`; the same images are also re-scored live and "
+        "(derived from `candidates_scored.csv`; the same images are also re-scored live and "
         "compared). HUMAN (recorded, not performed here): the visual check.\n\n"
         f"## Request\n\n> {USER_REQUEST}\n\n"
         "## Run notes\n\n"

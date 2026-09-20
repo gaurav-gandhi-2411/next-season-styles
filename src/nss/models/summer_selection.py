@@ -34,7 +34,7 @@ from nss.models.lightgbm_model import build_model_frame, feature_columns, train_
 
 ORIGIN = date(2020, 6, 1)
 HORIZON_WEEKS = 13
-OUT = Path("reports/tables/summer_selection_n6.csv")
+OUT = Path("reports/tables/summer_selection_log.csv")
 ALL_OUT = Path("reports/tables/forecast_all_styles_summer.csv")
 TOP_N = 15
 

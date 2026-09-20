@@ -24,7 +24,7 @@ import polars as pl
 from PIL import Image
 
 from nss.generate import final_registry
-from nss.generate.h4_deliverables import OBSERVED_CAPTIONS, SELECTED, SUMMER_SELECTED
+from nss.generate.final_selection_figures import OBSERVED_CAPTIONS, SELECTED, SUMMER_SELECTED
 
 OUT_PATH = Path("reports/figures/seasonal_comparison.png")
 T = Path("reports/tables")
@@ -40,7 +40,7 @@ def main() -> Path:
         .to_dicts()[0]
     )
     summer = (
-        pl.read_csv(T / "summer_selection_n6.csv")
+        pl.read_csv(T / "summer_selection_log.csv")
         .filter(pl.col("excluded").is_null())
         .to_dicts()[0]
     )

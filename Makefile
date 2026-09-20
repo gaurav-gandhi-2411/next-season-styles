@@ -49,7 +49,7 @@ forecast:
 
 # Diversity-constrained reselection (T1 incumbent / T2 emerging winners, final three, and a
 # diversity-constrained seasonal bonus v2), built on top of `forecast`'s trained model + ranking.
-# Writes reports/tables/top_styles_t1_incumbent.csv, top_styles_t2_emerging.csv,
+# Writes reports/tables/top_styles_incumbent.csv, top_styles_emerging.csv,
 # top_styles_final_three.csv, top_styles_by_season_v2.csv. See `forecast` target for the
 # PYTHONHASHSEED=0 rationale.
 forecast-diversity:

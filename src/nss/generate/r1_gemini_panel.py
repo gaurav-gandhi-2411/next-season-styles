@@ -29,7 +29,7 @@ from nss.generate.concept_qc_pipeline import (
     parse_style_attributes,
 )
 from nss.generate.fidelity import applicable_dimensions
-from nss.generate.h4_deliverables import ALL_SELECTED
+from nss.generate.final_selection_figures import ALL_SELECTED
 from nss.generate.vlm_judges import SKILL
 
 N_READINGS = 3

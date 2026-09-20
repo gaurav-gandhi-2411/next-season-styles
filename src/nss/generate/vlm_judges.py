@@ -95,7 +95,7 @@ JudgeUnavailableError = SKILL.JudgeUnavailableError
 # Task H2: only VISUALLY OBSERVABLE attributes are scored. `garment_group` (e.g. "Jersey Basic",
 # "Under-, Nightwear") is an internal H&M merchandising taxonomy term with no visual referent -- a
 # judge shown a plain black T-shirt correctly answers "top" and scores 0.0 against "Jersey Basic"
-# (measured, `reports/tables/h2_judge_rescore.csv`), so no image can ever score on it and it
+# (measured, `reports/tables/judge_rescore.csv`), so no image can ever score on it and it
 # capped every candidate's fidelity by up to 25%. Dropped rather than mapped to a visual
 # descriptor: a mapping needs one curated descriptor per taxonomy value (unbounded across
 # catalogues) and would itself be an unvalidated construct; see skills/concept-qc/SKILL.md.

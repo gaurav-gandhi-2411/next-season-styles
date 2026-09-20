@@ -34,7 +34,7 @@ from nss.models import final_forecast as ff
 OUT = Path("reports/tables/explorer_styles.json")
 TOP_N = 200
 TRAJECTORY_WEEKS = 78
-T2_TABLE = Path("reports/tables/top_styles_t2_emerging.csv")
+T2_TABLE = Path("reports/tables/top_styles_emerging.csv")
 
 
 def peak_seasons(panel: pl.DataFrame) -> dict[str, tuple[str, float]]:

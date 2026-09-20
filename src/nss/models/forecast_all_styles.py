@@ -24,8 +24,8 @@ from nss.models import final_forecast as ff
 
 OUT_PATH = Path("reports/tables/forecast_all_styles.csv")
 COMMITTED_TABLES = (
-    Path("reports/tables/top_styles_t1_incumbent.csv"),
-    Path("reports/tables/top_styles_t2_emerging.csv"),
+    Path("reports/tables/top_styles_incumbent.csv"),
+    Path("reports/tables/top_styles_emerging.csv"),
 )
 
 

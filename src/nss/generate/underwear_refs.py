@@ -11,7 +11,7 @@ catalogue's own text; the survivors are then visually inspected before use (see 
 Best-selling first (last-26-weeks units), because `backends.py` conditions on `references[0]` only.
 
 Usage:
-    uv run python -m nss.generate.h3_underwear_refs
+    uv run python -m nss.generate.underwear_refs
 """
 
 from __future__ import annotations

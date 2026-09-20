@@ -40,7 +40,7 @@ CANDIDATES_PER_STYLE = 40
 
 
 SUMMER_ORIGIN = date(2020, 6, 1)
-SUMMER_SELECTION = Path("reports/tables/summer_selection_n6.csv")
+SUMMER_SELECTION = Path("reports/tables/summer_selection_log.csv")
 SUMMER_OUT = Path("reports/tables/reference_pool_widened_summer.csv")
 
 

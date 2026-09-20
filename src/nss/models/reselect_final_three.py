@@ -9,7 +9,7 @@ The model surfaces, a human judges -- made explicit, deterministic and auditable
 
 RULE (fixed and documented BEFORE the N6 output was inspected; applied in this order, no tuning):
 
-Input: the committed frozen-model emerging leaderboard `top_styles_t2_emerging.csv` (guard-passing,
+Input: the committed frozen-model emerging leaderboard `top_styles_emerging.csv` (guard-passing,
 ranked by growth ratio). No model is retrained or re-run. NOTE ON PROVENANCE: the top-10 of that
 table had already been seen in the earlier M2 session; the rules below are stated in terms of
 garment categories, not of the styles that happen to fall out.
@@ -46,7 +46,7 @@ from pathlib import Path
 
 import polars as pl
 
-T2_PATH = Path("reports/tables/top_styles_t2_emerging.csv")
+T2_PATH = Path("reports/tables/top_styles_emerging.csv")
 ARTICLES_PATH = Path("data/raw/articles.csv")
 FINAL_OUT = Path("reports/tables/top_styles_final_three.csv")
 LOG_OUT = Path("reports/tables/final_three_selection_log.csv")

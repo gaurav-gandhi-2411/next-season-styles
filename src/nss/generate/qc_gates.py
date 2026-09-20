@@ -10,7 +10,7 @@ Integrity  GLOBAL floor (gates, `integrity_global`): the closest real reference 
          floor (`gate3.integrity_floor`) is reported beside it as ADVISORY (task R2).
 Gate 2   attribute fidelity of a blind local-judge read of the picture against the style's VISIBLE
          attributes (`nss.generate.fidelity`), each judge against its own calibrated threshold.
-         SmolVLM GATES; Florence-2 is ADVISORY (reported, never gating) -- `n9_score.GATING_JUDGES`
+         SmolVLM GATES; Florence-2 is ADVISORY (reported, never gating) -- `concept_scoring.GATING_JUDGES`
          / `ADVISORY_JUDGES`, the same panel rule that scored the final concepts (task P3).
 Gate 3   are the briefed changes visible? One yes/no question per change to the gating local judge;
          a strict majority must be present. Needs the briefed changes (see `briefed_changes`).
@@ -22,7 +22,7 @@ the earlier Groq single-reading Gate 2 (Groq's key/quota was spent; a single rea
 about +/-0.21) and the pre-N9 verdict that had no integrity floor and no Gate 3.
 
 Everything reuses the functions that scored the final concepts (`within_style_benchmark`,
-`gate1b_nearest_reference`, `integrity_global`, `gate3`, `n9_score`); no threshold is re-derived
+`gate1b_nearest_reference`, `integrity_global`, `gate3`, `concept_scoring`); no threshold is re-derived
 here and none was changed.
 """
 
@@ -32,7 +32,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from nss.generate import clip_scoring, dino_scoring, gate3, integrity_global, n9_generate
+from nss.generate import clip_scoring, concept_generation, dino_scoring, gate3, integrity_global
 from nss.generate.gate1b_nearest_reference import gate1b_pass, gate1b_threshold
 from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
@@ -48,20 +48,20 @@ def reference_paths_for_style(style_key: str) -> list[Path]:
     """The screened full-garment references the gates are calibrated on, best-selling first.
 
     Underwear uses H3's verified plain-solid references (the screened set is the lace one H3
-    replaced). Every other style uses `n9_generate.load_refs()` -- the SAME widened base the final
+    replaced). Every other style uses `concept_generation.load_refs()` -- the SAME widened base the final
     concepts were scored on (autumn/winter screened manifest plus the summer style's widened one),
-    so this tool and `n9_score` gate against identical references. The pre-N9 summer manifest is
+    so this tool and `concept_scoring` gate against identical references. The pre-N9 summer manifest is
     kept only as a fallback.
 
     Raises:
         ValueError: no screened references exist for `style_key` (the gates are undefined without
             real same-style articles to calibrate on).
     """
-    from nss.generate import h3_generate, h3_underwear_refs, screen_references, seasonal_concept
+    from nss.generate import screen_references, seasonal_concept, underwear_generate, underwear_refs
 
-    if style_key == h3_underwear_refs.STYLE_ID:
-        return h3_generate.reference_paths()
-    final_refs = n9_generate.load_refs()
+    if style_key == underwear_refs.STYLE_ID:
+        return underwear_generate.reference_paths()
+    final_refs = concept_generation.load_refs()
     if style_key in final_refs:
         return final_refs[style_key]
     if seasonal_concept.SCREENED_PATH.exists():
@@ -89,7 +89,7 @@ def briefed_changes(style_key: str, concept: Path) -> list[str]:
     """The design changes the concept was briefed with, for Gate 3.
 
     Order: the N9 sidecar next to the image (`<image>.json`, key `changes`), else the final
-    concepts' registry (`n9_generate.CHANGES`). Empty if neither knows: Gate 3 is then NOT RUN
+    concepts' registry (`concept_generation.CHANGES`). Empty if neither knows: Gate 3 is then NOT RUN
     (never a pass), because "are the briefed changes visible" is undefined without the brief.
     """
     sidecar = concept.with_suffix(".json")
@@ -97,7 +97,7 @@ def briefed_changes(style_key: str, concept: Path) -> list[str]:
         changes = json.loads(sidecar.read_text(encoding="utf-8")).get("changes")
         if changes:
             return list(changes)
-    spec = n9_generate.CHANGES.get(style_key)
+    spec = concept_generation.CHANGES.get(style_key)
     return list(spec["applied_changes"]) if spec else []
 
 
@@ -126,13 +126,13 @@ def _local_panel(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Gate 2 and Gate 3 from the local judge panel, via the code that scored the final concepts.
 
-    Runs `n9_score.judge_rows` for every gating and advisory judge, then `n9_score.apply_panel_rule`
+    Runs `concept_scoring.judge_rows` for every gating and advisory judge, then `concept_scoring.apply_panel_rule`
     (SmolVLM gates, Florence-2 is advisory). Returns `(gate2, gate3)` result dicts.
     """
-    from nss.generate import n9_score
+    from nss.generate import concept_scoring
 
-    backends = [*n9_score.GATING_JUDGES, *n9_score.ADVISORY_JUDGES]
-    thresholds = n9_score.judge_thresholds(backends)
+    backends = [*concept_scoring.GATING_JUDGES, *concept_scoring.ADVISORY_JUDGES]
+    thresholds = concept_scoring.judge_thresholds(backends)
     row: dict[str, Any] = {
         "image_path": str(concept),
         "style_id": style_key,
@@ -142,14 +142,14 @@ def _local_panel(
         "integrity_floor_pass": floor["max_sim"] >= global_limit,
     }
     for backend in backends:
-        n9_score.judge_rows(backend, [row], thresholds)
-    n9_score.apply_panel_rule(row)
+        concept_scoring.judge_rows(backend, [row], thresholds)
+    concept_scoring.apply_panel_rule(row)
     judges = {
         b: {
             "fidelity": row[f"{b}_fidelity"],
             "threshold": thresholds[b],
             "pass": row[f"{b}_gate2_pass"],
-            "role": "gating" if b in n9_score.GATING_JUDGES else "advisory",
+            "role": "gating" if b in concept_scoring.GATING_JUDGES else "advisory",
             "extraction": row[f"{b}_extraction"],
         }
         for b in backends
@@ -167,7 +167,7 @@ def _local_panel(
             "note": "no briefed changes known for this concept (no sidecar, not in CHANGES)",
         }
     else:
-        judge = n9_score.GATING_JUDGES[0]
+        judge = concept_scoring.GATING_JUDGES[0]
         gate3_result = {
             "status": "scored (local judge)",
             "pass": row["gate3_pass"],

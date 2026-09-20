@@ -2,7 +2,7 @@
 
 > **Current.** Re-run in U5 against the CURRENT gates: Gate 1 (within-style p90), Gate 1b (closest reference, clone-validated), the GLOBAL integrity floor (per-style floor advisory), Gate 2 (SmolVLM gates, Florence-2 advisory), Gate 3 (briefed changes visible) and the human visual check, on the current final concepts (beige melange sweater, red dress, white jersey top, summer orange bikini top). It replaces the D4 transcript, whose banner said the agent layer still ran the old margin-band scoring: that was true of `score_concept` and `agents/critic.md` until this change, and both were updated in the same PR (the tool now runs the shipped gates; see the commit log).
 >
-> **What is live and what is replayed.** LIVE (real MCP tool calls over stdio, CPU only, 18 calls): `forecast_concept` (forecaster), `forecast_styles` (forecaster), `get_style_profile` (style-profiler), `query_transactions` (data-analyst), `score_concept` (critic). REPLAYED from recorded tables: concept generation (no GPU, no `generate_concept` call), the design briefs, the summer forecast, and the critic's retry sequence (derived from `n9_candidates_scored.csv`; the same images are also re-scored live and compared). HUMAN (recorded, not performed here): the visual check.
+> **What is live and what is replayed.** LIVE (real MCP tool calls over stdio, CPU only, 18 calls): `forecast_concept` (forecaster), `forecast_styles` (forecaster), `get_style_profile` (style-profiler), `query_transactions` (data-analyst), `score_concept` (critic). REPLAYED from recorded tables: concept generation (no GPU, no `generate_concept` call), the design briefs, the summer forecast, and the critic's retry sequence (derived from `candidates_scored.csv`; the same images are also re-scored live and compared). HUMAN (recorded, not performed here): the visual check.
 
 ## Request
 
@@ -190,7 +190,7 @@ Response:
 
 ## Step 3 -- orchestrator delegates to `style-profiler` (once per style)
 
-Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` (its only allowed tool). The design brief itself is a human design decision recorded in code (`nss.generate.n9_generate.CHANGES`: concrete, visually checkable changes with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** from that table and the N9 prompt builder (`natural_prompt`), not recomputed.
+Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` (its only allowed tool). The design brief itself is a human design decision recorded in code (`nss.generate.concept_generation.CHANGES`: concrete, visually checkable changes with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** from that table and the N9 prompt builder (`natural_prompt`), not recomputed.
 
 **[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Sweater || Knitwear || Beige || Melange`; response (summarised): trajectory available = True, 106 weeks seen, recent mean units 270.9; SHAP source `reports\tables\final_three_shap_verdict.csv` (style-specific: True), top drivers: n_active_articles_level, lag_1, perceived_colour_master_name.
 
@@ -211,7 +211,7 @@ Per `agents/style-profiler.md`: fetch the structured profile via `get_style_prof
 
 ## Step 4 -- orchestrator delegates to `concept-designer` (once per style)
 
-**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is `generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded in `reports/tables/n9_candidates_scored.csv` with sidecar JSONs. The candidates below are those recorded images; the run makes no claim to have generated anything. Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; Step 5 replays the critic loop over them in seed order.
+**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is `generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded in `reports/tables/candidates_scored.csv` with sidecar JSONs. The candidates below are those recorded images; the run makes no claim to have generated anything. Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; Step 5 replays the critic loop over them in seed order.
 
 - `Ladieswear || Sweater || Knitwear || Beige || Melange`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 45.
 
@@ -251,7 +251,7 @@ Under the critic's cap alone the orchestrator would report this style as FAILED 
 - **Attempt 2** (scale 0.35, seed 43) -> **PASS_PENDING_HUMAN**
   - seed 43: G1 pass (CLIP 0.856/0.951, DINOv2 0.704/0.840); G1b pass (CLIP 0.913/0.974, DINOv2 0.837/0.901); integrity pass (closest ref 0.837 vs global floor 0.779; per-style floor advisory pass); G2 pass (SmolVLM fidelity 0.85; Florence-2 advisory pass); G3 pass (YY)
 
-Shipped image is seed 44 (selected by `h4_deliverables`: passes every automatic gate, then most briefed changes visible, then highest fidelity, then a human look); it also clears every gating gate on its recorded row.
+Shipped image is seed 44 (selected by `final_selection_figures`: passes every automatic gate, then most briefed changes visible, then highest fidelity, then a human look); it also clears every gating gate on its recorded row.
 
 **critic, `Ladieswear || Top || Jersey Basic || White || Solid` -- FAILED (retry cap exhausted)**
 
@@ -589,7 +589,7 @@ Live vs recorded: all five gating gates agree (gate1 live True / recorded True; 
 
 ## Step 6 -- the human visual check
 
-**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward `PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they looked at the shipped images is recorded in `nss.generate.h4_deliverables.HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in `reports/concepts/`.
+**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward `PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they looked at the shipped images is recorded in `nss.generate.final_selection_figures.HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in `reports/concepts/`.
 
 - **Beige knit sweater** (seed 45): every briefed change visible = True. Both briefed changes visible (funnel neck; dark-brown rib cuffs and hem). Body is a light beige, only faintly heathered. One coherent garment.
 
@@ -636,7 +636,7 @@ Response (projected: top-5 flattened to one line each, `judges` and `unavailable
 }
 ```
 
-**Reading for Beige knit sweater**: top-1 `Divided || Sweater || Knitwear || Orange || Solid` (similarity 0.931), forecast 7.9 units/product/week, rank 461 of 1980, confidence low. Intended style is 3rd of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Divided || Sweater || Knitwear || Orange || Solid`, rank 461, confidence low -> live matches the recorded top-1 and matches the recorded rank.
+**Reading for Beige knit sweater**: top-1 `Divided || Sweater || Knitwear || Orange || Solid` (similarity 0.931), forecast 7.9 units/product/week, rank 461 of 1980, confidence low. Intended style is 3rd of the top 5. Recorded table (`concept_forecast_retrieval.csv`): top-1 `Divided || Sweater || Knitwear || Orange || Solid`, rank 461, confidence low -> live matches the recorded top-1 and matches the recorded rank.
 
 **[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
@@ -670,7 +670,7 @@ Response (projected: top-5 flattened to one line each, `judges` and `unavailable
 }
 ```
 
-**Reading for Red dress**: top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid` (similarity 0.872), forecast 11.0 units/product/week, rank 282 of 1980, confidence high. Intended style is 1st of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid`, rank 282, confidence high -> live matches the recorded top-1 and matches the recorded rank.
+**Reading for Red dress**: top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid` (similarity 0.872), forecast 11.0 units/product/week, rank 282 of 1980, confidence high. Intended style is 1st of the top 5. Recorded table (`concept_forecast_retrieval.csv`): top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid`, rank 282, confidence high -> live matches the recorded top-1 and matches the recorded rank.
 
 **[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
@@ -704,7 +704,7 @@ Response (projected: top-5 flattened to one line each, `judges` and `unavailable
 }
 ```
 
-**Reading for White jersey top**: top-1 `Divided || Top || Jersey Fancy || White || Solid` (similarity 0.853), forecast 6.4 units/product/week, rank 651 of 1980, confidence medium. Intended style is OUTSIDE the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Divided || Top || Jersey Fancy || White || Solid`, rank 651, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
+**Reading for White jersey top**: top-1 `Divided || Top || Jersey Fancy || White || Solid` (similarity 0.853), forecast 6.4 units/product/week, rank 651 of 1980, confidence medium. Intended style is OUTSIDE the top 5. Recorded table (`concept_forecast_retrieval.csv`): top-1 `Divided || Top || Jersey Fancy || White || Solid`, rank 651, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
 
 **[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
@@ -739,12 +739,12 @@ Response (projected: top-5 flattened to one line each, `judges` and `unavailable
 }
 ```
 
-**Reading for Orange patterned bikini top**: top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern` (similarity 0.892), forecast 37.9 units/product/week, rank 118 of 3000, confidence medium. Intended style is 1st of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`, rank 118, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
+**Reading for Orange patterned bikini top**: top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern` (similarity 0.892), forecast 37.9 units/product/week, rank 118 of 3000, confidence medium. Intended style is 1st of the top 5. Recorded table (`concept_forecast_retrieval.csv`): top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`, rank 118, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
 
 
 ## Step 8 -- orchestrator aggregates the final result
 
-Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a failing concept is a failed item, not fatal to the request. Verdicts below are the LIVE `score_concept` results on the shipped images, beside the recorded `final_selection_h4.csv` verdict.
+Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a failing concept is a failed item, not fatal to the request. Verdicts below are the LIVE `score_concept` results on the shipped images, beside the recorded `final_selection.csv` verdict.
 
 | Concept | live automatic gates | failed gates (live) | recorded (h4) | human: briefed changes visible |
 |---|---|---|---|---|
@@ -756,4 +756,4 @@ Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict
 **Final outcome: 2 of 4 concepts clear every automatic gate and are forwarded for the human check** (which is recorded above, not re-performed). The others are reported with their failing gates.
 
 
-**Unresolved discrepancy, flagged rather than absorbed.** The white top is reported as failing by mechanism (integrity floor and Gate 3), and the shipped image (seed 42) does fail both. But the recorded candidate seed 47 (and 48) at the same scale clears every gating gate on `n9_candidates_scored.csv`, and the live `score_concept` call above confirms it for seed 47. `h4_deliverables.SELECTED` pins seed 42 for the white top, so the written selection rule (passes every automatic gate first) does not produce the shipped image. Whether seed 47 passes the human check has not been looked at by a person in this run. The owner of the write-up should decide whether the white top's failure is a property of the style or of seed choice.
+**Unresolved discrepancy, flagged rather than absorbed.** The white top is reported as failing by mechanism (integrity floor and Gate 3), and the shipped image (seed 42) does fail both. But the recorded candidate seed 47 (and 48) at the same scale clears every gating gate on `candidates_scored.csv`, and the live `score_concept` call above confirms it for seed 47. `final_selection_figures.SELECTED` pins seed 42 for the white top, so the written selection rule (passes every automatic gate first) does not produce the shipped image. Whether seed 47 passes the human check has not been looked at by a person in this run. The owner of the write-up should decide whether the white top's failure is a property of the style or of seed choice.

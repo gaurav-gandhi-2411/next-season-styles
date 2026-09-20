@@ -12,7 +12,7 @@ to its intended style is expected by construction and is weak evidence of anythi
 on held-out real photos (`concept_forecast_validation`) is the evidence for the method. No photo is
 excluded from the index here.
 
-Output: `reports/tables/q2_concept_forecast_retrieval.csv` (same columns as the N8 file
+Output: `reports/tables/concept_forecast_retrieval.csv` (same columns as the N8 file
 `concept_forecast_final.csv`, which is left untouched, plus `top5`, `similarity`, `margin`,
 `n_index_styles`, `n_index_images`).
 
@@ -27,21 +27,21 @@ from pathlib import Path
 import polars as pl
 
 from nss.generate import concept_forecast as cf
-from nss.generate import final_registry, h4_deliverables
+from nss.generate import final_registry, final_selection_figures
 
-OUT = Path("reports/tables/q2_concept_forecast_retrieval.csv")
+OUT = Path("reports/tables/concept_forecast_retrieval.csv")
 SUMMER_TABLE = Path("reports/tables/forecast_all_styles_summer.csv")
 CONCEPTS_DIR = Path("reports/concepts")
 
 
 def concept_images() -> dict[str, Path]:
     """The four committed final concept images, keyed by intended style id."""
-    # same naming rule as `h4_deliverables.concept_filename` (which only covers the three
+    # same naming rule as `final_selection_figures.concept_filename` (which only covers the three
     # autumn/winter styles), extended to the summer concept
     return {
         style_id: CONCEPTS_DIR
         / f"{final_registry.PLAIN_NAMES[style_id].lower().replace(' ', '-')}_{path.stem}.png"
-        for style_id, path in h4_deliverables.ALL_SELECTED.items()
+        for style_id, path in final_selection_figures.ALL_SELECTED.items()
     }
 
 

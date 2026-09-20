@@ -138,7 +138,7 @@ from nss.generate import (
 )
 from nss.generate.derive_margin_band import CONTROL_MANIFEST_PATH, load_control_pool
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h4_deliverables import concept_filename, selected_seed
+from nss.generate.final_selection_figures import concept_filename, selected_seed
 from nss.generate.scale_sweep import free_sdxl_pipeline
 from nss.models import diversity_forecast, final_forecast, final_three_shap_verdict
 
@@ -161,7 +161,7 @@ DEFAULT_GENERATED_IMAGES_DIR = Path("data/generated/pipeline_run")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # The three final concepts, committed so a reviewer without a GPU (or without data/generated/) can
 # still run every stage: style order matches `final_deliverables.STYLE_ORDER` (sweater, dress,
-# top); the files are the ones `h4_deliverables.SELECTED` records.
+# top); the files are the ones `final_selection_figures.SELECTED` records.
 DRY_RUN_CONCEPTS_DIR = Path("reports/concepts")
 DRY_RUN_CONCEPT_FILES: dict[str, str] = dict(
     zip(
@@ -384,8 +384,8 @@ def run_forecast_stage(panel: pl.DataFrame, tables_out_dir: Path) -> ForecastSta
 
     Args:
         panel: The dense style-week panel.
-        tables_out_dir: Directory to write `top_styles_t1_incumbent.csv`,
-            `top_styles_t2_emerging.csv`, and `top_styles_final_three.csv` into.
+        tables_out_dir: Directory to write `top_styles_incumbent.csv`,
+            `top_styles_emerging.csv`, and `top_styles_final_three.csv` into.
 
     Returns:
         Paths to the three written CSVs.

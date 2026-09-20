@@ -27,8 +27,8 @@ import polars as pl
 PANEL = Path("data/processed/style_week_panel.parquet")
 ARTICLES = Path("data/raw/articles.csv")
 TRANSACTIONS = Path("data/interim/transactions_train_parquet")
-T1 = Path("reports/tables/top_styles_t1_incumbent.csv")
-T2 = Path("reports/tables/top_styles_t2_emerging.csv")
+T1 = Path("reports/tables/top_styles_incumbent.csv")
+T2 = Path("reports/tables/top_styles_emerging.csv")
 OUT = Path("reports/tables/colour_base_rate.csv")
 SAMPLE_OUT = Path("reports/tables/colour_black_sample.csv")
 COL = "perceived_colour_master_name"

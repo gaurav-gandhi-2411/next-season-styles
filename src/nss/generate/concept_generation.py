@@ -1,6 +1,6 @@
 """Generation with the N1 winning configuration, for the N6 final three (task N9).
 
-WINNING CONFIG (from the N1 lever experiments, `reports/tables/n1_levers_summary.md` /
+WINNING CONFIG (from the N1 lever experiments, `reports/tables/prompt_lever_summary.md` /
 `nss.generate.levers`):
 
 1. NATURAL-LANGUAGE PROMPT ON BOTH TEXT ENCODERS. The earlier attribute-first prompt
@@ -15,7 +15,7 @@ WINNING CONFIG (from the N1 lever experiments, `reports/tables/n1_levers_summary
 4. PER-STYLE IP-ADAPTER SCALE chosen by a sweep, not a global 0.45.
 
 Usage:
-    uv run python -m nss.generate.n9_generate generate <style-keyword> <scales,csv> <seeds,csv>
+    uv run python -m nss.generate.concept_generation generate <style-keyword> <scales,csv> <seeds,csv>
 """
 
 from __future__ import annotations

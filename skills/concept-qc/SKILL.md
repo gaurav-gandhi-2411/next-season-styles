@@ -459,7 +459,7 @@ plagiarism detector.
 
 **Effect.** Gate 1 on F5's 12 candidates: median 4/12 -> p90 12/12; H3's 4 underwear: 4/4 under
 both; final selections: median 1/3 -> p90 3/3
-(`gate1_rescored_within_style.csv`, `h3_underwear_scored.csv`).
+(`gate1_rescored_within_style.csv`, `underwear_scored.csv`).
 
 ## CURRENT Gate 1b: nearest-reference check, calibrated on real articles (task K2)
 
@@ -499,8 +499,8 @@ simplest change that removes the unmeasurable component. Cost: the sweater's "Kn
 observable and is no longer scored.
 
 Per-judge thresholds are recomputed from the same persisted calibration scores (0.75 x positive
-mean, `h2_calibration_recomputed.csv`): Groq 0.438 -> 0.513, Gemini 0.625 -> 0.667. Fidelity means
-before/after for every candidate are in `reports/tables/h2_judge_rescore.csv`, derived from one
+mean, `judge_calibration_recomputed.csv`): Groq 0.438 -> 0.513, Gemini 0.625 -> 0.667. Fidelity means
+before/after for every candidate are in `reports/tables/judge_rescore.csv`, derived from one
 stored per-attribute score set (`data/generated/judge_cache.jsonl`, judged once with the legacy
 4-attribute prompt; the 3-attribute figure is a pure recomputation). **Judge noise:** a repeat call
 on the same T-shirt image with the same checklist scored 0.425 where F5 had stored 0.6375 -- single
@@ -547,7 +547,7 @@ reproduce the historical margin-band results.
 A single judge call is not a precise measurement: the same T-shirt image scored 0.6375 and then
 0.425 across sessions (~0.21). Each FINAL concept is therefore judged 3 times per judge
 (`nss.generate.judge_repeat`, raw calls in `data/generated/judge_repeat_j4.jsonl`, summary in
-`reports/tables/j4_judge_repeats.csv`); the per-judge MEDIAN is compared with that judge's own
+`reports/tables/judge_repeats.csv`); the per-judge MEDIAN is compared with that judge's own
 calibrated threshold, and every fidelity number is reported with the +/-0.21 cross-call bound. Three
 same-session repeats agreed to <= 0.006 (the T-shirt and sweater each returned three identical scores), so they show
 repeatability, not accuracy -- they do not shrink the cross-session bound. A judge with 1..2 of 3
@@ -808,7 +808,7 @@ into the reference base until a border-variance check was added.
 
 **The prompt is part of the gate's surface.** The token budget and an attribute-first prompt (texture
 words, attribute-only second-encoder prompt) hid every briefed change; a plain sentence naming the
-garment and its changes on both text encoders fixed it (`n1_levers_summary.md`).
+garment and its changes on both text encoders fixed it (`prompt_lever_summary.md`).
 
 ## Update (P-session): two calibration decisions
 
@@ -828,6 +828,6 @@ mandatory either way. The pool is small (8 styles): a larger one is untested.
 **Florence-2 is an ADVISORY judge.** Its agreement with the API judges on binarised attribute calls
 (kappa 0.36-0.48) is too low to carry a verdict; SmolVLM's is 0.68 with Groq. With Gemini's key
 invalid and Groq's daily budget spent, SmolVLM is the gating Gate 2 judge and Florence-2 is reported,
-never gating (`n9_score.GATING_JUDGES` / `ADVISORY_JUDGES`). This was decided on measured agreement,
+never gating (`concept_scoring.GATING_JUDGES` / `ADVISORY_JUDGES`). This was decided on measured agreement,
 not to pass concepts; it changes one verdict (white top Gate 2: fail -> pass) and no overall verdict.
 Restore Florence-2 as a gate only if its kappa against a live API judge rises above ~0.6.

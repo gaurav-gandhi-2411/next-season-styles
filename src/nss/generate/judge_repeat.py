@@ -24,13 +24,13 @@ from typing import Any
 
 import polars as pl
 
-from nss.generate import h2_rejudge, vlm_judges
+from nss.generate import judge_rescore, vlm_judges
 from nss.generate.concept_qc_pipeline import parse_style_attributes
 from nss.generate.vlm_judges import SKILL
 
 N_REPEATS = 3
 RAW_PATH = Path("data/generated/judge_repeat_j4.jsonl")
-OUT_PATH = Path("reports/tables/j4_judge_repeats.csv")
+OUT_PATH = Path("reports/tables/judge_repeats.csv")
 # Seconds between calls: keeps bursts under per-minute provider limits.
 CALL_GAP_SECONDS = 4.0
 CALLERS = {
@@ -75,7 +75,7 @@ def repeat_records() -> dict[tuple[str, str], list[dict[str, Any]]]:
 
 def judge_thresholds() -> dict[str, float]:
     """Per-judge Gate-2 thresholds from H2's calibration (`0.75 x` each judge's positive mean)."""
-    _, _, thresholds = h2_rejudge.recompute_calibration()
+    _, _, thresholds = judge_rescore.recompute_calibration()
     return thresholds
 
 
@@ -87,7 +87,7 @@ def main() -> None:
     does not clear within seconds; hammering it only burns the retry window) and is recorded as
     the reason on every row it blocks. A judge with no calibrated threshold is never called.
     """
-    from nss.generate.h4_deliverables import SELECTED, selected_seed  # lazy import
+    from nss.generate.final_selection_figures import SELECTED, selected_seed  # lazy import
 
     thresholds = judge_thresholds()
     done = _load_successes()

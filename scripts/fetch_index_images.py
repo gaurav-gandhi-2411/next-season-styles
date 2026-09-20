@@ -10,7 +10,7 @@ by the 40 validation photos are never fetched into the index. Fetches run throug
 Writes only under `data/images_q2/` (new scratch folder) and a manifest CSV there.
 
 Usage:
-    python scripts/q2_fetch_index_images.py --budget-seconds 1500 --workers 8
+    python scripts/fetch_index_images.py --budget-seconds 1500 --workers 8
 """
 
 from __future__ import annotations

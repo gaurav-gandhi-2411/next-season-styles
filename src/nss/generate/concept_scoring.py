@@ -18,7 +18,7 @@ Judges: comma-separated local backends in `NSS_JUDGES` (default `smolvlm`). One 
 time; all image embeddings are computed first (the GPU is shared with SDXL only in generation).
 
 Usage:
-    NSS_JUDGES=smolvlm,moondream2 uv run python -m nss.generate.n9_score <style-keyword|all>
+    NSS_JUDGES=smolvlm,moondream2 uv run python -m nss.generate.concept_scoring <style-keyword|all>
 """
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ import polars as pl
 
 from nss.generate import (
     clip_scoring,
+    concept_generation,
     dino_scoring,
     final_concepts,
     final_registry,
@@ -40,7 +41,6 @@ from nss.generate import (
     integrity_global,
     local_judge_calibration,
     local_vlm,
-    n9_generate,
 )
 from nss.generate.concept_qc_pipeline import parse_style_attributes
 from nss.generate.fidelity import applicable_dimensions
@@ -48,7 +48,7 @@ from nss.generate.gate1b_nearest_reference import gate1b_pass, gate1b_threshold
 from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
 
-OUT = Path("reports/tables/n9_candidates_scored.csv")
+OUT = Path("reports/tables/candidates_scored.csv")
 # Panel rule (task P3). Gemini's key is invalid (401) and Groq's daily token budget is spent, so the
 # panel is the two local judges. Florence-2's agreement with the API judges on binarised attribute
 # calls is too low to carry a verdict (kappa 0.36-0.48; `judge_panel_kappa.csv`) while SmolVLM's is
@@ -78,7 +78,7 @@ def judge_thresholds(backends: list[str]) -> dict[str, float]:
 
 def similarity_rows(style_id: str, images: list[Path]) -> list[dict[str, Any]]:
     """Gate 1, Gate 1b, clone control and integrity floor for every image of one style."""
-    refs = n9_generate.load_refs()[style_id]
+    refs = concept_generation.load_refs()[style_id]
     ref_embs = {
         "clip": [clip_scoring.embed_image(p) for p in refs],
         "dinov2": [dino_scoring.embed_image(p) for p in refs],
@@ -176,11 +176,13 @@ def main(keyword: str) -> None:
     styles = (
         list(final_registry.STYLE_ORDER)
         if keyword == "all"
-        else [n9_generate.style_id_for(keyword)]
+        else [concept_generation.style_id_for(keyword)]
     )
     rows: list[dict[str, Any]] = []
     for style_id in styles:
-        images = sorted((n9_generate.OUT_ROOT / final_concepts._slugify(style_id)).glob("*.png"))
+        images = sorted(
+            (concept_generation.OUT_ROOT / final_concepts._slugify(style_id)).glob("*.png")
+        )
         rows.extend(similarity_rows(style_id, images))
     for backend in backends:
         judge_rows(backend, rows, thresholds)

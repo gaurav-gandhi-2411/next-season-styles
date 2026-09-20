@@ -88,12 +88,12 @@ def build_report() -> pl.DataFrame:
     No judge is called: `judge_repeat_j4.jsonl` (three AW2020 finals) and
     `judge_repeat_summer.jsonl` (Summer) store every reading's per-attribute scores.
     """
-    from nss.generate import h2_rejudge
+    from nss.generate import judge_rescore
     from nss.generate.concept_qc_pipeline import parse_style_attributes
-    from nss.generate.h4_deliverables import SELECTED, _image
+    from nss.generate.final_selection_figures import SELECTED, _image
     from nss.generate.seasonal_concept import SELECTED_SEED, candidate_path
 
-    threshold = h2_rejudge.recompute_calibration()[2]["groq"]
+    threshold = judge_rescore.recompute_calibration()[2]["groq"]
     j4 = Path("data/generated/judge_repeat_j4.jsonl")
     summer_log = Path("data/generated/judge_repeat_summer.jsonl")
     summer_style = pl.read_csv("reports/tables/seasonal_summer_screened.csv")["style_id"][0]

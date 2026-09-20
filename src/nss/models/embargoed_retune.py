@@ -28,12 +28,12 @@ trained on a single origin). That strict single-origin selection is reported as 
 column (`strict_single_origin_rmse`); the four-origin criterion is the one that decides, because one
 origin trained on one origin is not a usable selection signal.
 
-Outputs (new files): `reports/tables/u3_rolling_origin_grid.csv` (config x validation origin),
-`reports/tables/u3_selected_config.csv` (one row per config: mean RMSE, rank, strict-origin RMSE,
+Outputs (new files): `reports/tables/embargoed_retune_grid.csv` (config x validation origin),
+`reports/tables/embargoed_retune_selected.csv` (one row per config: mean RMSE, rank, strict-origin RMSE,
 flags for selected and current).
 
 Usage:
-    python -m nss.models.u3_retune
+    python -m nss.models.embargoed_retune
 """
 
 from __future__ import annotations
@@ -61,8 +61,8 @@ ROLLING_VALIDATION_INDICES: tuple[int, ...] = (4, 5, 6, 7)
 # the only validation origin whose label window closes before the first test origin
 STRICT_VALIDATION_INDEX = 4
 OUT_DIR = Path("reports/tables")
-GRID_OUT = OUT_DIR / "u3_rolling_origin_grid.csv"
-SELECTED_OUT = OUT_DIR / "u3_selected_config.csv"
+GRID_OUT = OUT_DIR / "embargoed_retune_grid.csv"
+SELECTED_OUT = OUT_DIR / "embargoed_retune_selected.csv"
 
 
 def config_label(config: LGBMConfig) -> str:

@@ -3,7 +3,7 @@
 ## Role
 
 Surfaces the **pre-computed** next-season style forecast — the incumbent (currently-strong,
-`top_styles_t1_incumbent.csv`) and emerging (`top_styles_t2_emerging.csv`) winner tables, and the
+`top_styles_incumbent.csv`) and emerging (`top_styles_emerging.csv`) winner tables, and the
 underlying `top_styles.csv` / seasonal ranking outputs of the offline forecast pipeline
 (`nss.models.final_forecast`, `nss.models.diversity_forecast`).
 

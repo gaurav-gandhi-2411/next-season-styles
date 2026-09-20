@@ -1,7 +1,7 @@
 """Unit tests for the shipped-gate verdict logic behind the MCP `score_concept` tool (task U5).
 
 Models and image embeddings are never loaded: only the pure verdict/brief-resolution logic and the
-wiring of `n9_score.judge_rows` are exercised. The gates' thresholds are not touched here.
+wiring of `concept_scoring.judge_rows` are exercised. The gates' thresholds are not touched here.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
-from nss.generate import final_registry, n9_generate, n9_score, qc_gates
+from nss.generate import concept_generation, concept_scoring, final_registry, qc_gates
 
 
 def _gates(**passes: bool | None) -> dict[str, dict[str, Any]]:
@@ -58,7 +58,7 @@ def test_briefed_changes_prefers_sidecar_then_registry(tmp_path: Path) -> None:
     image.write_bytes(b"x")
     assert (
         qc_gates.briefed_changes(final_registry.DRESS, image)
-        == (n9_generate.CHANGES[final_registry.DRESS]["applied_changes"])
+        == (concept_generation.CHANGES[final_registry.DRESS]["applied_changes"])
     )
     assert qc_gates.briefed_changes("Nope || X || Y || Z || W", image) == []
     image.with_suffix(".json").write_text(json.dumps({"changes": ["a bow"]}), encoding="utf-8")
@@ -75,21 +75,21 @@ def test_judge_rows_uses_row_changes_without_a_sidecar(tmp_path: Path) -> None:
         "changes": ["a bow", "puff sleeves"],
     }
     with (
-        patch.object(n9_score.local_vlm, "load"),
-        patch.object(n9_score.local_vlm, "unload"),
+        patch.object(concept_scoring.local_vlm, "load"),
+        patch.object(concept_scoring.local_vlm, "unload"),
         patch.object(
-            n9_score.local_vlm,
+            concept_scoring.local_vlm,
             "extract_attributes_local",
             return_value={"product_type": "dress", "colour_family": "red"},
         ),
         patch.object(
-            n9_score.gate3,
+            concept_scoring.gate3,
             "gate3_local",
             return_value={"answers": [True, False], "pass": False},
         ) as g3,
-        patch.object(n9_score.gate3, "integrity_local", return_value=(True, "yes")),
+        patch.object(concept_scoring.gate3, "integrity_local", return_value=(True, "yes")),
     ):
-        n9_score.judge_rows("smolvlm", [row], {"smolvlm": 0.384})
+        concept_scoring.judge_rows("smolvlm", [row], {"smolvlm": 0.384})
     g3.assert_called_once_with(image, ["a bow", "puff sleeves"])
     assert row["smolvlm_gate3_answers"] == "YN" and row["smolvlm_gate3_pass"] is False
 
@@ -104,6 +104,6 @@ def test_apply_panel_rule_smolvlm_gates_florence_advises() -> None:
         "smolvlm_gate3_pass": True,
         "florence2_gate2_pass": False,
     }
-    n9_score.apply_panel_rule(row)
+    concept_scoring.apply_panel_rule(row)
     assert row["gate2_pass"] is True and row["gate2_advisory_pass"] is False
     assert row["gate3_pass"] is True

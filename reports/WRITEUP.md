@@ -107,7 +107,7 @@ top; only 20 such articles exist), added a border check after a fabric close-up 
 small judge, and regenerated the sweater. Confidence intervals on the DINOv2 limits shrank 2.5–4.4
 times.
 
-Sources: `n1_levers_summary.md`, `integrity_global_validation.csv`, `judge_panel_kappa.csv`.
+Sources: `prompt_lever_summary.md`, `integrity_global_validation.csv`, `judge_panel_kappa.csv`.
 
 ## 7. The agent layer
 
@@ -163,7 +163,7 @@ orange all-over-pattern bikini top, predicted at 37.88 and realised at 37.94 (co
 independently). That is one data point: across 127 emerging candidates the median absolute error is
 6.0 units (correlation 0.82), so the 0.06 gap is luck.
 
-Sources: `final_selection_h4.csv`, `final_three_selection_log.csv`, `q2_retrieval_validation_full.csv`.
+Sources: `final_selection.csv`, `final_three_selection_log.csv`, `retrieval_validation.csv`.
 
 ## 9. What did not work, and what I could not verify
 
@@ -197,5 +197,5 @@ global integrity floor rests on 8 styles, the limits on 8–25 real photos per s
 penalises a brown trim on a beige garment. The forecast is for styles, not for whether these
 pictures would sell.
 
-Sources: `q1_decision.csv`, `u4_decision.csv`, `u3_selected_config.csv`.
+Sources: `neighbourhood_decision.csv`, `buyer_price_decision.csv`, `embargoed_retune_selected.csv`.
 

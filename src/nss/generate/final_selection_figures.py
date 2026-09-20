@@ -15,7 +15,7 @@ Gate 3 (are the briefed changes visible, per judge), the closed-loop forecast (t
 visual check. An unmeasured gate is never rendered as a pass.
 
 Usage:
-    uv run python -m nss.generate.h4_deliverables
+    uv run python -m nss.generate.final_selection_figures
 """
 
 from __future__ import annotations
@@ -32,7 +32,8 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
-from nss.generate import final_registry, n9_generate
+from nss.generate import concept_generation, final_registry
+from nss.generate.concept_scoring import ADVISORY_JUDGES
 from nss.generate.final_deliverables import (
     STYLE_ORDER,
     PanelData,
@@ -40,13 +41,12 @@ from nss.generate.final_deliverables import (
     build_hero_figure,
     display_name,
 )
-from nss.generate.n9_score import ADVISORY_JUDGES
 
 HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
-SELECTION_OUT = Path("reports/tables/final_selection_h4.csv")
-SCORED = Path("reports/tables/n9_candidates_scored.csv")
-FORECAST = Path("reports/tables/q2_concept_forecast_retrieval.csv")  # retrieval closed loop (Q2)
+SELECTION_OUT = Path("reports/tables/final_selection.csv")
+SCORED = Path("reports/tables/candidates_scored.csv")
+FORECAST = Path("reports/tables/concept_forecast_retrieval.csv")  # retrieval closed loop (Q2)
 SWEATER, DRESS, TOP = STYLE_ORDER
 N9 = Path("data/generated/n9")
 # style -> chosen candidate image (an N9 output at the per-style scale from the sweep)
@@ -114,7 +114,7 @@ def _forecast_by_style() -> dict[str, dict[str, Any]]:
 
 
 # Presentation label for every closed-loop panel (figure and DEMO). The numbers are the recorded
-# 40-photo validation (q2_retrieval_validation_full.csv `full_index_40` vs
+# 40-photo validation (retrieval_validation.csv `full_index_40` vs
 # concept_forecast_validation.csv smolvlm: 11 retrieval-only vs 5 free-text-only exact matches,
 # McNemar exact p=0.2101).
 CLOSED_LOOP_LABEL = (
@@ -304,7 +304,7 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
         a_img.imshow(Image.open(r["image_path"]))
         a_img.axis("off")
         brief = "Changes asked for:\n" + "\n".join(
-            f"  - {c}" for c in n9_generate.CHANGES[r["style_id"]]["applied_changes"]
+            f"  - {c}" for c in concept_generation.CHANGES[r["style_id"]]["applied_changes"]
         )
         scale_line = f"IP scale {r['scale']:.2f}, seed {r['seed']}, weight 1.5, 8-ref concat"
         brief += f"\n\n{scale_line}"
@@ -372,7 +372,7 @@ def main() -> None:
     hero = build_hero_figure(panels)
     hero.savefig(HERO_OUT, dpi=150, bbox_inches="tight")
     plt.close(hero)
-    refs = n9_generate.load_refs()
+    refs = concept_generation.load_refs()
     ev = build_evidence_figure(rows, refs)
     ev.savefig(EVIDENCE_OUT, dpi=150, bbox_inches="tight")
     plt.close(ev)

@@ -1,12 +1,12 @@
 """Score every N1 lever image with Gate 3 + integrity (API judge, one batched call per image).
 
 The acceptance test for a lever is a VLM asked directly, per briefed change, "does this garment
-have <change>?" and answering yes. Results go to `reports/tables/n1_lever_gate3.csv`
+have <change>?" and answering yes. Results go to `reports/tables/prompt_lever_gate3.csv`
 (append-safe: images already scored by the same judge are skipped, so reruns resume after a quota
 stop).
 
 Usage:
-    uv run python -m nss.generate.n1_eval <judge: groq|gemini> <style-keyword>
+    uv run python -m nss.generate.prompt_lever_eval <judge: groq|gemini> <style-keyword>
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import polars as pl
 
 from nss.generate import final_concepts, gate3, levers
 
-OUT = Path("reports/tables/n1_lever_gate3.csv")
+OUT = Path("reports/tables/prompt_lever_gate3.csv")
 CALL_GAP_SECONDS = 4.0
 
 

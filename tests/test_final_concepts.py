@@ -155,13 +155,13 @@ def test_n9_briefs_and_negative_prompts_fit_the_token_budget() -> None:
     inside SDXL's 77-token budget (the rule table layered on the style's own extras once went
     6 tokens over mid-GPU-run). The N9 positive prompt is a natural sentence encoded WITHOUT
     truncation by compel, so it has no 77-token limit and is checked for content instead."""
-    from nss.generate import final_registry, n9_generate
+    from nss.generate import concept_generation, final_registry
 
     for style_id in (*final_registry.STYLE_ORDER, final_registry.SUMMER):
-        brief = n9_generate._pad(n9_generate.brief_for(style_id))
+        brief = concept_generation._pad(concept_generation.brief_for(style_id))
         _prompt, negative = build_generation_spec(style_id, brief)
         assert prompt_budget.count_clip_tokens(negative) <= prompt_budget.SDXL_TOKEN_BUDGET
-        natural = n9_generate.natural_prompt(style_id, brief["applied_changes"], 1.5)
+        natural = concept_generation.natural_prompt(style_id, brief["applied_changes"], 1.5)
         for change in brief["applied_changes"]:
             assert f"({change})1.5" in natural  # every briefed change is weighted in the prompt
 

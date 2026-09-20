@@ -26,7 +26,7 @@ TRUNCATION LEVEL SELECTION), so a WORSE full-distribution Spearman rho alongside
 metric (Precision@3) is the expected signature of that trade-off working as intended, not a
 contradiction.
 
-OUTPUT SCHEMA (`reports/tables/g2_lambdarank_vs_l2.csv`): one row per `(method, split, metric)` --
+OUTPUT SCHEMA (`reports/tables/lambdarank_vs_l2_comparison.csv`): one row per `(method, split, metric)` --
 `method` in `{lambdarank, lightgbm, seasonal_naive, ewma_persistence, parent_category_mean,
 global_mean, random_floor, persistence_oracle}`, `split` in `{pooled, covid, non_covid}`, `metric`
 in `nss.models.metrics.METRIC_KEYS`. Columns: `n_origins`, `mean`, `ci_low`, `ci_high` (that
@@ -74,7 +74,7 @@ ORACLE_METHOD = "persistence_oracle"
 LAG_WEEKS_TIMEDELTA = timedelta(weeks=LAG_WEEKS)
 
 DEFAULT_PANEL_PATH = Path("data/processed/style_week_panel.parquet")
-DEFAULT_OUT_PATH = Path("reports/tables/g2_lambdarank_vs_l2.csv")
+DEFAULT_OUT_PATH = Path("reports/tables/lambdarank_vs_l2_comparison.csv")
 
 
 def _oracle_per_origin(

@@ -1,10 +1,10 @@
 # Q write-up inputs (paste into WRITEUP.md; P owns that file)
 
 Provenance: branch `feat/q-neighbourhood-retrieval`. Q1 numbers come from
-`reports/tables/q1_decision.csv`, `q1_neighbourhood_paired_diff.csv`,
-`q1_neighbourhood_per_origin.csv`, `q1_neighbourhood_shap.csv` (produced by
-`python -m nss.models.q1_neighbourhood`, commit ceb6305). Q2 numbers come from
-`reports/tables/q2_retrieval_validation.csv` and `q2_concept_forecast_retrieval.csv`
+`reports/tables/neighbourhood_decision.csv`, `neighbourhood_paired_diff.csv`,
+`neighbourhood_per_origin.csv`, `neighbourhood_shap.csv` (produced by
+`python -m nss.models.neighbourhood_experiment`, commit ceb6305). Q2 numbers come from
+`reports/tables/retrieval_validation_partial_index.csv` and `concept_forecast_retrieval.csv`
 (`python -m nss.generate.concept_forecast_validation` / `concept_forecast_final`, commits 9598eb4 and
 c8ef588, plus 54835e9 for the `n_indexed_styles` field).
 
@@ -37,7 +37,7 @@ department + garment-group neighbourhood (`nb_igg_ratio`) ranks 5th of 41 featur
 |SHAP|. That is consistent with cohort trend being informative, but it did not translate into
 out-of-sample ranking accuracy here; in-sample importance is a statement about what the model uses,
 not about what generalises. Paired differences of the treatment model against the four baselines
-(all in `q1_neighbourhood_paired_diff.csv`; the control's own paired table is P1's
+(all in `neighbourhood_paired_diff.csv`; the control's own paired table is P1's
 `backtest_embargo_paired_diff.csv`) include, e.g., Hit@3-in-top-20 vs EWMA persistence +0.333, CI
 [+0.250, +0.556], and NDCG@10 vs parent-category mean +0.596, CI [+0.510, +0.701]. Note the seasonal-naive baseline
 has no value for the first two origins (no 52-week history), so its pairings use 10 origins although
@@ -95,14 +95,14 @@ of the method.
 
 ## How P switches the demo/figures to the retrieval results (nothing here overwrites P's inputs)
 
-- `reports/tables/q2_concept_forecast_retrieval.csv` has the same columns as
+- `reports/tables/concept_forecast_retrieval.csv` has the same columns as
   `concept_forecast_final.csv` (style_id, image_path, forecast_origin, mapped_style_key,
   maps_to_intended_style, forecast, rank, n_styles, match_level, confidence, judges, extraction) plus
   `top5`, `similarity`, `margin`, `n_index_styles`, `n_index_images`. To switch, point
-  `FORECAST` in `src/nss/generate/h4_deliverables.py` (line 48) at the q2 file. `extraction` now
+  `FORECAST` in `src/nss/generate/final_selection_figures.py` (line 48) at the q2 file. `extraction` now
   holds the two views' top-1 styles (`{'clip': {'style_key': ...}, 'dino': {...}}`), not VLM
   attributes; `judges` is `clip,dino`.
-- `reports/tables/q2_retrieval_validation.csv` has a NEW schema (`condition`, `row_type`, `config`,
+- `reports/tables/retrieval_validation_partial_index.csv` has a NEW schema (`condition`, `row_type`, `config`,
   per-photo and `summary_*` rows); `src/nss/viz/demo_page.py` line 407 reads the OLD
   `concept_forecast_validation.csv` (type/colour/pattern/exact accuracy of the free-text judges) and
   will not parse it. Keep that panel on the old file as "before" and add the numbers above as

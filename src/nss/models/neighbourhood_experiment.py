@@ -28,12 +28,12 @@ with each feature's rank among all features. The neighbourhood features' ranks a
 trend propagation whether or not the headline metric moves. (In-sample SHAP: it says what the model
 uses, not that the use generalises -- the paired out-of-sample table is what decides.)
 
-Outputs (new files only): reports/tables/q1_neighbourhood_per_origin.csv,
-q1_neighbourhood_paired_diff.csv, q1_decision.csv, q1_neighbourhood_shap.csv, plus the last-fold
+Outputs (new files only): reports/tables/neighbourhood_per_origin.csv,
+neighbourhood_paired_diff.csv, neighbourhood_decision.csv, neighbourhood_shap.csv, plus the last-fold
 treatment booster in the gitignored scratch folder `models/q1_scratch/` (never committed).
 
 Usage:
-    python -m nss.models.q1_neighbourhood
+    python -m nss.models.neighbourhood_experiment
 """
 
 from __future__ import annotations
@@ -82,10 +82,10 @@ CONTROL_TOL = 0.0006  # 0.5278 rounds to 0.528; 19/36 = 0.52777...
 
 SCRATCH_DIR = Path("models/q1_scratch")
 OUT_DIR = Path("reports/tables")
-PER_ORIGIN_OUT = OUT_DIR / "q1_neighbourhood_per_origin.csv"
-PAIRED_OUT = OUT_DIR / "q1_neighbourhood_paired_diff.csv"
-DECISION_OUT = OUT_DIR / "q1_decision.csv"
-SHAP_OUT = OUT_DIR / "q1_neighbourhood_shap.csv"
+PER_ORIGIN_OUT = OUT_DIR / "neighbourhood_per_origin.csv"
+PAIRED_OUT = OUT_DIR / "neighbourhood_paired_diff.csv"
+DECISION_OUT = OUT_DIR / "neighbourhood_decision.csv"
+SHAP_OUT = OUT_DIR / "neighbourhood_shap.csv"
 
 
 def _frame(panel: pl.DataFrame, origins: list[Origin], with_neighbourhood: bool) -> pl.DataFrame:

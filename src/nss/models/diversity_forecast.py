@@ -68,8 +68,8 @@ DIVERSITY_KEY_COLS: tuple[str, str] = ("product_type_name", "perceived_colour_ma
 # See module docstring T2 GROWTH RATIO.
 GROWTH_RATIO_WINDOW_WEEKS = final_forecast.GUARD1_WINDOW_WEEKS
 
-DEFAULT_T1_OUT_PATH = Path("reports/tables/top_styles_t1_incumbent.csv")
-DEFAULT_T2_OUT_PATH = Path("reports/tables/top_styles_t2_emerging.csv")
+DEFAULT_T1_OUT_PATH = Path("reports/tables/top_styles_incumbent.csv")
+DEFAULT_T2_OUT_PATH = Path("reports/tables/top_styles_emerging.csv")
 DEFAULT_FINAL_THREE_OUT_PATH = Path("reports/tables/top_styles_final_three.csv")
 DEFAULT_SEASONAL_V2_OUT_PATH = Path("reports/tables/top_styles_by_season_v2.csv")
 
@@ -357,7 +357,7 @@ def _t2_output_frame(t2_with_shap: pl.DataFrame) -> pl.DataFrame:
 
 def main() -> None:
     """CLI entry point: reuse `final_forecast`'s trained model + ranking frame, then write
-    `top_styles_t1_incumbent.csv`, `top_styles_t2_emerging.csv`, `top_styles_final_three.csv`, and
+    `top_styles_incumbent.csv`, `top_styles_emerging.csv`, `top_styles_final_three.csv`, and
     `top_styles_by_season_v2.csv`."""
     panel = pl.read_parquet(final_forecast.DEFAULT_PANEL_PATH)
     final_forecast.verify_forecast_origin(panel)

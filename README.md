@@ -68,10 +68,9 @@ Runs local SDXL generation and the live VLM judges. Outputs go to `reports/pipel
 
 ## Status
 
-**Complete.** All phases (data pipeline, panel construction, modelling, generation, agent layer,
-MCP server, write-up) are implemented and committed. See `reports/WRITEUP.md` for the full
-narrative, including the honest evaluation-methodology correction (Section 3) and known
-limitations (Section 9).
+The data pipeline, panel construction, modelling, generation, agent layer, MCP server and
+write-up are all implemented and committed. `reports/WRITEUP.md` has the full narrative,
+including the correction to my own evaluation (Section 3) and what did not work (Section 9).
 
 **Start here:** open `reports/DEMO.html` in any browser (self-contained, no server) for the three
 concepts, how each traces back to its forecast, the model evidence and the seasonal view, written
@@ -79,14 +78,14 @@ for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to wh
 `reports/SUBMISSION_CHECKLIST.md`.
 
 **Generation, honestly:** an earlier round produced no briefed design change in 12 images. The
-cause was measured, not assumed (`reports/tables/n1_levers_summary.md`): an attribute-first prompt
+cause was measured, not assumed (`reports/tables/prompt_lever_summary.md`): an attribute-first prompt
 plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
 multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
 of four final concepts (sweater, dress) pass every automatic gate (1, 1b, integrity floor, 2, 3) and
 a human check; the white top fails the integrity floor (closest reference 0.733, below the global floor 0.779 that
-gates and the per-style floor 0.922 shown as advisory) and the summer bikini top
+gates and the per-style floor 0.922 shown as advisory) and Gate 3, and the summer bikini top
 fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
-too easily), so a human check decides. Details: `reports/tables/final_selection_h4.csv`,
+too easily), so a human check decides. Details: `reports/tables/final_selection.csv`,
 `reports/figures/evidence_chain.png`.
 
 **Evaluation correction:** the shipped walk-forward headline (Hit@3-in-top20 0.722) trained on
@@ -111,9 +110,9 @@ better (`covid_two_model_comparison.csv`).
 - `agents/` — sub-agent role definitions (`orchestrator.md`, `data-analyst.md`, `forecaster.md`,
   `style-profiler.md`, `concept-designer.md`, `critic.md`) consumed by the agent-layer demo
 - `scripts/` — `agent_demo.py` (drives the agent delegation graph end-to-end) and
-  `run_pipeline.py` (non-interactive full reproduction, task D3)
+  `run_pipeline.py` (non-interactive full reproduction)
 - `reports/{figures,tables}/` — every generated artifact this project produces, plus
-  `WRITEUP.md` (the full technical write-up) and `agent_run_transcript.md` (the real D4 agent run)
+  `WRITEUP.md` (the full technical write-up) and `agent_run_transcript.md` (a recorded agent run)
 - `data/{raw,interim,processed,generated,images}/` — gitignored data tiers (empty dirs tracked via
   `.gitkeep`)
 - `notebooks/` — exploratory notebooks
@@ -247,7 +246,7 @@ get_style_profile -> {
     "recent_mean_revenue": 19.329864406779663
   },
   "shap_drivers": {
-    "source": "reports\\tables\\top_styles_t1_incumbent.csv",
+    "source": "reports\\tables\\top_styles_incumbent.csv",
     "style_specific": true,
     "drivers": [
       {

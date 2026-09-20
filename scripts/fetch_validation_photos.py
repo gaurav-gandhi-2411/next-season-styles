@@ -15,7 +15,7 @@ persisted for 25+ minutes), so this fetches ONE photo at a time and sleeps after
 failures. The first successful/failed attempt times are printed so the fetch cost is recorded.
 
 Usage:
-    python scripts/q2_fetch_validation_photos.py --budget-seconds 1800
+    python scripts/fetch_validation_photos.py --budget-seconds 1800
 """
 
 from __future__ import annotations

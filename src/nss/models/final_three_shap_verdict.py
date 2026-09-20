@@ -24,7 +24,7 @@ the single highest-`predicted_intensity` row in the entire guard-passing populat
 been kept yet when it's considered, so it can never be skipped. `T2_emerging` rows are ranked by
 `growth_ratio`, not `predicted_intensity`, so no such proof applies to them; their exact rank would
 require the full guard-passing population's `predicted_intensity` ranking, which is not persisted
-anywhere on disk (`top_styles.csv`/`top_styles_t1_incumbent.csv` are each only a top-10 slice, and
+anywhere on disk (`top_styles.csv`/`top_styles_incumbent.csv` are each only a top-10 slice, and
 `top_styles.csv` additionally predates the A5 determinism fix -- see that commit -- so it reflects
 a DIFFERENT, non-reproducible model realization and cannot be validly combined with this run's
 numbers). Computing it exactly would require re-deriving `build_ranking_frame`, which needs a

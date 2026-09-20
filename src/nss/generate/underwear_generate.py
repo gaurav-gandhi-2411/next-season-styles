@@ -5,7 +5,7 @@ same `design_briefs.json` prompt via `build_generation_spec` (incl. the underwea
 strengthening) and `build_prompt_2`, seeds 42-45, no retries.
 
 REFERENCE SET (visually verified on a contact sheet -- the `detail_desc` screen in
-`h3_underwear_refs` alone was NOT sufficient: 666651009/666651012 are plainly lace although their
+`underwear_refs` alone was NOT sufficient: 666651009/666651012 are plainly lace although their
 descriptions say "microfibre"; 638521006's 4-pack includes lace briefs). Kept: the four visually
 plain articles below. `references[0]` is the ONLY image IP-Adapter conditions on
 (`backends.py` note 1); it is set to 592614002 -- the one single-garment, red, solid image --
@@ -14,7 +14,7 @@ multi-colour 3-pack stack, which would import three garments and off-style colou
 candidate).
 
 Usage:
-    uv run python -m nss.generate.h3_generate
+    uv run python -m nss.generate.underwear_generate
 """
 
 from __future__ import annotations
@@ -29,8 +29,8 @@ from nss.generate.final_concepts import (
     generate_candidates_for_style,
     load_design_briefs,
 )
-from nss.generate.h3_underwear_refs import IMAGES_DIR, MANIFEST_PATH, STYLE_ID
 from nss.generate.scale_sweep import free_sdxl_pipeline
+from nss.generate.underwear_refs import IMAGES_DIR, MANIFEST_PATH, STYLE_ID
 
 OUTPUT_DIR = Path("data/generated/final_concepts_h3")
 SEEDS: tuple[int, ...] = (42, 43, 44, 45)
