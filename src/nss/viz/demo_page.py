@@ -29,8 +29,8 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
+from nss.generate import final_registry
 from nss.generate.final_deliverables import STYLE_ORDER
-from nss.generate.h3_generate import reference_paths as h3_reference_paths
 from nss.generate.h4_deliverables import HUMAN_CHECK, JUDGE_NOISE_BOUND, OBSERVED_CAPTIONS
 from nss.generate.screen_references import load_screened_references
 
@@ -106,11 +106,7 @@ def _fig_b64(fig: plt.Figure) -> str:
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-PLAIN_NAMES = {
-    STYLE_ORDER[0]: "Black jersey T-shirt",
-    STYLE_ORDER[1]: "Red underwear bottom",
-    STYLE_ORDER[2]: "Beige knit sweater",
-}
+PLAIN_NAMES = final_registry.PLAIN_NAMES
 
 
 def _e(text: object) -> str:
@@ -239,7 +235,6 @@ def _load_concepts() -> list[dict]:
         b["style_id"]: b for b in json.loads((T / "design_briefs.json").read_text(encoding="utf-8"))
     }
     refs = load_screened_references()
-    refs[STYLE_ORDER[1]] = h3_reference_paths()
     out = []
     for sid in STYLE_ORDER:
         r = sel[sid]
@@ -270,9 +265,9 @@ def hero(concepts: list[dict]) -> str:
 <h1>Three garments a forecast chose, and the pictures made from them.</h1></header>
 <div class=strip>{figs}</div>
 <section class=first><h2>What to look at first</h2>
-<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020, and its top picks were a black jersey T-shirt, red underwear and a beige knit sweater.</p>
-<p><b>What was generated from it.</b> For each style, an image generator was given real H&amp;M product photos of that style as a guide and asked for a new garment; the three pictures above are the best of four tries each.</p>
-<p><b>How to judge whether it worked.</b> Two questions: does each picture look like a believable, new product of its style (section 1: {passed} of 3 passed every automatic check, and the one that did not is explained), and does the forecast beat guessing and simple rules of thumb (section 3, where it names the right neighbourhood about 72% of the time against 0.4% for chance)?</p></section>"""
+<p><b>What the model predicted.</b> From two years of H&amp;M sales it ranked about 2,000 clothing styles by how hard each would sell, per product on sale, over the 13 weeks after 21 September 2020, and its top picks, after a human editorial rule that removed intimates and required three different colours, were a black jersey T-shirt, a beige knit sweater and a red dress.</p>
+<p><b>What was generated from it.</b> For each style, an image generator was given real H&amp;M product photos of that style as a guide and asked for a new garment; the three pictures above are the best of eight tries each (two rounds of four).</p>
+<p><b>How to judge whether it worked.</b> Two questions: does each picture look like a believable, new product of its style (section 1: {passed} of 3 passed every automatic check, and none of the three shows the design change that was asked for), and does the forecast beat guessing and simple rules of thumb (section 3, where it names the right neighbourhood about 72% of the time against 0.4% for chance)?</p></section>"""
 
 
 def _check_row(title: str, verdict: str, body: str, gloss: str) -> str:
@@ -334,7 +329,7 @@ def concept_sections(concepts: list[dict]) -> str:
                     f"The same picture scored differently across earlier sessions by up to ±{JUDGE_NOISE_BOUND:.2f}, so treat this as coarse; here it clears the pass mark by {margin:+.3f}."
                     + (
                         " One attribute, the melange (flecked) texture, scored 0: the reader saw a plain solid."
-                        if c["sid"] == STYLE_ORDER[2]
+                        if c["sid"] == final_registry.SWEATER
                         else ""
                     ),
                 ),
@@ -349,7 +344,7 @@ def concept_sections(concepts: list[dict]) -> str:
         out.append(
             f"""<article class=concept><h3>{_e(c["name"])}</h3>
 <div class=cols><div class=pic><img src="{_b64_image(Path(r['image_path']), jpeg=True)}" alt="{_e(c['name'])} concept, full size"></div>
-<div class=body><p class=headline>{headline}</p>{tee_note if c['sid'] == STYLE_ORDER[0] else ''}{checks}</div></div>
+<div class=body><p class=headline>{headline}</p>{tee_note if c['sid'] == final_registry.TSHIRT else ''}{checks}</div></div>
 <details class=refs><summary>The {len(c['refs'])} real H&amp;M photos it was guided by</summary><div class=refgrid>{refs_html}</div></details></article>"""
         )
     out.append(
@@ -391,7 +386,7 @@ def trace_back(concepts: list[dict]) -> str:
 <li><h4>Why the model liked it</h4><p>Biggest influences, in order: {_e(why)}.</p><p class=gloss>These come from an explanation method called SHAP, which shows which inputs pushed this forecast up or down. {_e(v['dominant_mechanism'].split(':')[0].capitalize())}.</p></li>
 <li><h4>Guided by</h4><div class=thumbs>{"".join(f'<img src="{_b64_image(p, max_side=420)}" alt="reference">' for p in c['refs'][:3])}</div><p class=gloss>The first photo is the one the generator actually copies structure from.</p></li>
 <li><h4>What the brief asked for</h4><ul>{asked}</ul><p class=gloss>These were instructions to the generator, not results.</p></li>
-<li><h4>What the picture shows</h4><img class=final src="{_b64_image(Path(c['sel']['image_path']), jpeg=True)}" alt="concept"><p>{_e(OBSERVED_CAPTIONS[c['sid']])}</p><p class=gloss>Described by looking at the image. Not every requested change is visible (the underwear shows dark piping, not the requested burgundy edge).</p></li></ol></article>"""
+<li><h4>What the picture shows</h4><img class=final src="{_b64_image(Path(c['sel']['image_path']), jpeg=True)}" alt="concept"><p>{_e(OBSERVED_CAPTIONS[c['sid']])}</p><p class=gloss>Described by looking at the image. None of the requested changes is visible in these three pictures; the human check for each is in section 1.</p></li></ol></article>"""
         )
     out.append("</section>")
     return "\n".join(out)
@@ -530,8 +525,8 @@ def limits_section() -> str:
 <li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
 <li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
 <li><b>The AI image reader is noisy and there is only one.</b> The same picture scored differently by up to ±{JUDGE_NOISE_BOUND:.2f} across sessions, every fidelity score comes from one model, and a second reader was unavailable (free-tier limits). The sweater's \"melange\" scored 0 although the flecking is visible: that is a genuine reader error and stays in its score.</li>
-<li><b>Automatic checks miss broken garments.</b> Three of the four regenerated underwear candidates were visibly malformed (a cut-out defect, sheer mesh, an unrecognisable folded object) and still passed every automatic check. A human check is required.</li>
-<li><b>The T-shirt concept is undifferentiated.</b> It fails the nearest-reference check by 0.0018, and its briefed changes (charcoal stitching, cropped drop-shoulder cut) are not visible. Any new black jersey tee resembles every other, so real T-shirts already sit near that limit.</li>
+<li><b>Automatic checks miss broken garments.</b> In an earlier exploration (red underwear, since retired as a final concept because intimates are excluded by an editorial rule) three of the four regenerated candidates were visibly malformed (a cut-out defect, sheer mesh, an unrecognisable folded object) and still passed every automatic check. A human check is required.</li>
+<li><b>None of the three concepts shows its briefed design change.</b> After two rounds of four tries per style, the generator kept the structure of the first reference photo and ignored the requested changes (cropped fit and white bands, funnel neck and brown rib, puff sleeves and belt). The T-shirt is a grey-bodied colour-block tee the brief never asked for, the sweater is a generic beige V-neck and the dress drifted from red to coral-pink. Passing the automatic checks did not make them new designs.</li>
 <li><b>The limits behind the checks are rough.</b> Each rests on only 4 to 6 real reference photos per style.</li>
 <li><b>The exact top three.</b> The model finds the right neighbourhood (72% in the true top 20) but not the exact order (5.6% exactly right), because the leaders are nearly tied.</li>
 <li><b>COVID.</b> The test window includes spring 2020; results are reported pooled and split, but the splits are too small to be more than directional.</li>

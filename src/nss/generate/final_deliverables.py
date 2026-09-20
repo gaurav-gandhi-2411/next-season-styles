@@ -54,6 +54,7 @@ import matplotlib.pyplot as plt
 import polars as pl
 from PIL import Image
 
+from nss.generate import final_registry
 from nss.generate.final_concepts import load_design_briefs, load_final_three_references
 from nss.generate.scale_sweep import CLIP_BAND_PATH, DINO_BAND_PATH, load_margin_band
 
@@ -63,20 +64,10 @@ EVIDENCE_OUT_PATH = Path("reports/figures/evidence_chain.png")
 
 ATTRIBUTE_FIDELITY_THRESHOLD = 0.75  # must match concept_qc_pipeline.ATTRIBUTE_FIDELITY_THRESHOLD.
 
-# Display order for both figures, matching `final_concepts_v3.csv`'s style_id values.
-STYLE_ORDER: tuple[str, ...] = (
-    "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
-    "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
-    "Ladieswear || Sweater || Knitwear || Beige || Melange",
-)
-
-# Human-readable panel titles. Hardcoded (not derived via string manipulation) since there are
-# only 3 styles and exact wording matters for a headline/hero image -- see module docstring.
-STYLE_DISPLAY_NAMES: dict[str, str] = {
-    STYLE_ORDER[0]: "Black Jersey Basic T-Shirt",
-    STYLE_ORDER[1]: "Red Under-, Nightwear Underwear Bottom",
-    STYLE_ORDER[2]: "Beige Melange Knitwear Sweater",
-}
+# Display order and names for both figures: the single source of truth is `final_registry`
+# (the M2 re-selection: black T-shirt, beige sweater, red dress).
+STYLE_ORDER: tuple[str, ...] = final_registry.STYLE_ORDER
+STYLE_DISPLAY_NAMES: dict[str, str] = final_registry.DISPLAY_NAMES
 
 # How many real catalogue reference images to show per style in the evidence-chain figure.
 N_EXEMPLAR_THUMBNAILS = 3

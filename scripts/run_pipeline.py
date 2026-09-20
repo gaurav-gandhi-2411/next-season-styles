@@ -160,16 +160,16 @@ DEFAULT_GENERATED_IMAGES_DIR = Path("data/generated/pipeline_run")
 # --- Dry-run mode (task K4) ---------------------------------------------------------------------
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # The three final concepts, committed so a reviewer without a GPU (or without data/generated/) can
-# still run every stage: style order matches `final_deliverables.STYLE_ORDER` (T-shirt, underwear,
-# sweater); the seeds are the ones `h4_deliverables.SELECTED` records for the shipped deliverable.
+# still run every stage: style order matches `final_deliverables.STYLE_ORDER` (T-shirt, sweater,
+# dress); the seed and attempt are the ones `h4_deliverables.SELECTED` records.
 DRY_RUN_CONCEPTS_DIR = Path("reports/concepts")
 DRY_RUN_CONCEPT_FILES: dict[str, str] = dict(
     zip(
         STYLE_ORDER,
         (
-            f"black-jersey-basic-tshirt_seed{SELECTED[STYLE_ORDER[0]][0]}.png",
-            f"red-underwear-bottom_seed{SELECTED[STYLE_ORDER[1]][0]}.png",
-            f"beige-melange-sweater_seed{SELECTED[STYLE_ORDER[2]][0]}.png",
+            f"black-jersey-basic-tshirt_{SELECTED[STYLE_ORDER[0]][1]}_seed{SELECTED[STYLE_ORDER[0]][0]}.png",
+            f"beige-melange-sweater_{SELECTED[STYLE_ORDER[1]][1]}_seed{SELECTED[STYLE_ORDER[1]][0]}.png",
+            f"red-dress_{SELECTED[STYLE_ORDER[2]][1]}_seed{SELECTED[STYLE_ORDER[2]][0]}.png",
         ),
         strict=True,
     )

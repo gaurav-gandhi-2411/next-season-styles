@@ -31,8 +31,9 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 | File | Shows |
 |---|---|
 | `reports/tables/label_shuffle_control.csv` | Retraining on shuffled labels: 0 hits in 108 picks vs 0.722 unshuffled |
-| `reports/tables/leave_one_out_control.csv` | Median rule passed 6/16 real articles; p90 passes 16/16 (14/16 held-out) |
+| `reports/tables/leave_one_out_control.csv` | Median rule passed 8/18 real articles; p90 passes 18/18 (15/18 held-out) |
 | `reports/tables/clone_positive_control.csv`, `gate1b_nearest_reference.csv` | An exact copy passes the range check; the nearest-reference check fails it in all three styles |
+| `reports/tables/colour_base_rate.csv`, `final_three_selection_log.csv` | Why the leaderboards are black-heavy (calibrated to the market) and the editorial selection rule with its skip log |
 | `reports/tables/final_selection_h4.csv`, `j4_judge_repeats.csv` | The three verdicts and every input; judge repeats with noise bound |
 | `reports/tables/seasonal_summer_*.csv`, `forecast_spotcheck.csv` | Summer concept inputs and checks; the #1 vs #1500 forecast spot-check |
 | `tests/` | All tests pass (`uv run pytest tests`); includes the hero-stage regression, dry-run and control tests |
@@ -40,8 +41,8 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 
 ## Known limits a reviewer should weigh
 
-- The black T-shirt **fails** the nearest-reference check (0.0018 over on one measure) and its briefed changes are not visible: two independent signals that it is undifferentiated. The underwear and sweater pass every check.
-- Automatic checks passed visibly malformed candidates (three underwear, two summer); a human check is required.
-- Fidelity scores come from one noisy judge (about ±0.21 across sessions); the summer concept passes the attribute check only on visible attributes (0.562 vs 0.513; 0.375 counting the non-visual label "Other structure"; readings spread 0.25).
+- **None of the three final concepts shows its briefed design change** (T-shirt: a grey-bodied colour-block tee the brief never asked for; sweater: generic beige V-neck; dress: coral-pink, not red). The T-shirt and sweater fail Gate 2 on the second judge; the dress passes every automatic gate at exactly Gemini's threshold and still fails the human brief check.
+- Automatic checks passed visibly malformed candidates in earlier runs (three red-underwear, two summer); a human check is required.
+- Fidelity scores are noisy (about ±0.21 across sessions; the summer concept was read by one judge only); the summer concept passes the attribute check only on visible attributes (0.562 vs 0.513; 0.375 counting the non-visual label "Other structure"; readings spread 0.25).
 - The summer forecast ranked the right style first but overshot its level (93.1 predicted vs 50.0 realised).
 - Full-mode generation was not re-run in the final session; the dry run covers wiring.

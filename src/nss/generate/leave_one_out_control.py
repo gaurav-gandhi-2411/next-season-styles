@@ -77,22 +77,16 @@ def summarise(rows: pl.DataFrame) -> pl.DataFrame:
 
 
 def load_reference_embeddings() -> dict[str, dict[str, list[np.ndarray]]]:
-    """Embeddings per style/space for the reference set each style's FINAL concept used.
+    """Embeddings per style/space for each FINAL style's screened reference photos.
 
-    T-shirt and sweater: the screened references. Underwear: H3's verified plain-solid references
-    (the screened set is the lace one the H3 defect fixed).
+    Only the final three styles (`final_registry.STYLE_ORDER`) are scored; the screened manifest
+    also carries historical styles (e.g. the retired underwear) which are left out.
     """
-    from nss.generate import (
-        clip_scoring,
-        dino_scoring,
-        h3_generate,
-        h3_underwear_refs,
-        screen_references,
-    )
+    from nss.generate import clip_scoring, dino_scoring, final_registry, screen_references
 
     embedders = {"clip": clip_scoring.embed_image, "dinov2": dino_scoring.embed_image}
-    refs = dict(screen_references.load_screened_references())
-    refs[h3_underwear_refs.STYLE_ID] = h3_generate.reference_paths()
+    screened = screen_references.load_screened_references()
+    refs = {sid: screened[sid] for sid in final_registry.STYLE_ORDER}
     return {
         sid: {s: [fn(p) for p in paths] for s, fn in embedders.items()}
         for sid, paths in refs.items()

@@ -154,22 +154,20 @@ def test_build_generation_spec_keeps_prompt_and_negative_prompt_within_token_bud
 @pytest.mark.skipif(
     not DESIGN_BRIEFS_PATH.exists(), reason="requires the real committed design_briefs.json"
 )
-def test_build_generation_spec_underwear_style_real_brief_fits_token_budget() -> None:
-    """Real-data regression test (task F5): the synthetic `_full_brief()` fixture above never
-    exercises this combination, because it under-counts what the REAL `design_briefs.json`
-    underwear entry's `negative_prompt` already contains. Task F5's first actual end-to-end run
-    hit a real `ValueError` here -- the F4 `negative_prompt_rules` rule table's terms, layered on
-    top of this style's own already-long base `negative_prompt` plus `strengthen_underwear_prompts`
-    's full term list, totalled 83 tokens, 6 over SDXL's 77-token budget (see
-    `UNDERWEAR_NEGATIVE_TERMS`'s TRIMMED comment for the fix and mechanism). This test uses the
-    REAL, committed brief so a future edit to either term list or to `design_briefs.json` itself
-    that reintroduces an over-budget negative_prompt fails loudly here, not mid-GPU-run."""
+def test_build_generation_spec_real_final_three_briefs_fit_token_budget() -> None:
+    """Real-data regression test (task F5, retargeted at the M-session final three): the synthetic
+    `_full_brief()` fixture above under-counts what the REAL `design_briefs.json` entries carry
+    (F5's first end-to-end run hit a real `ValueError` from an over-budget negative_prompt). This
+    test uses the REAL, committed briefs so a future edit to the rule table or to
+    `design_briefs.json` that reintroduces an over-budget prompt fails loudly here, not mid-GPU-run.
+    """
+    from nss.generate.final_registry import STYLE_ORDER
+
     briefs = load_design_briefs(DESIGN_BRIEFS_PATH)
-    prompt, negative_prompt = build_generation_spec(
-        UNDERWEAR_STYLE_KEY, briefs[UNDERWEAR_STYLE_KEY]
-    )
-    assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
-    assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+    for style_id in STYLE_ORDER:
+        prompt, negative_prompt = build_generation_spec(style_id, briefs[style_id])
+        assert prompt_budget.count_clip_tokens(prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
+        assert prompt_budget.count_clip_tokens(negative_prompt) <= prompt_budget.SDXL_TOKEN_BUDGET
 
 
 def test_build_generation_spec_solid_style_gets_pattern_exclusion_terms() -> None:

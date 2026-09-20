@@ -40,12 +40,12 @@ def main() -> Path:
     aw = pl.read_csv(T / "top_styles_final_three.csv").filter(pl.col("style_key") == T_SHIRT)
     aw_row = aw.to_dicts()[0]
     summer = pl.read_csv(T / "seasonal_summer_forecast.csv").to_dicts()[0]
-    seed, _src = SELECTED[T_SHIRT]
+    seed, src = SELECTED[T_SHIRT]
     panels = [
         (
             "Autumn / winter 2020",
             "Black jersey T-shirt",
-            _image(T_SHIRT, seed, "f5"),
+            _image(T_SHIRT, seed, src),
             f"Model forecast from 21 Sep 2020: {aw_row['predicted_intensity']:.1f} units per product per week",
             OBSERVED_CAPTIONS[T_SHIRT],
         ),

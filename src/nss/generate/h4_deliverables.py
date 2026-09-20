@@ -1,12 +1,11 @@
-"""Final deliverable figures + selection table (H4; rebuilt for J2 p90 Gate 1 and J3/J4 judges).
+"""Final deliverable figures + selection table (H4; rebuilt for the M-session final three).
 
-Best candidate per style REGARDLESS of gate outcome (the graded artifact is a fashion deliverable):
-T-shirt seed 43 and sweater seed 42 are F5's visual-QC selections (unchanged -- H3 regenerates the
-underwear only); underwear is H3's seed 43 (visual QC rejected seeds 42/44/45, see `h3_score`).
+Best candidate per style from task M3's two attempts, REGARDLESS of gate outcome (the graded
+artifact is a fashion deliverable). Selection is made by looking at the images (see `HUMAN_CHECK`).
 
 `FINAL_concepts.png` is clean of QC marks and captioned from LOOKING AT THE IMAGES
 (`OBSERVED_CAPTIONS`), never from the brief: a brief's `applied_changes` are prompt inputs, not
-verified outputs (the underwear shows dark piping, not the briefed burgundy picot edge).
+verified outputs (in M3 none of the briefed design changes showed up in the images).
 
 `evidence_chain.png` carries the honest per-style verdict: Gate 1 against the real within-style p90
 benchmark (plus the un-gated nearest-neighbour diagnostic), Gate 2 as the MEDIAN of repeated judge
@@ -20,6 +19,7 @@ Usage:
 from __future__ import annotations
 
 import statistics
+import textwrap
 from pathlib import Path
 from typing import Any
 
@@ -40,55 +40,56 @@ from nss.generate.final_deliverables import (
     build_hero_figure,
     display_name,
 )
-from nss.generate.h3_generate import reference_paths as h3_reference_paths
-from nss.generate.h3_score import VISUAL_QC
-from nss.generate.h3_score import image_path as h3_image_path
 from nss.generate.vlm_judges import ATTRIBUTE_DIMENSIONS, SKILL
 
 HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
 SELECTION_OUT = Path("reports/tables/final_selection_h4.csv")
-T_SHIRT, UNDERWEAR, SWEATER = STYLE_ORDER
-# (style -> (seed, source)) -- source picks which scored table carries Gate 1 for that image.
+T_SHIRT, SWEATER, DRESS = STYLE_ORDER
+# (style -> (seed, source)); source "m3a<N>" = task M3 attempt N (`m3_generate`), whose scored table
+# `m3_candidates_attempt<N>_scored.csv` carries Gate 1 / Gate 1b for that image.
 SELECTED: dict[str, tuple[int, str]] = {
-    T_SHIRT: (43, "f5"),
-    UNDERWEAR: (43, "h3"),
-    SWEATER: (42, "f5"),
+    T_SHIRT: (42, "m3a2"),
+    SWEATER: (43, "m3a1"),
+    DRESS: (45, "m3a2"),
 }
-# Written by looking at each image (task J5a) -- describes what IS visible, not what was briefed.
+# Written by looking at each image -- describes what IS visible, not what was briefed.
 OBSERVED_CAPTIONS: dict[str, str] = {
+    T_SHIRT: "Short-sleeve ribbed tee, grey body with black sleeves and neckband.",
+    SWEATER: "Oversized beige V-neck knit, faintly heathered, ribbed hem stepped at the back.",
+    DRESS: "Coral-pink fit-and-flare dress, ruffled cap sleeves, tie at the neck.",
+}
+# What a human saw when viewing the selected image, including whether the briefed change shows.
+# All three fail their brief (M3, 2 attempts): the IP-Adapter reference structure dominates.
+HUMAN_CHECK: dict[str, str] = {
     T_SHIRT: (
-        "Black short-sleeve crew-neck tee in a smooth, fitted jersey. Visible details: topstitched "
-        "neckline and shoulder seams, a white care-label tab at the inner neck. No print."
-    ),
-    UNDERWEAR: (
-        "Solid red high-leg brief with contrasting black binding along the waist and leg "
-        "openings, red topstitching and a small black woven label at the centre front. Lace-free."
+        "Not the briefed change (no cropped fit, no white bands). It does show a colour-block "
+        "the brief never asked for, but the body is grey, not black: colour anchor lost."
     ),
     SWEATER: (
-        "Camel-beige V-neck pullover in a chunky rib knit: relaxed drop-shoulder body, ribbed "
-        "cuffs and a deep ribbed hem with a curved, uneven edge. Solid colour, no pattern."
+        "Brief NOT met: no funnel neck, no dark-brown rib. Melange is faintly visible. "
+        "Otherwise a generic beige V-neck knit."
+    ),
+    DRESS: (
+        "Brief NOT met: no square neckline, puff sleeve or belt. Colour drifted red -> "
+        "coral-pink. Cleanly framed flat-lay, but a generic fit-and-flare dress."
     ),
 }
-# What a human saw when viewing the selected image (T-shirt/sweater: viewed in task J5a).
-HUMAN_CHECK: dict[str, str] = {
-    T_SHIRT: "clean, coherent garment",
-    UNDERWEAR: VISUAL_QC[43].removeprefix("keep: "),
-    SWEATER: "clean, coherent garment",
-}
+# Human verdict on whether the BRIEFED design change is visible (M3: it is not, for any style).
+# Shown next to the automatic verdict so an automatic PASS is never read as a design success.
+HUMAN_BRIEF_MET: dict[str, bool] = {T_SHIRT: False, SWEATER: False, DRESS: False}
 # Largest single-image score difference between two judge calls ever measured in this project
 # (T-shirt seed 42: 0.6375 then 0.425); an upper bound on single-call noise, not a CI.
 JUDGE_NOISE_BOUND = 0.21
 
 
 def _image(style_id: str, seed: int, source: str) -> Path:
-    if source == "h3":
-        return h3_image_path(seed)
-    slug = {
-        T_SHIRT: "ladieswear_t-shirt_jersey-basic_black_solid",
-        SWEATER: "ladieswear_sweater_knitwear_beige_melange",
-    }[style_id]
-    return Path(f"data/generated/final_concepts_v3/{slug}_seed{seed}.png")
+    """Image path for a selected concept; `source` is `m3a<N>` (task M3, attempt N)."""
+    from nss.generate import m3_generate
+
+    if not source.startswith("m3a"):
+        raise ValueError(f"unknown source {source!r}")
+    return m3_generate.image_path(style_id, seed, int(source.removeprefix("m3a")))
 
 
 def gate2_result(image: Path) -> dict[str, Any]:
@@ -134,19 +135,25 @@ def gate2_result(image: Path) -> dict[str, Any]:
 
 def selection_rows() -> list[dict[str, Any]]:
     """One row per style: Gate 1 (p90), Gate 1b (nearest reference, K2), Gate 2 (median)."""
-    f5 = pl.read_csv("reports/tables/gate1_rescored_within_style.csv")
-    h3 = pl.read_csv("reports/tables/h3_underwear_scored.csv")
+    scored = pl.concat(
+        [
+            pl.read_csv(f)
+            for f in sorted(Path("reports/tables").glob("m3_candidates_attempt*_scored.csv"))
+        ]
+    )
     gate1b = pl.read_csv("reports/tables/gate1b_nearest_reference.csv")
     rows = []
     for sid in STYLE_ORDER:
         seed, src = SELECTED[sid]
         img = _image(sid, seed, src)
-        g = (
-            h3.filter(pl.col("seed") == seed).to_dicts()[0]
-            if src == "h3"
-            else f5.filter((pl.col("style_id") == sid) & (pl.col("seed") == seed)).to_dicts()[0]
-        )
-        gate1 = bool(g["gate1_pass"] if src == "h3" else g["gate1_new_pass"])
+        g = scored.filter(
+            (pl.col("style_id") == sid)
+            & (pl.col("seed") == seed)
+            & (pl.col("attempt") == int(src.removeprefix("m3a")))
+        ).to_dicts()[0]
+        g["clip_benchmark"] = g["clip_p90_threshold"]
+        g["dinov2_benchmark"] = g["dinov2_p90_threshold"]
+        gate1 = bool(g["gate1_pass"])
         b = gate1b.filter(pl.col("style_id") == sid).to_dicts()[0]
         assert b["final_image"] == str(img), "Gate 1b was scored on a different image"
         gate1b_ok = bool(b["final_joint_pass"])
@@ -281,19 +288,20 @@ def build_evidence_figure(rows: list[dict[str, Any]], refs: dict[str, list[Path]
                 0.02, 0.98, txt, transform=ax.transAxes, va="top", fontsize=7.6, family="monospace"
             )
         a_v.axis("off")
+        human = "brief met" if HUMAN_BRIEF_MET[r["style_id"]] else "brief NOT met"
         a_v.text(
             0.05,
-            0.62,
-            r["overall"],
+            0.70,
+            f"Automatic gates: {r['overall']}\nHuman check: {human}",
             transform=a_v.transAxes,
-            fontsize=15,
+            fontsize=13,
             fontweight="bold",
             va="center",
         )
         a_v.text(
             0.05,
-            0.40,
-            f"Human visual check:\n{r['human_check']}",
+            0.52,
+            "Human visual check:\n" + textwrap.fill(r["human_check"], 52),
             transform=a_v.transAxes,
             fontsize=8.5,
             va="top",
@@ -332,7 +340,6 @@ def main() -> None:
     hero.savefig(HERO_OUT, dpi=150, bbox_inches="tight")
     plt.close(hero)
     refs = screen_references.load_screened_references()
-    refs[UNDERWEAR] = h3_reference_paths()
     ev = build_evidence_figure(rows, refs)
     ev.savefig(EVIDENCE_OUT, dpi=150, bbox_inches="tight")
     plt.close(ev)

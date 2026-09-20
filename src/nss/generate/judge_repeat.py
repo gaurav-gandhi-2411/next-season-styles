@@ -87,7 +87,7 @@ def main() -> None:
     does not clear within seconds; hammering it only burns the retry window) and is recorded as
     the reason on every row it blocks. A judge with no calibrated threshold is never called.
     """
-    from nss.generate.h4_deliverables import SELECTED, UNDERWEAR, _image  # lazy: h4 imports this
+    from nss.generate.h4_deliverables import SELECTED, _image  # lazy: h4 imports this
 
     thresholds = judge_thresholds()
     done = _load_successes()
@@ -95,9 +95,6 @@ def main() -> None:
     rows: list[dict[str, Any]] = []
     RAW_PATH.parent.mkdir(parents=True, exist_ok=True)
     items = [(sid, seed, _image(sid, seed, src)) for sid, (seed, src) in SELECTED.items()]
-    # H3 seed 45 (the "folded object"): no judge ever scored it, so the write-up's claim that
-    # automated scoring passes visually malformed candidates was unmeasured for it.
-    items.append((UNDERWEAR, 45, _image(UNDERWEAR, 45, "h3")))
     for style_id, seed, image in items:
         truth = {d: parse_style_attributes(style_id)[d] for d in vlm_judges.ATTRIBUTE_DIMENSIONS}
         for judge, caller in CALLERS.items():

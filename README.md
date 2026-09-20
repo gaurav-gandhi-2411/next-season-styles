@@ -80,11 +80,12 @@ for a non-specialist. The full argument is `reports/WRITEUP.md`; what maps to wh
 
 **Generation QC, honestly:** the concept-QC gate rejected every concept until it was re-anchored
 on how similar two *real, distinct* H&M articles of the same style are (Section 6). Under the
-final gates the red underwear and the beige sweater pass every automatic check plus a human check;
-the black T-shirt passes the range and fidelity checks but **fails the nearest-reference check** by
-0.0018 on one similarity measure (a hair closer to one reference photo than two real T-shirts ever
-are). All fidelity scores come from one noisy judge (about +/-0.21 across sessions). The automatic
-checks also passed visibly malformed candidates, so a human check is required. Details:
+final gates the dress passes every automatic check, while the T-shirt and the sweater fail
+Gate 2 (the second judge scores them 0.333 and 0.617 vs a 0.667 threshold). **None of the three
+final concepts shows the design change its brief asked for** (the generator's reference structure
+dominated; two rounds of four tries per style), and the human check says so per concept. Fidelity
+scores are noisy (about +/-0.21 across sessions). The automatic checks also passed visibly
+malformed candidates in earlier runs, so a human check is required. Details:
 `reports/tables/final_selection_h4.csv`, `reports/figures/evidence_chain.png`.
 
 **Leakage control:** retraining the same model on shuffled labels collapses to chance (0 hits in

@@ -767,3 +767,15 @@ Write a small adapter (calling code, not part of this skill) that:
 
 `skills/concept-qc/run_qc.py`'s `qc_verdict`, `run_judge`, `score_attributes`, `cohens_kappa`, and
 `choose_next_retry_value` are the entry points calling code needs.
+
+## Update (M-session): the token budget can silently delete the design change
+
+`prompt_budget.fit_prompt_to_token_budget` drops novelty clauses first. A long descriptive
+clause (~100 CLIP tokens) never fits, so it is dropped and the prompt becomes attribute-only:
+every generated concept then looks like the reference, whatever the brief says. Keep brief
+fields concise and assert that no clause was dropped (`nss.generate.final_three_briefs`).
+Even with every clause intact, IP-Adapter conditioned on `references[0]` at scale 0.45 kept
+the reference structure in 24 of 24 images: passing Gate 1/1b/2 does not show a design change,
+so record a per-concept human judgment of whether the briefed change is visible. The red
+underwear examples above are historical: the final selection excludes intimates by an
+editorial rule (see WRITEUP section 8).
