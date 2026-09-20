@@ -812,12 +812,18 @@ garment and its changes on both text encoders fixed it (`n1_levers_summary.md`).
 
 ## Update (P-session): two calibration decisions
 
-**A global integrity floor was tested and rejected.** The per-style floor is a similarity gate in
-near-identical styles (white top: p10 0.922). Calibrating one floor over all real photos on disk
-(154 photos, 8 styles, p10 0.779) passed 9/9 known-good but missed one of the 3 known-malformed
-images (sheer mesh, closest reference 0.811); a floor that passes a known-bad image does not work, so
-the per-style floor stays and its limitation is stated (`integrity_global_validation.csv`). It does
-not rescue the white top either (0.733). The pool was small: a larger one is untested, not refuted.
+**Integrity: the GLOBAL floor gates, the per-style floor is advisory (R2 correction).** Both are
+reported for every concept; neither choice changes a verdict. The per-style floor is a similarity
+gate in near-identical styles (white top: p10 0.922) and false-alarmed on 1 of 9 known-good images.
+Garment coherence is a global property, so one floor calibrated over all real photos on disk (154
+photos, 8 styles, p10 0.779) gates: it passes 9/9 known-good, catches 4/5 known-bad and 2/3
+malformed images (`integrity_global_validation.csv`). **The one case the global floor misses is
+seed 44 (sheer mesh, closest reference 0.811); the per-style floor catches it.** This is a
+correction of mechanism and framing, not an outcome change: the white top (0.733) is below both
+floors. Earlier text here said the global floor was rejected for missing that image; that
+reasoning is superseded, because the per-style floor's failure mode (unmeetable for any design
+change in a near-identical style) is the worse one for a generation gate. The human check remains
+mandatory either way. The pool is small (8 styles): a larger one is untested.
 
 **Florence-2 is an ADVISORY judge.** Its agreement with the API judges on binarised attribute calls
 (kappa 0.36-0.48) is too low to carry a verdict; SmolVLM's is 0.68 with Groq. With Gemini's key

@@ -83,8 +83,8 @@ cause was measured, not assumed (`reports/tables/n1_levers_summary.md`): an attr
 plus single-reference IP-Adapter conditioning. A plain-sentence prompt on both text encoders,
 multi-reference conditioning, compel weighting and a per-style scale made the changes visible. Two
 of four final concepts (sweater, dress) pass every automatic gate (1, 1b, integrity floor, 2, 3) and
-a human check; the white top fails the integrity floor by mechanism (its 19 real articles are
-near-identical, so a design change necessarily falls below the floor) and the summer bikini top
+a human check; the white top fails the integrity floor (closest reference 0.733, below the global floor 0.779 that
+gates and the per-style floor 0.922 shown as advisory) and the summer bikini top
 fails Gate 2 on one reader's answer. The local readers are small (the design-change reader says yes
 too easily), so a human check decides. Details: `reports/tables/final_selection_h4.csv`,
 `reports/figures/evidence_chain.png`.

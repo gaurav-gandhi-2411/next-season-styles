@@ -16,11 +16,12 @@ reference bases; no generated image ever enters it.
 RESULT (`integrity_global_validation.csv`): the global floor is 0.7786 (p10 over 154 real photos in
 the 8 styles with at least 3 photos on disk). Against the labelled cases it catches 2 of the 3
 malformed underwear images (misses seed 44, sheer mesh panels, closest reference 0.811) and 4 of 5
-known-bad; it passes 9 of 9 known-good (per-style floor: 8 of 9). A floor
-that passes a known-malformed image does not work, so it is NOT adopted: `gate3.integrity_floor`
-(per style) stays. Recalibrating does not rescue the white top either (closest reference 0.733 is
-below the global floor too), so no concept's verdict changes. The pool is small (8 styles), so a
-larger pool is untested, not refuted.
+known-bad; it passes 9 of 9 known-good (per-style floor: 8 of 9). Coherence is not a property
+of one style, so THIS floor gates (`n9_score`, task R2) and the per-style floor
+(`gate3.integrity_floor`) is reported beside it as advisory. The one case the global floor misses is
+seed 44 (sheer mesh, closest reference 0.811); the per-style floor catches it. Neither floor rescues
+the white top (closest reference 0.733 is below both), so no concept's verdict changes: R2 corrects
+mechanism and framing only. The pool is small (8 styles), so a larger pool is untested, not refuted.
 
 Usage:
     uv run python -m nss.generate.integrity_global

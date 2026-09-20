@@ -38,17 +38,17 @@ are relative to the repository root; the reviewer's bundle is `reports/SUBMISSIO
 | `reports/tables/gate3_validation_local-smolvlm.csv`, `integrity_validation_local-smolvlm.csv`, `local_judge_calibration_*.csv`, `judge_panel_kappa.csv` | Gate 3 and integrity validated on known cases; judge calibration and pairwise kappa |
 | `reports/tables/n1_levers_summary.md` | The N1 lever experiments: what made the briefed changes appear |
 | `reports/tables/covid_two_model_comparison.csv`, `backtest_embargo_check.csv` | COVID two-model comparison; the 13-week-gap re-run of the backtest |
-| `reports/tables/concept_forecast_final.csv`, `concept_forecast_validation.csv` | Closed-loop forecasts of the final concepts; extraction accuracy on 40 real photos |
+| `reports/tables/q2_concept_forecast_retrieval.csv`, `q2_retrieval_validation.csv`, `concept_forecast_validation.csv` | Closed-loop forecasts of the final concepts (retrieval); retrieval validation; the earlier free-text accuracy on 40 photos |
 | `reports/tables/summer_selection_n6.csv`, `forecast_spotcheck.csv` | Summer selection under the N6 rules; the #1 vs #1500 forecast spot-check |
 | `tests/` | All tests pass (`uv run pytest tests`); includes the hero-stage regression, dry-run and control tests |
 | `scripts/run_pipeline.py --dry-run` | All seven pipeline stages on CPU in about 1–2.5 minutes, writing only to a scratch directory |
 
 ## Known limits a reviewer should weigh
 
-- Two of four final concepts pass every automatic gate. The white top fails the integrity floor by mechanism (19 near-identical real articles) and the summer bikini top fails Gate 2 on one reader's pattern answer; a human confirmed every requested change is visible except that the top's cuffs are narrower than briefed.
+- Two of four final concepts pass every automatic gate. The white top fails the integrity floor (closest reference 0.733, below both the global floor 0.779 that gates and the per-style floor 0.922 reported as advisory) and the summer bikini top fails Gate 2 on one reader's pattern answer; a human confirmed every requested change is visible except that the top's cuffs are narrower than briefed.
 - The walk-forward headline Hit@3-in-top20 is 0.528 with a 13-week gap, not 0.722 (`reports/tables/backtest_embargo_check.csv`). Post-embargo, paired: comparable to seasonal naive on top-k (top-20 +0.233, CI [0.000, 0.567]), better on NDCG@10, Spearman and WMAPE, and better than persistence and the naive means on every metric (`backtest_embargo_paired_diff.csv`).
-- The image readers are two small local models (SmolVLM gates, Florence-2 is advisory: kappa 0.36-0.48 vs API judges); Groq's daily budget is spent and Gemini's key returns 401. The design-change reader over-says yes; the human check decides.
-- A global integrity floor was tested and rejected (it misses one known-malformed image): `integrity_global_validation.csv`. The summer prediction (37.88) matches the realised value (37.94) by luck: typical error is 6 units (`p4_summer_check.csv`).
-- The closed-loop style extraction is poor on real photos (exact style 12.5%); outputs are labelled low-confidence.
+- The image readers are two small local models (SmolVLM gates, Florence-2 is advisory: kappa 0.36-0.48 vs API judges); Groq's daily budget is spent and Gemini's refreshed key authenticates and calibrates (gap 0.522) but its free quota ran out before any concept was re-read, so the bikini's pattern call has no second reader. The design-change reader over-says yes; the human check decides.
+- The global integrity floor gates and the per-style floor is advisory; the global floor's one miss is seed 44, sheer mesh, 0.811 (`integrity_global_validation.csv`). Neighbourhood features were tested and rejected (`q1_decision.csv`). The summer prediction (37.88) matches the realised value (37.94) by luck: typical error is 6 units (`p4_summer_check.csv`).
+- The closed loop is an image-retrieval prototype: 72.3% exact style inside its index (leave-one-out, 415 styles), but 0/40 on the original 40 photos because their styles are not indexed (coverage, not quality); the old free-text version scored 12.5%.
 - COVID data did not hurt and mildly helped (13 non-COVID origins, second model has ~40% fewer rows).
 - Full-mode generation is reproducible with `python -m nss.generate.n9_generate`; the dry run covers wiring.

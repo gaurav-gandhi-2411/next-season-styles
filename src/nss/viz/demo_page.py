@@ -342,10 +342,10 @@ def concept_sections(concepts: list[dict]) -> str:
                 _check_row(
                     "Looks like a real garment (integrity floor)",
                     verdict_word(bool(r["integrity_floor_pass"])),
-                    f'The closest real reference must be at least as close as 9 in 10 real products are to their own nearest sibling: <b>{_num(r["floor_max_sim"])}</b> against a floor of {_num(r["floor_limit"])} (DINOv2).',
-                    "This catches malformed garments (cut-outs, folded objects, fabric swatches: all three known-malformed test images fail it). It cannot be met by a design that differs from near-identical real products, which is why it fails the white top."
+                    f'The closest real reference must be at least as close as 9 in 10 real products of any style are to their own nearest sibling: <b>{_num(r["floor_max_sim"])}</b> against a global floor of {_num(r["global_floor_limit"])} (DINOv2). The floor calibrated within this style alone (advisory) is {_num(r["floor_limit"])}: {"pass" if r["integrity_style_pass"] else "fail"}.',
+                    "The global floor gates because garment coherence is not a property of one style. It passes every known-good test image and misses one known-malformed one (a sheer-mesh garment); the within-style floor catches that one but is unmeetable for a design change in a style whose real products are near-identical. The white top is below both floors."
                     if c["sid"] == final_registry.TOP
-                    else "This catches malformed garments (cut-outs, folded objects, fabric swatches: all three known-malformed test images fail it).",
+                    else "The global floor gates because garment coherence is not a property of one style. It passes every known-good test image and misses one known-malformed one (a sheer-mesh garment); the within-style floor (advisory) catches that one.",
                 ),
                 _check_row(
                     "Matches the style's attributes (Gate 2)",
@@ -407,20 +407,28 @@ def trace_back(concepts: list[dict]) -> str:
 
 
 def closed_loop_section(concepts: list[dict]) -> str:
-    """Section: predict -> generate -> score the generation through the same predictor."""
-    val = pl.read_csv(T / "concept_forecast_validation.csv")
-    per_judge = val.group_by("judge").agg(
-        pl.len().alias("n"),
-        pl.col("type_ok").mean().alias("type"),
-        pl.col("colour_ok").mean().alias("colour"),
-        pl.col("pattern_ok").mean().alias("pattern"),
-        pl.col("triple_ok").mean().alias("triple"),
-        pl.col("exact_style_key").mean().alias("exact"),
-    )
-    vrows = "".join(
-        f"<tr><td>{_e(r['judge'])}</td><td class=n>{r['n']}</td><td class=n>{r['type']:.0%}</td><td class=n>{r['colour']:.0%}</td><td class=n>{r['pattern']:.0%}</td><td class=n>{r['triple']:.0%}</td><td class=n>{r['exact']:.0%}</td></tr>"
-        for r in per_judge.to_dicts()
-    )
+    """Predict -> generate -> score the generation through the same predictor (retrieval)."""
+    old = pl.read_csv(T / "concept_forecast_validation.csv")
+    old_sm = old.filter(pl.col("judge") == "smolvlm")
+    old_exact = float(old_sm["exact_style_key"].mean())
+    q = pl.read_csv(T / "q2_retrieval_validation.csv")
+    loo = q.filter(
+        (pl.col("condition") == "loo_deployment_index")
+        & (pl.col("config") == "avg")
+        & (pl.col("row_type") == "summary_all")
+    ).to_dicts()[0]
+    cov = q.filter(
+        (pl.col("condition") == "deployment_coverage")
+        & (pl.col("config") == "avg")
+        & (pl.col("row_type") == "summary_all")
+    ).to_dicts()[0]
+    conf = {
+        r["row_type"].removeprefix("summary_confidence_"): r
+        for r in q.filter(
+            (pl.col("condition") == "loo_deployment_index")
+            & pl.col("row_type").str.starts_with("summary_confidence_")
+        ).to_dicts()
+    }
     rows = ""
     for c in concepts:
         r = c["sel"]
@@ -429,13 +437,13 @@ def closed_loop_section(concepts: list[dict]) -> str:
             f"<td class=n>{r['forecast_units']:.1f}</td><td class=n>{int(r['forecast_rank'])}</td><td>{_e(r['forecast_confidence'])}</td></tr>"
         )
     return f"""<section id=loop><h2>Closing the loop: scoring the pictures with the same forecaster</h2>
-<p class=lede>Predict, generate, then score the generated picture through the same predictor: an image reader names its type, colour and pattern, that is matched to the nearest real catalogue style, and the model's forecast for that style is looked up.</p>
-<div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Read as this catalogue style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th></tr></thead><tbody>{rows}</tbody></table></div>
-<p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among the styles forecast from 1 Jun 2020. Confidence comes from how well the readers agree with each other, never from the forecast.</p>
-<h3>How often is the style read correctly?</h3>
-<p>Measured on {val.filter(pl.col('judge') == val['judge'][0]).height} real catalogue photos of randomly chosen styles, whose true style is known:</p>
-<div class=scroll><table class=metrics><thead><tr><th>Reader</th><th>Photos</th><th>Product type right</th><th>Colour right</th><th>Pattern right</th><th>All three right</th><th>Exact style right</th></tr></thead><tbody>{vrows}</tbody></table></div>
-<p class=gloss>The exact style also needs the department and garment group, which no picture shows, so it is filled in with the most common catalogue variant; that makes the last column a floor, not a ceiling. Where the readers are wrong the forecast belongs to a different style, which is why the confidence label matters. This is a forecast for the archetype the picture reads as, not for the new design itself: nothing here tests demand for the design.</p></section>"""
+<p class=lede>Predict, generate, then score the generated picture through the same predictor: the picture is matched to the nearest real catalogue style and the model's forecast for that style is looked up. The match is now made by image retrieval (CLIP and DINOv2 similarity to each style's real photos), not by asking a small model to name the style.</p>
+<div class=scroll><table class=metrics><thead><tr><th>Concept</th><th>Matched catalogue style</th><th>Forecast, units per product per week</th><th>Rank among forecast styles</th><th>Confidence</th></tr></thead><tbody>{rows}</tbody></table></div>
+<p class=gloss>Autumn/winter pictures are ranked among 1,980 styles forecast from 21 Sep 2020; the summer picture among the styles forecast from 1 Jun 2020. Three of four match their intended style, but the index contains each intended style's own reference photos (the ones the concept was generated from), so that is close to circular and is not evidence of the method. The white top matches a near-identical sibling style (its intended style is second by 0.001).</p>
+<h3>How well does the matching work?</h3>
+<p><b>Before:</b> asking a small model to caption the picture and mapping the words to a style named the exact style for <b>{old_exact:.1%}</b> of 40 real photos. That asked a captioner to reproduce H&amp;M's internal labels, which no photo shows.</p>
+<p><b>After (retrieval), inside its index:</b> matching each of {int(loo['n'])} real photos against the index with that photo left out gives the exact style first for <b>{loo['top1']:.0%}</b>, within the top 5 for <b>{loo['top5']:.0%}</b> and the top 10 for <b>{loo['top10']:.0%}</b> (chance: 0.2%, 1.2%, 2.4%). The confidence label is informative: the top match is right {conf['high']['top1']:.0%} of the time when it says high ({int(conf['high']['n'])} photos), {conf['medium']['top1']:.0%} for medium and {conf['low']['top1']:.0%} for low.</p>
+<p><b>What this does not show:</b> the index holds only a fifth of the forecast styles (Kaggle stopped serving photos), and on the same 40 photos as the "before" number their styles are not in the index, so that comparison scores {cov['top1']:.0%}: it measures coverage, not retrieval. The like-for-like test needs the full catalogue indexed. Until then this is a labelled prototype, and it is a forecast for the archetype the picture reads as, not for the new design.</p></section>"""
 
 
 def seasonal_section(concepts: list[dict]) -> str:
@@ -464,8 +472,8 @@ def limits_section() -> str:
 <ul class=limits>
 <li><b>Whether the pictures would sell.</b> The forecast is about styles; the pictures are new designs no customer has seen. Nothing here tests demand for the pictures themselves.</li>
 <li><b>Demand, as opposed to sales.</b> Everything derives from what was stocked and sold, not what customers wanted. No inventory data was available; a stock-out check finds a lower bound of 3.76% of style-weeks with a stock-out signature.</li>
-<li><b>The image readers are small and were checked on few images.</b> The two Groq and Gemini readers used earlier were unavailable this session (a daily limit and an invalid key), so the panel is two small local models, one of them advisory. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
-<li><b>Automatic integrity is a proxy.</b> Asking a small model whether a garment is coherent caught none of the three known-malformed test images; a similarity floor caught all three, but it also fails the white top, whose real products are near-identical, so the human check remains necessary.</li>
+<li><b>The image readers are small and were checked on few images.</b> Groq's daily limit and Gemini's free quota were spent this session (Gemini's replacement key authenticates and passes calibration, but no concept could be re-read), so the panel is two small local models, one of them advisory. The yes/no reader for design changes says yes too easily (right about 'no' 58% of the time), so a person made the final call.</li>
+<li><b>Automatic integrity is a proxy.</b> Asking a small model whether a garment is coherent caught none of the three known-malformed test images; a global similarity floor gates and passes every known-good image but misses one of the three (sheer mesh); the within-style floor, reported as advisory, catches all three but cannot be met by a design change in a near-identical style. The human check remains necessary.</li>
 <li><b>The limits behind the checks still rest on a modest number of real photos:</b> 8 to 25 per style (the white top has 19 in the whole catalogue).</li>
 <li><b>The exact top three.</b> The model finds a useful neighbourhood but not the exact order, because the leaders are nearly tied.</li>
 </ul></section>"""

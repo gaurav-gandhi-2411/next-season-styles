@@ -1,0 +1,7 @@
+control,style_id,image_path,mean_score,score_product_type,score_colour_family,score_graphical_treatment
+positive,Ladieswear || T-shirt || Jersey Basic || Black || Solid,data\images\0554598001.jpg,0.9500000000000001,1.0,1.0,0.85
+positive,"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",data\images\0803986005.jpg,0.6666666666666666,0.0,1.0,1.0
+positive,Ladieswear || Sweater || Knitwear || Beige || Melange,data\images\0863646003.jpg,0.6166666666666667,0.85,1.0,0.0
+negative,Ladieswear || T-shirt || Jersey Basic || Black || Solid,data\images\0798620003.jpg,0.3333333333333333,0.0,0.0,1.0
+negative,"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",data\images\0760878001.jpg,0.3333333333333333,0.0,0.0,1.0
+negative,Ladieswear || Sweater || Knitwear || Beige || Melange,data\images\0783732002.jpg,0.0,0.0,0.0,0.0

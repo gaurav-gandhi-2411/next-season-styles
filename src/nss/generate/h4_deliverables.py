@@ -46,7 +46,7 @@ HERO_OUT = Path("reports/figures/FINAL_concepts.png")
 EVIDENCE_OUT = Path("reports/figures/evidence_chain.png")
 SELECTION_OUT = Path("reports/tables/final_selection_h4.csv")
 SCORED = Path("reports/tables/n9_candidates_scored.csv")
-FORECAST = Path("reports/tables/concept_forecast_final.csv")
+FORECAST = Path("reports/tables/q2_concept_forecast_retrieval.csv")  # retrieval closed loop (Q2)
 SWEATER, DRESS, TOP = STYLE_ORDER
 N9 = Path("data/generated/n9")
 # style -> chosen candidate image (an N9 output at the per-style scale from the sweep)
@@ -164,9 +164,11 @@ def _gate_text(r: dict[str, Any]) -> str:
             f"DINOv2 {r['dinov2_max_sim']:.3f} <= {r['dinov2_gate1b_limit']:.3f}"
             f"  -> {mark(r['gate1b_pass'])}",
             "",
-            "Integrity floor (closest ref >= p10 of real)",
-            f"DINOv2 {r['floor_max_sim']:.3f} >= {r['floor_limit']:.3f}"
+            "Integrity floor, GLOBAL (gates): closest ref",
+            f"DINOv2 {r['floor_max_sim']:.3f} >= {r['global_floor_limit']:.3f}"
             f"  -> {mark(r['integrity_floor_pass'])}",
+            f"Per-style floor (advisory) {r['floor_limit']:.3f}"
+            f"  -> {mark(r['integrity_style_pass'])}",
             f"(refs: {r['n_refs']} screened real articles)",
         ]
     )
@@ -185,7 +187,7 @@ def _judge_text(r: dict[str, Any]) -> str:
             lines.append(
                 f"{j}: {r[f'{j}_gate3_answers']}  {'PASS' if r[f'{j}_gate3_pass'] else 'FAIL'}"
             )
-    lines += ["", "Closed loop (N8): image scored through the forecaster"]
+    lines += ["", "Closed loop: image matched to a style, scored"]
     if r["forecast_units"] is not None:
         lines.append(
             f"{r['forecast_units']:.1f} units/product/wk, rank {int(r['forecast_rank'])}"

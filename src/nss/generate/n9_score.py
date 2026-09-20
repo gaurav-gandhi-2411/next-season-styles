@@ -37,6 +37,7 @@ from nss.generate import (
     final_concepts,
     final_registry,
     gate3,
+    integrity_global,
     local_judge_calibration,
     local_vlm,
     n9_generate,
@@ -54,6 +55,13 @@ OUT = Path("reports/tables/n9_candidates_scored.csv")
 # 0.68 with Groq, so Florence-2 is ADVISORY (reported, never gating) and SmolVLM gates Gate 2. This
 # was decided on measured agreement, not to pass any concept, and it changes one verdict (the white
 # top's Gate 2: fail -> pass; its overall verdict stays FAIL on Gates 3 and integrity).
+# Integrity (task R2): the GLOBAL floor gates (garment coherence is a global property: p10 of real
+# nearest-sibling similarity pooled over every style, `integrity_global`); the per-style floor is
+# reported as advisory (`integrity_style_pass`). Per-style is structurally a similarity gate in
+# near-identical styles (the white top's 19 near-duplicate articles put its floor at 0.922), and it
+# false-alarmed on 1 of 9 known-good images where the global floor passed 9 of 9. Global misses one
+# known-malformed image (seed 44, sheer mesh, closest reference 0.811); per-style catches it. This
+# is a correction of mechanism and framing: no concept's verdict changes (the white top fails both).
 GATING_JUDGES = ("smolvlm",)
 ADVISORY_JUDGES = ("florence2",)
 SPACES = ("clip", "dinov2")
@@ -83,6 +91,7 @@ def similarity_rows(style_id: str, images: list[Path]) -> list[dict[str, Any]]:
         sims = {s: concept_similarity(emb[s], ref_embs[s])["mean"] for s in SPACES}
         b = gate1b_pass(emb, ref_embs)
         floor = gate3.integrity_floor(emb["dinov2"], ref_embs["dinov2"])
+        global_limit = integrity_global.global_floor()
         rows.append(
             {
                 "style_id": style_id,
@@ -99,7 +108,9 @@ def similarity_rows(style_id: str, images: list[Path]) -> list[dict[str, Any]]:
                 "clone_fails_gate1b": not clone["joint_pass"],
                 "floor_max_sim": floor["max_sim"],
                 "floor_limit": floor["floor"],
-                "integrity_floor_pass": floor["pass"],
+                "integrity_style_pass": floor["pass"],  # advisory
+                "global_floor_limit": global_limit,
+                "integrity_floor_pass": floor["max_sim"] >= global_limit,  # gating
             }
         )
     return rows
@@ -134,6 +145,10 @@ def apply_panel_rule(row: dict[str, Any]) -> None:
     Gate 2 and Gate 3 need every GATING judge that has a reading to pass; advisory judges are
     reported in `gate2_advisory_pass` and never gate.
     """
+    if "integrity_style_pass" not in row:  # legacy table: its floor column was the per-style one
+        row["integrity_style_pass"] = row["integrity_floor_pass"]
+    row["global_floor_limit"] = integrity_global.global_floor()
+    row["integrity_floor_pass"] = bool(row["floor_max_sim"] >= row["global_floor_limit"])
     gating = [j for j in GATING_JUDGES if f"{j}_gate2_pass" in row]
     row["gate2_pass"] = all(row[f"{j}_gate2_pass"] for j in gating)
     advisory = [j for j in ADVISORY_JUDGES if f"{j}_gate2_pass" in row]
