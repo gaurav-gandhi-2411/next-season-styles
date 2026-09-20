@@ -68,6 +68,13 @@ FORECAST_TABLES: dict[str, Path] = {
 PRECOMPUTED_FORECAST_ORIGIN = "2020-09-21"
 PRECOMPUTED_FORECAST_HORIZON_WEEKS = 13
 
+# Origins `forecast_concept` can score against: the autumn/winter table (default) and the summer
+# concept's own table (origin 2020-06-01, 3,000 styles; `concept_forecast_final` uses the same one).
+CONCEPT_FORECAST_ORIGINS: dict[str, Path | None] = {
+    PRECOMPUTED_FORECAST_ORIGIN: None,
+    "2020-06-01": Path("reports/tables/forecast_all_styles_summer.csv"),
+}
+
 EXEMPLAR_MANIFEST_PATHS = (
     Path("reports/tables/exemplar_images.csv"),
     Path("reports/tables/exemplar_images_final_three.csv"),
@@ -510,7 +517,9 @@ def score_concept(
     )
 
 
-def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict[str, Any]:
+def forecast_concept(
+    concept_path: str, include_api_judges: bool = True, origin: str = PRECOMPUTED_FORECAST_ORIGIN
+) -> dict[str, Any]:
     """Score a generated concept THROUGH THE SAME FORECASTER (the closed loop). PROTOTYPE.
 
     Image retrieval: embed the concept (CLIP ViT-L/14 + DINOv2) -> nearest catalogue STYLE by the
@@ -523,6 +532,10 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
         concept_path: Path to the concept image.
         include_api_judges: Deprecated and ignored. Retrieval uses no VLM judges; the parameter is
             kept so existing callers do not break.
+        origin: Forecast origin the concept is scored against: `"2020-09-21"` (the autumn/winter
+            table, default) or `"2020-06-01"` (the summer table, for the summer concept, whose
+            forecast is defined at its own origin). Any other value is refused rather than scored
+            against the wrong table.
 
     Returns:
         `{"sentence", "style_key", "forecast_units_per_product_per_week", "rank", "n_styles",
@@ -534,13 +547,25 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
+        ValueError: `origin` is not one of `CONCEPT_FORECAST_ORIGINS`.
     """
     from nss.generate import concept_forecast
 
+    if origin not in CONCEPT_FORECAST_ORIGINS:
+        raise ValueError(
+            f"origin must be one of {sorted(CONCEPT_FORECAST_ORIGINS)}, got {origin!r}: only "
+            "those forecasts exist on disk (modelling is frozen)"
+        )
     path = Path(concept_path)
     if not path.exists():
         raise FileNotFoundError(f"concept image not found: {concept_path}")
-    result = concept_forecast.forecast_concept(path)
+    if origin == PRECOMPUTED_FORECAST_ORIGIN:
+        result = concept_forecast.forecast_concept(path)
+    else:
+        table = pl.read_csv(CONCEPT_FORECAST_ORIGINS[origin])
+        result = concept_forecast.forecast_concept(
+            path, table, concept_forecast.default_index(table)
+        )
     return {
         "sentence": result.sentence(),
         "style_key": result.style_key,

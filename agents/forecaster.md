@@ -41,7 +41,10 @@ so, not to approximate a fresh number.
   nearest real catalogue style by CLIP + DINOv2 retrieval and looks up that style's forecast.
   Report the `top5` list, the intended style's position in it, and the `confidence` label, not
   only the top-1 style: styles are near-ties by construction, and the result is about the
-  archetype the picture reads as, not a demand forecast for the new design.
+  archetype the picture reads as, not a demand forecast for the new design. The summer concept
+  is scored at its own origin: pass `origin="2020-06-01"` (default `"2020-09-21"`); any other
+  origin is refused, and scoring the summer concept against the default table gives a
+  wrong-origin number.
 - `get_style_profile` — to enrich a forecast row with the style's descriptive metadata/history
   when the orchestrator needs both in one answer (e.g. "why is style X predicted to win" benefits
   from both the forecast row and the style's historical profile).
