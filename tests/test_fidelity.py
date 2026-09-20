@@ -52,6 +52,7 @@ def test_summarise_readings_takes_median_of_each_figure() -> None:
     assert s["median_all_attributes"] == pytest.approx(0.375)
 
 
+@pytest.mark.needs_data("data/raw/articles.csv")
 def test_every_real_pattern_value_is_classified_without_error() -> None:
     values = pl.read_csv("data/raw/articles.csv")["graphical_appearance_name"].unique().to_list()
     for v in values:

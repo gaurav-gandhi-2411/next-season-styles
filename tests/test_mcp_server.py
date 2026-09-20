@@ -63,6 +63,7 @@ def test_parse_style_key_wrong_part_count_raises() -> None:
 # --- query_transactions ---
 
 
+@pytest.mark.needs_data("data/interim/transactions_train_parquet")
 def test_query_transactions_no_style_filter_returns_aggregates() -> None:
     """A narrow, unfiltered date range returns non-negative aggregate stats over all styles."""
     result = query_transactions(None, "2020-09-14", "2020-09-21")
@@ -74,6 +75,7 @@ def test_query_transactions_no_style_filter_returns_aggregates() -> None:
     assert result["n_customers"] > 0
 
 
+@pytest.mark.needs_data("data/interim/transactions_train_parquet", "data/raw/articles.csv")
 def test_query_transactions_with_style_filter_matches_known_high_volume_style() -> None:
     """Filtering to a known high-volume style over its full lifetime yields a positive count."""
     result = query_transactions(KNOWN_STYLE_KEY, "2018-09-20", "2020-09-21")
@@ -82,6 +84,7 @@ def test_query_transactions_with_style_filter_matches_known_high_volume_style() 
     assert result["n_customers"] > 0
 
 
+@pytest.mark.needs_data("data/interim/transactions_train_parquet")
 def test_query_transactions_no_matches_returns_zeroes() -> None:
     """A date range with zero matching transactions returns explicit zeroes, not nulls/errors."""
     result = query_transactions(None, "2015-01-01", "2015-01-02")
@@ -160,6 +163,7 @@ def test_get_shap_drivers_no_artifacts_at_all(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.needs_data("data/processed/style_week_panel.parquet")
 def test_get_style_profile_known_style() -> None:
     """A known, support-filtered style has attributes, an available trajectory, and SHAP drivers."""
     result = get_style_profile(KNOWN_STYLE_KEY)
@@ -172,6 +176,7 @@ def test_get_style_profile_known_style() -> None:
     assert result["shap_drivers"]["style_specific"] is True
 
 
+@pytest.mark.needs_data("data/processed/style_week_panel.parquet")
 def test_get_style_profile_unknown_style_trajectory_unavailable() -> None:
     """A style never observed in the panel gets an explicit unavailable trajectory, not a crash."""
     result = get_style_profile(UNKNOWN_STYLE_KEY)
@@ -318,6 +323,7 @@ def test_score_concept_output_reports_every_shipped_gate_and_human_check() -> No
 # --- compose_final_sheet ---
 
 
+@pytest.mark.needs_data("data/images/0800691008.jpg", "data/images/0554598001.jpg")
 def test_compose_final_sheet_writes_a_png(tmp_path: Path) -> None:
     """Composes 2 real reference images + captions into one saved PNG under a tmp dir."""
     with patch.object(mcp_server, "CONCEPT_SHEET_DIR", tmp_path):
@@ -330,6 +336,7 @@ def test_compose_final_sheet_writes_a_png(tmp_path: Path) -> None:
     assert Path(out_path).parent == tmp_path
 
 
+@pytest.mark.needs_data("data/images/0800691008.jpg")
 def test_compose_final_sheet_single_image(tmp_path: Path) -> None:
     """A single-image sheet doesn't crash on matplotlib's non-array single-Axes return."""
     with patch.object(mcp_server, "CONCEPT_SHEET_DIR", tmp_path):
