@@ -37,7 +37,11 @@ routing, sequencing, and aggregation.
    parameter back to `concept-designer` for a retry (the critic owns the retry-count state and the
    2-retry cap — see `critic.md` — the orchestrator only relays the loop, it does not itself decide
    whether to stop retrying).
-6. Aggregate final accepted (or escalated-as-failed) concepts into the response.
+6. `forecaster` (closed loop) — for each concept that reached `PASS_PENDING_HUMAN` or was shown
+   with its real verdict, run `forecast_concept` and report the top-5 matched styles with the
+   intended style's position (prototype; see `forecaster.md`).
+7. Record the human visual check (a person, never an agent) and aggregate final accepted
+   (or escalated-as-failed) concepts into the response, each with its per-gate verdict.
 
 Steps 1 and 2 may run in parallel (independent, both read-only). Step 3 depends on step 1's
 output. Steps 4-5 form a bounded retry cycle before step 6.

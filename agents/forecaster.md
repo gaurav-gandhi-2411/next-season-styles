@@ -37,13 +37,22 @@ so, not to approximate a fresh number.
 
 - `forecast_styles` — reads the pre-computed forecast table(s); the only tool that can answer
   "what's forecast to win next season."
+- `forecast_concept` — the closed loop (PROTOTYPE): matches an ACCEPTED concept image to its
+  nearest real catalogue style by CLIP + DINOv2 retrieval and looks up that style's forecast.
+  Report the `top5` list, the intended style's position in it, and the `confidence` label, not
+  only the top-1 style: styles are near-ties by construction, and the result is about the
+  archetype the picture reads as, not a demand forecast for the new design. The summer concept
+  is scored at its own origin: pass `origin="2020-06-01"` (default `"2020-09-21"`); any other
+  origin is refused, and scoring the summer concept against the default table gives a
+  wrong-origin number.
 - `get_style_profile` — to enrich a forecast row with the style's descriptive metadata/history
   when the orchestrator needs both in one answer (e.g. "why is style X predicted to win" benefits
   from both the forecast row and the style's historical profile).
 
 No other tools. In particular: **no `query_transactions`** (raw transaction querying is
 `data-analyst`'s job, not forecaster's — forecaster stays scoped to forecast-table reads plus the
-one enrichment call above) and **no `generate_concept`/`score_concept`**.
+one enrichment call above) and **no `generate_concept`/`score_concept`** (`forecast_concept` is retrieval + a
+table lookup, not a quality gate).
 
 ## Failure/escalation behaviour
 

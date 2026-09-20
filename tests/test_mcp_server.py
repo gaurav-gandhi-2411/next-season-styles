@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
+import polars as pl
 import pytest
 
 from nss import mcp_server
@@ -284,7 +285,7 @@ def test_score_concept_delegates_to_qc_gates_with_flag() -> None:
     """The tool is a thin wrapper over `qc_gates.score_gates` and forwards `include_fidelity`."""
     with patch("nss.generate.qc_gates.score_gates", return_value={"verdict": "ok"}) as m:
         assert score_concept("x.png", KNOWN_STYLE_KEY, include_fidelity=True) == {"verdict": "ok"}
-    m.assert_called_once_with("x.png", KNOWN_STYLE_KEY, include_fidelity=True)
+    m.assert_called_once_with("x.png", KNOWN_STYLE_KEY, include_fidelity=True, changes=None)
 
 
 def test_score_concept_missing_concept_path_raises() -> None:
@@ -378,3 +379,29 @@ def test_forecast_concept_tool_missing_file_raises() -> None:
     """A nonexistent concept path is a caller error."""
     with pytest.raises(FileNotFoundError):
         mcp_server.forecast_concept("does/not/exist.png")
+
+
+def test_forecast_concept_summer_origin_scores_against_the_summer_table(tmp_path: Path) -> None:
+    """origin="2020-06-01" looks the concept up in the summer table, not the autumn one."""
+    from nss.generate.concept_forecast import ConceptForecast
+
+    image = tmp_path / "concept.png"
+    image.write_bytes(b"x")
+    fake = ConceptForecast("S", 37.9, 118, 3000, "retrieval", "medium", {})
+    with (
+        patch("nss.generate.concept_forecast.default_index", return_value="idx") as index,
+        patch("nss.generate.concept_forecast.forecast_concept", return_value=fake) as fc,
+    ):
+        out = mcp_server.forecast_concept(str(image), origin="2020-06-01")
+    table = fc.call_args.args[1]
+    assert fc.call_args.args[2] == "idx" and index.call_args.args[0] is table
+    assert table.equals(pl.read_csv("reports/tables/forecast_all_styles_summer.csv"))
+    assert out["n_styles"] == 3000 and out["rank"] == 118
+
+
+def test_forecast_concept_unknown_origin_is_refused(tmp_path: Path) -> None:
+    """An origin with no forecast on disk is a ValueError, never scored against another table."""
+    image = tmp_path / "concept.png"
+    image.write_bytes(b"x")
+    with pytest.raises(ValueError, match="origin must be one of"):
+        mcp_server.forecast_concept(str(image), origin="2021-01-01")

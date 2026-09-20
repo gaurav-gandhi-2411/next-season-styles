@@ -121,7 +121,11 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
     local_vlm.load(backend)
     for row in rows:
         path = Path(row["image_path"])
-        meta = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+        # A caller scoring an image outside the N9 tree (the MCP `score_concept` tool) has no
+        # sidecar: it passes the briefed changes in the row instead.
+        changes = row.get("changes")
+        if changes is None:
+            changes = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))["changes"]
         truth = parse_style_attributes(row["style_id"])
         dims = applicable_dimensions(truth["graphical_treatment"])
         extraction = local_vlm.extract_attributes_local(path, dims)
@@ -130,8 +134,8 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
         row[f"{backend}_fidelity"] = fid
         row[f"{backend}_gate2_pass"] = fid >= thresholds[backend]
         row[f"{backend}_extraction"] = json.dumps(extraction)
-        if backend != "florence2":  # a captioner cannot answer yes/no questions
-            g3 = gate3.gate3_local(path, meta["changes"])
+        if backend != "florence2" and changes:  # a captioner cannot answer yes/no questions
+            g3 = gate3.gate3_local(path, changes)
             row[f"{backend}_gate3_answers"] = "".join("Y" if a else "N" for a in g3["answers"])
             row[f"{backend}_gate3_pass"] = g3["pass"]
             coherent, _raw = gate3.integrity_local(path)

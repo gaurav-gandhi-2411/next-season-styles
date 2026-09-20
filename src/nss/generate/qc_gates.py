@@ -1,28 +1,38 @@
-"""The shipped concept-QC gates as one callable (task L1) -- what the MCP `score_concept` tool runs.
+"""The shipped concept-QC gates as one callable -- what the MCP `score_concept` tool runs.
 
 Gate 1   within-style range: mean similarity to the style's references must be <= the p90 of
          similarity between distinct REAL articles of that style, in CLIP and DINOv2.
 Gate 1b  nearest reference: the closest single reference must be <= the p90 of the real
          nearest-sibling similarity; validated live by an exact-clone control that must FAIL (a
          check that passes a clone is broken and is reported UNVALIDATED, never as a pass).
-Gate 2   VLM attribute fidelity (optional here: needs a judge call): fidelity of a blind read of
-         the picture against the style's VISIBLE attributes (non-visual catch-alls excluded,
-         `nss.generate.fidelity`) must reach the judge's own calibrated threshold. Reported both
-         with and without the excluded attributes.
+Integrity  GLOBAL floor (gates, `integrity_global`): the closest real reference (DINOv2) must be at
+         least the p10 of real nearest-sibling similarity pooled over every style. The per-style
+         floor (`gate3.integrity_floor`) is reported beside it as ADVISORY (task R2).
+Gate 2   attribute fidelity of a blind local-judge read of the picture against the style's VISIBLE
+         attributes (`nss.generate.fidelity`), each judge against its own calibrated threshold.
+         SmolVLM GATES; Florence-2 is ADVISORY (reported, never gating) -- `n9_score.GATING_JUDGES`
+         / `ADVISORY_JUDGES`, the same panel rule that scored the final concepts (task P3).
+Gate 3   are the briefed changes visible? One yes/no question per change to the gating local judge;
+         a strict majority must be present. Needs the briefed changes (see `briefed_changes`).
 Human    a mandatory visual check. It is never automated: the automatic gates passed visibly
          malformed candidates (WRITEUP s9), so a pass here is "pending human check", not "ship".
 
+Gates 2 and 3 load a local VLM (`include_fidelity=True`; no network, no API quota). This supersedes
+the earlier Groq single-reading Gate 2 (Groq's key/quota was spent; a single reading varied by
+about +/-0.21) and the pre-N9 verdict that had no integrity floor and no Gate 3.
+
 Everything reuses the functions that scored the final concepts (`within_style_benchmark`,
-`gate1b_nearest_reference`, `SKILL.within_style_novelty_pass`); nothing is re-implemented.
+`gate1b_nearest_reference`, `integrity_global`, `gate3`, `n9_score`); no threshold is re-derived
+here and none was changed.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
-from nss.generate import clip_scoring, dino_scoring
-from nss.generate.fidelity import fidelity_both
+from nss.generate import clip_scoring, dino_scoring, gate3, integrity_global, n9_generate
 from nss.generate.gate1b_nearest_reference import gate1b_pass, gate1b_threshold
 from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
@@ -38,8 +48,10 @@ def reference_paths_for_style(style_key: str) -> list[Path]:
     """The screened full-garment references the gates are calibrated on, best-selling first.
 
     Underwear uses H3's verified plain-solid references (the screened set is the lace one H3
-    replaced); the Summer style uses its own screened manifest; the other styles use
-    `screen_references.load_screened_references`.
+    replaced). Every other style uses `n9_generate.load_refs()` -- the SAME widened base the final
+    concepts were scored on (autumn/winter screened manifest plus the summer style's widened one),
+    so this tool and `n9_score` gate against identical references. The pre-N9 summer manifest is
+    kept only as a fallback.
 
     Raises:
         ValueError: no screened references exist for `style_key` (the gates are undefined without
@@ -49,6 +61,9 @@ def reference_paths_for_style(style_key: str) -> list[Path]:
 
     if style_key == h3_underwear_refs.STYLE_ID:
         return h3_generate.reference_paths()
+    final_refs = n9_generate.load_refs()
+    if style_key in final_refs:
+        return final_refs[style_key]
     if seasonal_concept.SCREENED_PATH.exists():
         import polars as pl
 
@@ -67,20 +82,122 @@ def _embed_all(paths: list[Path]) -> dict[str, list[Any]]:
     }
 
 
+GATE_NAMES = ("gate1", "gate1b", "integrity", "gate2", "gate3")
+
+
+def briefed_changes(style_key: str, concept: Path) -> list[str]:
+    """The design changes the concept was briefed with, for Gate 3.
+
+    Order: the N9 sidecar next to the image (`<image>.json`, key `changes`), else the final
+    concepts' registry (`n9_generate.CHANGES`). Empty if neither knows: Gate 3 is then NOT RUN
+    (never a pass), because "are the briefed changes visible" is undefined without the brief.
+    """
+    sidecar = concept.with_suffix(".json")
+    if sidecar.exists():
+        changes = json.loads(sidecar.read_text(encoding="utf-8")).get("changes")
+        if changes:
+            return list(changes)
+    spec = n9_generate.CHANGES.get(style_key)
+    return list(spec["applied_changes"]) if spec else []
+
+
+def verdict_from_gates(gates: dict[str, dict[str, Any]]) -> tuple[str, bool | None]:
+    """Combine the per-gate results into `(verdict text, automated_gates_pass)`.
+
+    A gate whose `pass` is `False` rejects; a gate whose `pass` is `None` was not run, so the
+    verdict is never a pass until every gate in `GATE_NAMES` has run and passed (fail-closed).
+    """
+    failed = [name for name in GATE_NAMES if gates[name].get("pass") is False]
+    not_run = [name for name in GATE_NAMES if gates[name].get("pass") is None]
+    if failed:
+        return "REJECT: failed " + ", ".join(failed), False
+    if not_run:
+        passed = [n for n in GATE_NAMES if n not in not_run]
+        return (
+            f"{', '.join(passed)} passed; {', '.join(not_run)} not run; "
+            "human visual check REQUIRED",
+            None,
+        )
+    return "PASS on all automatic gates; the human visual check is still REQUIRED", True
+
+
+def _local_panel(
+    concept: Path, style_key: str, changes: list[str], floor: dict[str, Any], global_limit: float
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Gate 2 and Gate 3 from the local judge panel, via the code that scored the final concepts.
+
+    Runs `n9_score.judge_rows` for every gating and advisory judge, then `n9_score.apply_panel_rule`
+    (SmolVLM gates, Florence-2 is advisory). Returns `(gate2, gate3)` result dicts.
+    """
+    from nss.generate import n9_score
+
+    backends = [*n9_score.GATING_JUDGES, *n9_score.ADVISORY_JUDGES]
+    thresholds = n9_score.judge_thresholds(backends)
+    row: dict[str, Any] = {
+        "image_path": str(concept),
+        "style_id": style_key,
+        "changes": changes,
+        "floor_max_sim": floor["max_sim"],
+        "integrity_style_pass": floor["pass"],
+        "integrity_floor_pass": floor["max_sim"] >= global_limit,
+    }
+    for backend in backends:
+        n9_score.judge_rows(backend, [row], thresholds)
+    n9_score.apply_panel_rule(row)
+    judges = {
+        b: {
+            "fidelity": row[f"{b}_fidelity"],
+            "threshold": thresholds[b],
+            "pass": row[f"{b}_gate2_pass"],
+            "role": "gating" if b in n9_score.GATING_JUDGES else "advisory",
+            "extraction": row[f"{b}_extraction"],
+        }
+        for b in backends
+    }
+    gate2 = {
+        "status": "scored (local judges, greedy decoding: one reading is the reading)",
+        "pass": row["gate2_pass"],
+        "advisory_pass": row["gate2_advisory_pass"],
+        "judges": judges,
+    }
+    if row["gate3_pass"] is None:
+        gate3_result: dict[str, Any] = {
+            "status": "not_run",
+            "pass": None,
+            "note": "no briefed changes known for this concept (no sidecar, not in CHANGES)",
+        }
+    else:
+        judge = n9_score.GATING_JUDGES[0]
+        gate3_result = {
+            "status": "scored (local judge)",
+            "pass": row["gate3_pass"],
+            "judge": judge,
+            "changes": changes,
+            "answers": row[f"{judge}_gate3_answers"],
+        }
+    return gate2, gate3_result
+
+
 def score_gates(
-    concept_path: str | Path, style_key: str, include_fidelity: bool = False
+    concept_path: str | Path,
+    style_key: str,
+    include_fidelity: bool = False,
+    changes: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Run Gate 1, Gate 1b (with its clone validation) and optionally Gate 2 on one image.
+    """Run every shipped gate on one image: 1, 1b (clone-validated), integrity, and 2 / 3.
 
     Args:
         concept_path: The generated concept image.
         style_key: `" || "`-joined style key it was generated for.
-        include_fidelity: Also make ONE blind Groq judge call for Gate 2 (network; a single
-            reading varies by about +/-0.21, so it is indicative; a verdict needs the median of 3).
+        include_fidelity: Also run the LOCAL judge panel for Gate 2 and Gate 3 (loads SmolVLM and
+            Florence-2; no network). Without it Gates 2 and 3 are reported `not_run` and the
+            verdict can never be a pass. Name kept for compatibility with existing callers.
+        changes: The briefed design changes for Gate 3. Default: `briefed_changes` (sidecar JSON
+            next to the image, else the final-concept registry).
 
     Returns:
-        A dict with `gate1`, `gate1b`, `gate2`, `human_visual_check`, `automated_gates_pass`
-        (`None` until every gate has been run) and a plain `verdict` string.
+        A dict with `gate1`, `gate1b`, `integrity`, `gate2`, `gate3`, `human_visual_check`,
+        `automated_gates_pass` (`None` until every gate has been run) and a plain `verdict`.
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
@@ -127,35 +244,43 @@ def score_gates(
     if not validated:
         gate1b["note"] = "UNVALIDATED: an exact clone passed this check, so it cannot gate."
 
+    floor = gate3.integrity_floor(emb["dinov2"], ref_embs["dinov2"])
+    global_limit = integrity_global.global_floor()
+    integrity = {
+        "pass": bool(floor["max_sim"] >= global_limit),
+        "closest_reference_dinov2": floor["max_sim"],
+        "global_floor": global_limit,
+        "per_style_floor_advisory": {"limit": floor["floor"], "pass": floor["pass"]},
+    }
+
     gate2: dict[str, Any] = {
         "status": "not_run",
-        "note": "pass include_fidelity=True (one Groq call) or run `nss.generate.judge_repeat`",
+        "pass": None,
+        "note": "pass include_fidelity=True to run the local judge panel (no network)",
     }
+    gate3_result: dict[str, Any] = {"status": "not_run", "pass": None}
     if include_fidelity:
-        gate2 = _fidelity(concept, style_key)
+        briefed = changes if changes is not None else briefed_changes(style_key, concept)
+        gate2, gate3_result = _local_panel(concept, style_key, briefed, floor, global_limit)
 
-    failed = [
-        name
-        for name, g in (("gate1", gate1), ("gate1b", gate1b), ("gate2", gate2))
-        if g.get("pass") is False
-    ]
-    all_run = gate2.get("pass") is not None
-    if failed:
-        verdict = "REJECT: failed " + ", ".join(failed)
-        automated: bool | None = False
-    elif all_run:
-        verdict = "PASS on all automatic gates; the human visual check is still REQUIRED"
-        automated = True
-    else:
-        verdict = "Gate 1 and Gate 1b passed; Gate 2 not run; human visual check REQUIRED"
-        automated = None
+    verdict, automated = verdict_from_gates(
+        {
+            "gate1": gate1,
+            "gate1b": gate1b,
+            "integrity": integrity,
+            "gate2": gate2,
+            "gate3": gate3_result,
+        }
+    )
     return {
         "concept_path": str(concept),
         "style_key": style_key,
         "n_references": len(refs),
         "gate1": gate1,
         "gate1b": gate1b,
+        "integrity": integrity,
         "gate2": gate2,
+        "gate3": gate3_result,
         "human_visual_check": {
             "required": True,
             "status": "not automated",
@@ -163,34 +288,4 @@ def score_gates(
         },
         "automated_gates_pass": automated,
         "verdict": verdict,
-    }
-
-
-def _fidelity(concept: Path, style_key: str) -> dict[str, Any]:
-    """One blind Groq reading; fidelity is reported both with and without the excluded attributes.
-
-    The judge is asked for all three attributes so BOTH figures can be computed from one call; the
-    gated figure is the visual-only one (`nss.generate.fidelity`).
-    """
-    from nss.generate import h2_rejudge, vlm_judges
-    from nss.generate.concept_qc_pipeline import parse_style_attributes
-
-    truth_all = parse_style_attributes(style_key)
-    dims = vlm_judges.ATTRIBUTE_DIMENSIONS
-    truth = {d: truth_all[d] for d in dims}
-    res = SKILL.run_judge(
-        "groq", vlm_judges.extract_attributes_groq, concept, dims, truth, "local_sdxl"
-    )
-    if not res["available"]:
-        return {"status": "judge_unavailable", "reason": res["excluded_reason"], "pass": None}
-    both = fidelity_both(res["scores"], truth_all["graphical_treatment"])
-    threshold = h2_rejudge.recompute_calibration()[2]["groq"]
-    return {
-        "status": "scored (1 reading)",
-        "fidelity_visual_only": both["visual_only"],
-        "fidelity_all_attributes": both["all_attributes"],
-        "excluded_attributes": both["excluded"],
-        "threshold": threshold,
-        "pass": both["visual_only"] >= threshold,
-        "note": "single reading varies by about +/-0.21; a verdict needs the median of 3 readings",
     }

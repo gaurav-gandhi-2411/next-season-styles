@@ -4,7 +4,7 @@
 
 Quality-checks each candidate concept image against the SHIPPED gates (`nss.generate.qc_gates`,
 `skills/concept-qc/SKILL.md`), calibrated on real same-style H&M articles, plus a mandatory human
-check:
+check. Every gate below except the human check runs inside one `score_concept` call:
 
 1. **Gate 1, within-style range**: mean similarity to the style's reference photos must be at or
    below the p90 of similarity between distinct REAL articles of that style, in both CLIP and
@@ -12,12 +12,20 @@ check:
 2. **Gate 1b, nearest reference**: the closest single reference must be at or below the p90 of the
    real nearest-sibling similarity. It is validated by an exact-clone control that must FAIL; if a
    clone passes, the gate is UNVALIDATED and cannot pass anything (fail-closed).
-3. **Gate 2, VLM attribute fidelity**: a blind judge reads the picture and its answers are scored
-   against the style's VISIBLE attributes (non-visual catch-alls such as "Other structure" are
-   excluded, listed in SKILL.md), against that judge's own calibrated threshold. One judge reading
-   varies by about +/-0.21, so a verdict uses the MEDIAN of 3 readings.
-4. **Human visual check** (mandatory, never automated): the automatic gates have passed visibly
-   malformed garments, so a concept that passes Gates 1, 1b and 2 is `PASS_PENDING_HUMAN`, not
+3. **Integrity floor, GLOBAL (gates)**: the closest real reference (DINOv2) must be at least the
+   p10 of real nearest-sibling similarity pooled over every style (`integrity_global`, task R2).
+   The per-style floor is reported beside it as ADVISORY and never gates.
+4. **Gate 2, attribute fidelity (local judges)**: a blind local VLM reads the picture and its
+   answers are scored against the style's VISIBLE attributes (non-visual catch-alls such as "Other
+   structure" are excluded), each judge against its own calibrated threshold. **SmolVLM gates;
+   Florence-2 is ADVISORY** (reported, never gating; its agreement with the API judges was too low
+   to carry a verdict). Local decoding is greedy, so one reading per judge IS the reading; there is
+   no median-of-3 (that was the retired Groq path, whose single reading varied by +/-0.21).
+5. **Gate 3, briefed changes visible**: one yes/no question per briefed change to the gating local
+   judge ("does this garment have X?"); a strict majority must be present. Gate 3 supports the
+   human check and does not replace it (its specificity against human labels was 0.58).
+6. **Human visual check** (mandatory, never automated): the automatic gates have passed visibly
+   malformed garments, so a concept that passes every gate above is `PASS_PENDING_HUMAN`, not
    shippable, until a person has looked at the image.
 
 Owns the accept/reject decision and the retry loop's state: it is the only agent that decides
@@ -34,13 +42,16 @@ escalated as failed.
 
 ## Outputs
 
-- A verdict: `PASS_PENDING_HUMAN` (Gates 1, 1b and 2 pass; forwarded with an explicit request for
-  the human visual check, never as final on its own) or `REJECT` (fails Gate 1, Gate 1b and/or
-  Gate 2), with the specific reason(s) and measured values (similarity vs the real-pair limit,
-  closest-reference similarity vs its limit, fidelity median and both figures).
+- A verdict: `PASS_PENDING_HUMAN` (Gates 1, 1b, integrity, 2 and 3 all pass; forwarded with an
+  explicit request for the human visual check, never as final on its own) or `REJECT` (any gating
+  gate fails), with the specific reason(s) and measured values (similarity vs the real-pair limit,
+  closest-reference similarity vs its limit, integrity floor vs the global floor, each judge's
+  fidelity vs its threshold, Gate 3 answers per change). Advisory results (per-style floor,
+  Florence-2) are reported but never change the verdict.
 - On `REJECT` with retries remaining: an **adjusted parameter** for the next attempt (e.g. a
-  different `ip_adapter_scale` if the failure was a Gate 1/1b/2 miss, or a different
-  `seed` if the failure looked like a one-off sampling artifact), sent back to `concept-designer`
+  different `ip_adapter_scale` if the failure was a Gate 1/1b/2/3 miss, or a different
+  `seed` if the failure looked like a one-off sampling artifact, e.g. an integrity-floor miss on
+  one seed while sibling seeds clear it), sent back to `concept-designer`
   via the orchestrator.
 - On exhausting the retry cap: a `FAILED` verdict with the full retry history (every attempt's
   parameters + scores + reject reasons), for the orchestrator to report to the user/escalate to a
@@ -48,10 +59,12 @@ escalated as failed.
 
 ## MCP tools it may call (allowlist)
 
-- `score_concept` — the only scoring tool; runs Gate 1 and Gate 1b (with the clone validation)
-  and, with `include_fidelity=true`, one Gate 2 judge reading. It always returns
-  `human_visual_check.required = true`. Call it three times with `include_fidelity=true` and take
-  the median for a Gate 2 verdict.
+- `score_concept` — the only scoring tool; runs Gate 1, Gate 1b (with the clone validation) and
+  the global integrity floor and, with `include_fidelity=true`, the local judge panel for Gate 2
+  (SmolVLM gates, Florence-2 advisory) and Gate 3. Pass the brief's `applied_changes` as `changes`
+  so Gate 3 checks what was briefed. `automated_gates_pass` stays `null` (never a pass) until
+  every gate has run, so always call it with `include_fidelity=true` for a verdict. It always
+  returns `human_visual_check.required = true`. One call is the reading: local decoding is greedy.
 - `get_style_profile` — read-only, to pull the reference style's attributes for the
   attribute-fidelity comparison when they were not already fully carried in the brief.
 
@@ -80,8 +93,8 @@ only requests, via the orchestrator, that `concept-designer` generate the next a
   inconclusive for this concept" and stop; the critic never silently passes a concept it could not
   actually score, and never silently discards a concept whose QC call merely errored (fail-closed:
   an unverifiable result is treated as a denial to ship, not as ambient permission to ship).
-- **`score_concept` returns malformed/empty data** (e.g. Gates 1/1b run but the Gate 2 reading
-  returns no findings, or `gate1b.clone_control_failed_as_required` is false): same treatment as
+- **`score_concept` returns malformed/empty data** (e.g. Gates 1/1b run but Gate 2 or Gate 3
+  comes back `not_run`, or `gate1b.clone_control_failed_as_required` is false): same treatment as
   above — inconclusive,
   one retry of the scoring call, then escalate rather than treating a partial score as a pass.
 - **Concept fails QC (REJECT) with retries remaining**: send the adjusted parameter back to

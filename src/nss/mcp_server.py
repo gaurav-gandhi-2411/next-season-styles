@@ -11,9 +11,10 @@ forecast and says so explicitly, rather than recomputing.
 invoking image generation through this tool is a live generation request, not retraining.
 
 `score_concept` runs the shipped quality gates (`nss.generate.qc_gates`): Gate 1 (within-style
-p90), Gate 1b (nearest-reference p90, clone-validated) and, on request, Gate 2 (VLM fidelity),
-and always reports the human visual check as required. It supersedes the earlier margin-band
-scoring (task L1).
+p90), Gate 1b (nearest-reference p90, clone-validated), the GLOBAL integrity floor (per-style
+floor advisory) and, on request, Gate 2 (local SmolVLM gating, Florence-2 advisory) and Gate 3
+(briefed changes visible), and always reports the human visual check as required. It supersedes
+the earlier margin-band scoring (task L1) and the pre-N9 Gate-1/1b/Groq-Gate-2 verdict.
 
 SDK note: this module targets the installed `mcp` package (`mcp==2.2.0` at the time this was
 written). In `mcp>=2`, the high-level "define tools with a decorator, run over stdio" API that
@@ -66,6 +67,13 @@ FORECAST_TABLES: dict[str, Path] = {
 # forecast_styles never recomputes for a different origin/horizon; it reports the mismatch instead.
 PRECOMPUTED_FORECAST_ORIGIN = "2020-09-21"
 PRECOMPUTED_FORECAST_HORIZON_WEEKS = 13
+
+# Origins `forecast_concept` can score against: the autumn/winter table (default) and the summer
+# concept's own table (origin 2020-06-01, 3,000 styles; `concept_forecast_final` uses the same one).
+CONCEPT_FORECAST_ORIGINS: dict[str, Path | None] = {
+    PRECOMPUTED_FORECAST_ORIGIN: None,
+    "2020-06-01": Path("reports/tables/forecast_all_styles_summer.csv"),
+}
 
 EXEMPLAR_MANIFEST_PATHS = (
     Path("reports/tables/exemplar_images.csv"),
@@ -461,30 +469,42 @@ def generate_concept(
 
 
 def score_concept(
-    concept_path: str, style_key: str, include_fidelity: bool = False
+    concept_path: str,
+    style_key: str,
+    include_fidelity: bool = False,
+    changes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Score a generated concept image against the project's SHIPPED quality gates.
 
-    Runs `nss.generate.qc_gates.score_gates` (the same functions that scored the final concepts):
+    Runs `nss.generate.qc_gates.score_gates` (the same functions that scored the final concepts,
+    against the same widened reference base):
 
     * **Gate 1** -- mean similarity to the style's screened reference photos must be at or below
       the p90 of similarity between distinct REAL articles of that style (CLIP and DINOv2).
     * **Gate 1b** -- the closest single reference must be at or below the p90 of the real
       nearest-sibling similarity; validated live by an exact-clone control that must fail.
-    * **Gate 2** -- blind VLM attribute fidelity vs the style's visible attributes, against the
-      judge's own calibrated threshold; reported with and without excluded non-visual attributes.
-      Only run when `include_fidelity=True` (one Groq call; a single reading varies by ~+/-0.21).
+    * **Integrity** -- the GLOBAL floor gates: the closest real reference (DINOv2) must be at
+      least the p10 of real nearest-sibling similarity pooled over all styles. The per-style floor
+      is reported beside it as advisory only.
+    * **Gate 2** -- blind attribute fidelity vs the style's visible attributes, each local judge
+      against its own calibrated threshold. SmolVLM gates; Florence-2 is advisory (never gates).
+      Only run when `include_fidelity=True` (loads the local VLMs; no network, no API quota).
+    * **Gate 3** -- are the briefed changes visible (one yes/no per change, strict majority, the
+      gating local judge). Runs with Gate 2; needs `changes`, else the N9 sidecar JSON / the final
+      concept registry, else it is reported `not_run` (never a pass).
     * **Human visual check** -- always `required`, never automated: the automatic gates have
       passed visibly malformed garments.
 
     Args:
         concept_path: Path to the generated concept image.
         style_key: `" || "`-joined style key the concept was generated for.
-        include_fidelity: Also make one blind judge call for Gate 2 (network).
+        include_fidelity: Also run the local judge panel for Gates 2 and 3.
+        changes: The briefed design changes (the brief's `applied_changes`) for Gate 3.
 
     Returns:
-        `{"gate1", "gate1b", "gate2", "human_visual_check", "automated_gates_pass", "verdict",
-        ...}` -- see `nss.generate.qc_gates.score_gates`.
+        `{"gate1", "gate1b", "integrity", "gate2", "gate3", "human_visual_check",
+        "automated_gates_pass", "verdict", ...}` -- see `nss.generate.qc_gates.score_gates`.
+        `automated_gates_pass` is `None` until every gate has run and never `True` on a failure.
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
@@ -492,10 +512,14 @@ def score_concept(
     """
     from nss.generate import qc_gates
 
-    return qc_gates.score_gates(concept_path, style_key, include_fidelity=include_fidelity)
+    return qc_gates.score_gates(
+        concept_path, style_key, include_fidelity=include_fidelity, changes=changes
+    )
 
 
-def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict[str, Any]:
+def forecast_concept(
+    concept_path: str, include_api_judges: bool = True, origin: str = PRECOMPUTED_FORECAST_ORIGIN
+) -> dict[str, Any]:
     """Score a generated concept THROUGH THE SAME FORECASTER (the closed loop). PROTOTYPE.
 
     Image retrieval: embed the concept (CLIP ViT-L/14 + DINOv2) -> nearest catalogue STYLE by the
@@ -508,6 +532,10 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
         concept_path: Path to the concept image.
         include_api_judges: Deprecated and ignored. Retrieval uses no VLM judges; the parameter is
             kept so existing callers do not break.
+        origin: Forecast origin the concept is scored against: `"2020-09-21"` (the autumn/winter
+            table, default) or `"2020-06-01"` (the summer table, for the summer concept, whose
+            forecast is defined at its own origin). Any other value is refused rather than scored
+            against the wrong table.
 
     Returns:
         `{"sentence", "style_key", "forecast_units_per_product_per_week", "rank", "n_styles",
@@ -519,13 +547,25 @@ def forecast_concept(concept_path: str, include_api_judges: bool = True) -> dict
 
     Raises:
         FileNotFoundError: `concept_path` does not exist.
+        ValueError: `origin` is not one of `CONCEPT_FORECAST_ORIGINS`.
     """
     from nss.generate import concept_forecast
 
+    if origin not in CONCEPT_FORECAST_ORIGINS:
+        raise ValueError(
+            f"origin must be one of {sorted(CONCEPT_FORECAST_ORIGINS)}, got {origin!r}: only "
+            "those forecasts exist on disk (modelling is frozen)"
+        )
     path = Path(concept_path)
     if not path.exists():
         raise FileNotFoundError(f"concept image not found: {concept_path}")
-    result = concept_forecast.forecast_concept(path)
+    if origin == PRECOMPUTED_FORECAST_ORIGIN:
+        result = concept_forecast.forecast_concept(path)
+    else:
+        table = pl.read_csv(CONCEPT_FORECAST_ORIGINS[origin])
+        result = concept_forecast.forecast_concept(
+            path, table, concept_forecast.default_index(table)
+        )
     return {
         "sentence": result.sentence(),
         "style_key": result.style_key,

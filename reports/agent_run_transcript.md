@@ -1,10 +1,8 @@
-# Agent Run Transcript -- next-season-styles (task D4)
+# Agent Run Transcript -- next-season-styles (task U5)
 
-> **Superseded QC.** This run (task D4) predates the quality-gate corrections (WRITEUP §6: within-style
-> p90 range check, nearest-reference Gate 1b, three-attribute fidelity). Its 0/3 outcome reflects the
-> old margin-band gate, which the leave-one-out control later showed rejected real products. The agent
-> definitions and the MCP `score_concept` tool still use that old scoring; the final verdicts are in
-> `reports/tables/final_selection_h4.csv`. The transcript is kept unedited as a record of the retry loop.
+> **Current.** Re-run in U5 against the CURRENT gates: Gate 1 (within-style p90), Gate 1b (closest reference, clone-validated), the GLOBAL integrity floor (per-style floor advisory), Gate 2 (SmolVLM gates, Florence-2 advisory), Gate 3 (briefed changes visible) and the human visual check, on the current final concepts (beige melange sweater, red dress, white jersey top, summer orange bikini top). It replaces the D4 transcript, whose banner said the agent layer still ran the old margin-band scoring: that was true of `score_concept` and `agents/critic.md` until this change, and both were updated in the same PR (the tool now runs the shipped gates; see the commit log).
+>
+> **What is live and what is replayed.** LIVE (real MCP tool calls over stdio, CPU only, 18 calls): `forecast_concept` (forecaster), `forecast_styles` (forecaster), `get_style_profile` (style-profiler), `query_transactions` (data-analyst), `score_concept` (critic). REPLAYED from recorded tables: concept generation (no GPU, no `generate_concept` call), the design briefs, the summer forecast, and the critic's retry sequence (derived from `n9_candidates_scored.csv`; the same images are also re-scored live and compared). HUMAN (recorded, not performed here): the visual check.
 
 ## Request
 
@@ -12,66 +10,15 @@
 
 ## Run notes
 
-- MCP server: `nss.mcp_server` (`uv run --no-sync python -m nss.mcp_server`), stdio transport, spawned as a real subprocess by this driver.
-- MCP client: the official `mcp` Python SDK's `ClientSession` -- every tool call below marked "real call over the MCP stdio protocol" went through this client against the live server, not a direct Python function call.
-- `concept-designer` makes no MCP tool call in this run: it references the REAL `reports/tables/final_concepts.csv` selections from task C6 rather than invoking `generate_concept` (SDXL, GPU-bound) -- no GPU is touched by this driver.
-- `critic`'s substantive rejection history below is the REAL, already-executed task C7 QC run (`reports/tables/concept_qc_results.csv`); this driver additionally makes ONE live `score_concept` MCP call to prove that tool itself works end-to-end over the protocol (see Step 4).
+- MCP server: `python -m nss.mcp_server` over stdio, spawned by this driver (`scripts/agent_demo.py`) with `CUDA_VISIBLE_DEVICES` emptied, so CLIP, DINOv2, SmolVLM and Florence-2 ran on CPU.
+- MCP client: the official `mcp` Python SDK `ClientSession`. Every tool call is checked against the calling agent's allowlist parsed from `agents/<agent>.md` before it is sent.
+- The rejected candidate images are N9 outputs under `data/generated/n9/`, which is not in git: the live rejection calls are reproducible only with the local data tree; the shipped images are committed in `reports/concepts/`.
 
 ## Step 1 -- orchestrator delegates to `forecaster`
 
-Per `agents/orchestrator.md` step 1: get the current pre-computed forecast. `forecaster`'s allowlist (`agents/forecaster.md`) permits `forecast_styles`.
+Per `agents/orchestrator.md` step 1: get the current pre-computed forecast. `forecaster`'s allowlist (`agents/forecaster.md`) permits `forecast_styles`. The emerging table has 10 rows, so the whole table is read.
 
-**forecaster** calls MCP tool `forecast_styles` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
-
-Request:
-```json
-{
-  "origin_date": "2020-09-21",
-  "horizon_weeks": 13,
-  "table": "incumbent",
-  "top_n": 1
-}
-```
-
-Response:
-```json
-{
-  "result": [
-    {
-      "rank": 1,
-      "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
-      "index_group_name": "Ladieswear",
-      "product_type_name": "T-shirt",
-      "garment_group_name": "Jersey Basic",
-      "perceived_colour_master_name": "Black",
-      "graphical_appearance_name": "Solid",
-      "predicted_intensity": 33.68792198187379,
-      "guard1_pass": true,
-      "guard1_n_active_articles_trailing_mean": 23.0,
-      "guard2_pass": true,
-      "guard2_price_index": 1.0589412126425564,
-      "guard3_pass": true,
-      "guard3_n_weeks_active_trailing": 52,
-      "shap_driver_1_feature": "lag_1",
-      "shap_driver_1_value": 0.7451153123173221,
-      "shap_driver_2_feature": "n_active_articles_level",
-      "shap_driver_2_value": 0.212953116355365,
-      "shap_driver_3_feature": "perceived_colour_master_name",
-      "shap_driver_3_value": 0.11955561709379584,
-      "shap_driver_4_feature": "fourier_sin_1",
-      "shap_driver_4_value": -0.1042796712395504,
-      "shap_driver_5_feature": "garment_group_name",
-      "shap_driver_5_value": 0.10111252504372029,
-      "_forecast_origin_date": "2020-09-21",
-      "_forecast_horizon_weeks": 13,
-      "_requested_origin_date": "2020-09-21",
-      "_requested_horizon_weeks": 13
-    }
-  ]
-}
-```
-
-**forecaster** calls MCP tool `forecast_styles` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+**[LIVE] forecaster** calls MCP tool `forecast_styles` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
 Request:
 ```json
@@ -79,674 +26,734 @@ Request:
   "origin_date": "2020-09-21",
   "horizon_weeks": 13,
   "table": "emerging",
-  "top_n": 2
+  "top_n": 10
+}
+```
+
+Response (projected to rank, style_key, predicted_intensity, growth_ratio and the three guard flags; the tool's JSON also carries SHAP drivers per row):
+```json
+[
+  {
+    "rank": 1,
+    "style_key": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
+    "predicted_intensity": 16.25523950275885,
+    "growth_ratio": 3.6733299037148455,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 2,
+    "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange",
+    "predicted_intensity": 17.783148281064506,
+    "growth_ratio": 1.5858516618457832,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 3,
+    "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+    "predicted_intensity": 10.996816441902132,
+    "growth_ratio": 1.4122021450859839,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 4,
+    "style_key": "Ladieswear || Sweater || Knitwear || Grey || Melange",
+    "predicted_intensity": 10.51041900701676,
+    "growth_ratio": 1.170933656620168,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 5,
+    "style_key": "Ladieswear || Top || Jersey Basic || White || Solid",
+    "predicted_intensity": 13.853842573439003,
+    "growth_ratio": 1.168139356707085,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 6,
+    "style_key": "Divided || Jacket || Outdoor || Black || Solid",
+    "predicted_intensity": 10.83696526190775,
+    "growth_ratio": 1.0922741668356215,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 7,
+    "style_key": "Ladieswear || Top || Jersey Basic || Black || Solid",
+    "predicted_intensity": 26.806200859583825,
+    "growth_ratio": 1.0727944363461772,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 8,
+    "style_key": "Ladieswear || Sweater || Knitwear || Mole || Melange",
+    "predicted_intensity": 15.793351132507922,
+    "growth_ratio": 1.0727105170135174,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 9,
+    "style_key": "Ladieswear || Sweater || Knitwear || Pink || Solid",
+    "predicted_intensity": 13.053416182892029,
+    "growth_ratio": 1.0019795543026173,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  },
+  {
+    "rank": 10,
+    "style_key": "Divided || Dress || Jersey Basic || Black || Solid",
+    "predicted_intensity": 18.931747132235127,
+    "growth_ratio": 0.9847878713523339,
+    "guard1_pass": true,
+    "guard2_pass": true,
+    "guard3_pass": true
+  }
+]
+```
+
+**forecaster's result** -- the three current final styles (selected from this table by `nss.models.reselect_final_three`, log in `reports/tables/final_three_selection_log.csv`: category exclusions and no shared colour or product type) sit at emerging ranks 2, 3 and 5:
+
+| rank | style_key | predicted_intensity |
+|---|---|---|
+| 2 | Ladieswear || Sweater || Knitwear || Beige || Melange | 17.7831 |
+| 3 | Ladieswear || Dress || Dresses Ladies || Red || Solid | 10.9968 |
+| 5 | Ladieswear || Top || Jersey Basic || White || Solid | 13.8538 |
+
+
+## Step 2 -- orchestrator delegates to `data-analyst` (optional step)
+
+Supporting question for the dress: what did raw unit volume do into the forecast origin? Two `query_transactions` calls (13 weeks ending at the origin, and the 13 weeks before).
+
+**[LIVE] data-analyst** calls MCP tool `query_transactions` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+
+Request:
+```json
+{
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "date_from": "2020-06-23",
+  "date_to": "2020-09-21"
 }
 ```
 
 Response:
 ```json
 {
-  "result": [
-    {
-      "rank": 1,
-      "style_key": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
-      "index_group_name": "Ladieswear",
-      "product_type_name": "Underwear bottom",
-      "garment_group_name": "Under-, Nightwear",
-      "perceived_colour_master_name": "Red",
-      "graphical_appearance_name": "Solid",
-      "predicted_intensity": 16.247146540920095,
-      "trailing_13w_mean_intensity": 4.425205448146625,
-      "growth_ratio": 3.6715010706959976,
-      "guard1_pass": true,
-      "guard1_n_active_articles_trailing_mean": 14.923076923076923,
-      "guard2_pass": true,
-      "guard2_price_index": 1.3770306398465846,
-      "guard3_pass": true,
-      "guard3_n_weeks_active_trailing": 52,
-      "shap_driver_1_feature": "lag_1",
-      "shap_driver_1_value": 0.4879718268272778,
-      "shap_driver_2_feature": "perceived_colour_master_name",
-      "shap_driver_2_value": -0.12350384274081928,
-      "shap_driver_3_feature": "n_active_articles_level",
-      "shap_driver_3_value": 0.10687098439354158,
-      "shap_driver_4_feature": "slope_13w",
-      "shap_driver_4_value": 0.06188135329019789,
-      "shap_driver_5_feature": "share_garment_group",
-      "shap_driver_5_value": 0.06170162968258172,
-      "_forecast_origin_date": "2020-09-21",
-      "_forecast_horizon_weeks": 13,
-      "_requested_origin_date": "2020-09-21",
-      "_requested_horizon_weeks": 13
-    },
-    {
-      "rank": 2,
-      "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange",
-      "index_group_name": "Ladieswear",
-      "product_type_name": "Sweater",
-      "garment_group_name": "Knitwear",
-      "perceived_colour_master_name": "Beige",
-      "graphical_appearance_name": "Melange",
-      "predicted_intensity": 18.970321246493675,
-      "trailing_13w_mean_intensity": 11.21362653828958,
-      "growth_ratio": 1.6917204422421606,
-      "guard1_pass": true,
-      "guard1_n_active_articles_trailing_mean": 20.846153846153847,
-      "guard2_pass": true,
-      "guard2_price_index": 0.9963531924100005,
-      "guard3_pass": true,
-      "guard3_n_weeks_active_trailing": 52,
-      "shap_driver_1_feature": "n_active_articles_level",
-      "shap_driver_1_value": 0.269550166067794,
-      "shap_driver_2_feature": "lag_1",
-      "shap_driver_2_value": 0.1771309885362363,
-      "shap_driver_3_feature": "perceived_colour_master_name",
-      "shap_driver_3_value": 0.06564335945936012,
-      "shap_driver_4_feature": "n_active_articles_trend_13w",
-      "shap_driver_4_value": 0.06183656476312615,
-      "shap_driver_5_feature": "fourier_sin_1",
-      "shap_driver_5_value": 0.05945813349097486,
-      "_forecast_origin_date": "2020-09-21",
-      "_forecast_horizon_weeks": 13,
-      "_requested_origin_date": "2020-09-21",
-      "_requested_horizon_weeks": 13
-    }
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "date_from": "2020-06-23",
+  "date_to": "2020-09-21",
+  "units": 1942,
+  "revenue": 84.05177966101694,
+  "n_customers": 1661
+}
+```
+
+**[LIVE] data-analyst** calls MCP tool `query_transactions` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+
+Request:
+```json
+{
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "date_from": "2020-03-24",
+  "date_to": "2020-06-22"
+}
+```
+
+Response:
+```json
+{
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "date_from": "2020-03-24",
+  "date_to": "2020-06-22",
+  "units": 4596,
+  "revenue": 190.41710169491526,
+  "n_customers": 3766
+}
+```
+
+**data-analyst's answer**: 1942 units in the 13 weeks to the origin vs 4596 in the 13 weeks before (0.42x). This is raw units. The forecast's `growth_ratio` (1.41 for this style) is over predicted intensity (units per product per week), so the two measure different things and a raw-units fall over a seasonal window does not contradict it. A descriptive fact, not a causal claim.
+
+
+## Step 3 -- orchestrator delegates to `style-profiler` (once per style)
+
+Per `agents/style-profiler.md`: fetch the structured profile via `get_style_profile` (its only allowed tool). The design brief itself is a human design decision recorded in code (`nss.generate.n9_generate.CHANGES`: concrete, visually checkable changes with the colour anchor kept), not something an LLM invents here; it is **[REPLAY]** from that table and the N9 prompt builder (`natural_prompt`), not recomputed.
+
+**[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Sweater || Knitwear || Beige || Melange`; response (summarised): trajectory available = True, 106 weeks seen, recent mean units 270.9; SHAP source `reports\tables\final_three_shap_verdict.csv` (style-specific: True), top drivers: n_active_articles_level, lag_1, perceived_colour_master_name.
+
+**style-profiler's brief for `Ladieswear || Sweater || Knitwear || Beige || Melange`** (**[REPLAY]**): changes ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem']; prompt: `flat-lay product photo of a beige melange sweater with a high funnel neck collar and dark brown contrast rib cuffs and hem, plain light background`
+
+**[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Dress || Dresses Ladies || Red || Solid`; response (summarised): trajectory available = True, 106 weeks seen, recent mean units 134.5; SHAP source `reports\tables\final_three_shap_verdict.csv` (style-specific: True), top drivers: n_active_articles_level, fourier_sin_1, share_garment_group.
+
+**style-profiler's brief for `Ladieswear || Dress || Dresses Ladies || Red || Solid`** (**[REPLAY]**): changes ['a square neckline with puff sleeves', 'a wide self belt tied at the waist']; prompt: `flat-lay product photo of a red dress with a square neckline with puff sleeves and a wide self belt tied at the waist, plain light background`
+
+**[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Top || Jersey Basic || White || Solid`; response (summarised): trajectory available = True, 106 weeks seen, recent mean units 136.2; SHAP source `reports\tables\final_three_shap_verdict.csv` (style-specific: True), top drivers: n_active_articles_level, lag_1, fourier_sin_1.
+
+**style-profiler's brief for `Ladieswear || Top || Jersey Basic || White || Solid`** (**[REPLAY]**): changes ['a square neckline', 'long balloon sleeves with wide ribbed cuffs']; prompt: `flat-lay product photo of a white top with a square neckline and long balloon sleeves with wide ribbed cuffs, plain light background`
+
+**[LIVE] style-profiler** calls `get_style_profile` for `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`; response (summarised): trajectory available = True, 105 weeks seen, recent mean units 432.5; SHAP source `reports\tables\shap_global_importance.csv` (style-specific: False), top drivers: lag_1, n_active_articles_level, product_type_name.
+
+**style-profiler's brief for `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`** (**[REPLAY]**): changes ['a triangle halter neckline with long ties', 'thick white contrast binding']; prompt: `flat-lay product photo of a orange all over pattern bikini top with a triangle halter neckline with long ties and thick white contrast binding, plain light background`
+
+
+## Step 4 -- orchestrator delegates to `concept-designer` (once per style)
+
+**[REPLAY] -- no `generate_concept` call, no GPU.** `concept-designer`'s only tool is `generate_concept` (SDXL + IP-Adapter, GPU). N9 already generated 8 seeds (42-49) per style at a per-style IP-Adapter scale chosen by a sweep (0.35 for all four), recorded in `reports/tables/n9_candidates_scored.csv` with sidecar JSONs. The candidates below are those recorded images; the run makes no claim to have generated anything. Note that N9 generated the 8 seeds as a batch, not in reaction to critic rejections; Step 5 replays the critic loop over them in seed order.
+
+- `Ladieswear || Sweater || Knitwear || Beige || Melange`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 45.
+
+- `Ladieswear || Dress || Dresses Ladies || Red || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 44.
+
+- `Ladieswear || Top || Jersey Basic || White || Solid`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 42.
+
+- `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`: 8 recorded candidates at scale 0.35, seeds [42, 43, 44, 45, 46, 47, 48, 49]; shipped = seed 48.
+
+
+## Step 5 -- orchestrator delegates to `critic` (once per style, with retries)
+
+Per `agents/critic.md`: every automatic gate runs inside one `score_concept` call (Gate 1, Gate 1b with clone control, GLOBAL integrity floor with the per-style floor advisory, Gate 2 with SmolVLM gating and Florence-2 advisory, Gate 3); the human check is separate and never automated. The critic owns accept/reject and the retry cap (1 original + 2 retries).
+
+### 5a. Retry loop, REPLAYED over the recorded candidates
+
+Each verdict below is derived from the recorded gating columns (`failed_gates`); the retry parameter is the next recorded seed. Attempts 1-3 are the critic's budget.
+
+**critic, `Ladieswear || Sweater || Knitwear || Beige || Melange` -- FAILED (retry cap exhausted)**
+
+- **Attempt 1** (scale 0.35, seed 42) -> **REJECT** -- failed: gate2
+  - seed 42: G1 pass (CLIP 0.908/0.966, DINOv2 0.824/0.904); G1b pass (CLIP 0.938/0.983, DINOv2 0.899/0.947); integrity pass (closest ref 0.899 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 pass (YY)
+
+- **Attempt 2** (scale 0.35, seed 43) -> **REJECT** -- failed: gate2
+  - seed 43: G1 pass (CLIP 0.893/0.966, DINOv2 0.837/0.904); G1b pass (CLIP 0.923/0.983, DINOv2 0.920/0.947); integrity pass (closest ref 0.920 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 pass (YY)
+
+- **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate2
+  - seed 44: G1 pass (CLIP 0.904/0.966, DINOv2 0.836/0.904); G1b pass (CLIP 0.939/0.983, DINOv2 0.913/0.947); integrity pass (closest ref 0.913 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.00; Florence-2 advisory pass); G3 pass (YY)
+
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 45. The shipped image is seed 45; on its recorded row it clears every gating gate. (N9 selected best-of-8, so it went past the cap.)
+
+**critic, `Ladieswear || Dress || Dresses Ladies || Red || Solid` -- PASS_PENDING_HUMAN**
+
+- **Attempt 1** (scale 0.35, seed 42) -> **REJECT** -- failed: integrity, gate2
+  - seed 42: G1 pass (CLIP 0.835/0.951, DINOv2 0.661/0.840); G1b pass (CLIP 0.894/0.974, DINOv2 0.751/0.901); integrity FAIL (closest ref 0.751 vs global floor 0.779; per-style floor advisory fail); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 pass (YY)
+
+- **Attempt 2** (scale 0.35, seed 43) -> **PASS_PENDING_HUMAN**
+  - seed 43: G1 pass (CLIP 0.856/0.951, DINOv2 0.704/0.840); G1b pass (CLIP 0.913/0.974, DINOv2 0.837/0.901); integrity pass (closest ref 0.837 vs global floor 0.779; per-style floor advisory pass); G2 pass (SmolVLM fidelity 0.85; Florence-2 advisory pass); G3 pass (YY)
+
+Shipped image is seed 44 (selected by `h4_deliverables`: passes every automatic gate, then most briefed changes visible, then highest fidelity, then a human look); it also clears every gating gate on its recorded row.
+
+**critic, `Ladieswear || Top || Jersey Basic || White || Solid` -- FAILED (retry cap exhausted)**
+
+- **Attempt 1** (scale 0.35, seed 42) -> **REJECT** -- failed: integrity, gate3
+  - seed 42: G1 pass (CLIP 0.872/0.977, DINOv2 0.621/0.928); G1b pass (CLIP 0.902/0.986, DINOv2 0.733/0.956); integrity FAIL (closest ref 0.733 vs global floor 0.779; per-style floor advisory fail); G2 pass (SmolVLM fidelity 0.57; Florence-2 advisory fail); G3 FAIL (YN)
+
+- **Attempt 2** (scale 0.35, seed 43) -> **REJECT** -- failed: gate3
+  - seed 43: G1 pass (CLIP 0.883/0.977, DINOv2 0.723/0.928); G1b pass (CLIP 0.909/0.986, DINOv2 0.796/0.956); integrity pass (closest ref 0.796 vs global floor 0.779; per-style floor advisory fail); G2 pass (SmolVLM fidelity 0.57; Florence-2 advisory fail); G3 FAIL (YN)
+
+- **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate3
+  - seed 44: G1 pass (CLIP 0.878/0.977, DINOv2 0.820/0.928); G1b pass (CLIP 0.906/0.986, DINOv2 0.880/0.956); integrity pass (closest ref 0.880 vs global floor 0.779; per-style floor advisory fail); G2 pass (SmolVLM fidelity 0.85; Florence-2 advisory fail); G3 FAIL (YN)
+
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: seed 47, seed 48. The shipped image is seed 42; on its recorded row it fails the gating gate(s): integrity, gate3.
+
+**critic, `Ladieswear || Bikini top || Swimwear || Orange || All over pattern` -- FAILED (retry cap exhausted)**
+
+- **Attempt 1** (scale 0.35, seed 42) -> **REJECT** -- failed: gate2, gate3
+  - seed 42: G1 pass (CLIP 0.840/0.895, DINOv2 0.720/0.847); G1b pass (CLIP 0.884/0.920, DINOv2 0.831/0.915); integrity pass (closest ref 0.831 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 FAIL (YN)
+
+- **Attempt 2** (scale 0.35, seed 43) -> **REJECT** -- failed: gate2, gate3
+  - seed 43: G1 pass (CLIP 0.822/0.895, DINOv2 0.674/0.847); G1b pass (CLIP 0.883/0.920, DINOv2 0.803/0.915); integrity pass (closest ref 0.803 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 FAIL (YN)
+
+- **Attempt 3** (scale 0.35, seed 44) -> **REJECT** -- failed: gate2
+  - seed 44: G1 pass (CLIP 0.833/0.895, DINOv2 0.734/0.847); G1b pass (CLIP 0.875/0.920, DINOv2 0.853/0.915); integrity pass (closest ref 0.853 vs global floor 0.779; per-style floor advisory pass); G2 FAIL (SmolVLM fidelity 0.28; Florence-2 advisory pass); G3 pass (YY)
+
+Under the critic's cap alone the orchestrator would report this style as FAILED with this history. The recorded batch continues past the cap; candidates beyond it that clear every gating gate: none. The shipped image is seed 48; on its recorded row it fails the gating gate(s): gate2.
+
+
+### 5b. The same gates, LIVE through `score_concept`
+
+The critic calls `score_concept` with `include_fidelity=true` and the brief's `applied_changes`. Real calls over the protocol, CPU only. The rejected candidates are re-scored live too, so the rejection is a live verdict, not only a table read. Responses are shown in full for the first two calls (long Florence-2 captions shortened) and as gate summaries for the rest; each is compared to the recorded columns.
+
+
+#### Red dress, seed 42 -- REJECTED candidate (the first attempt of the dress replay)
+
+**[LIVE] critic** calls MCP tool `score_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+
+Request:
+```json
+{
+  "concept_path": "data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed42.png",
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "include_fidelity": true,
+  "changes": [
+    "a square neckline with puff sleeves",
+    "a wide self belt tied at the waist"
   ]
 }
 ```
 
-**forecaster's result** -- 3 winning styles selected (T1 incumbent rank 1 + T2 emerging ranks 1-2), matching task C7's real "final three" selection (`reports/tables/top_styles_final_three.csv`):
+Response:
+```json
+{
+  "concept_path": "data\\generated\\n9\\ladieswear_dress_dresses-ladies_red_solid\\s0.35_seed42.png",
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "n_references": 25,
+  "gate1": {
+    "pass": true,
+    "clip": {
+      "similarity": 0.8352795743942261,
+      "limit_p90_of_real_pairs": 0.9505268812179566,
+      "pass": true
+    },
+    "dinov2": {
+      "similarity": 0.6613510417938232,
+      "limit_p90_of_real_pairs": 0.8402593493461609,
+      "pass": true
+    }
+  },
+  "gate1b": {
+    "pass": true,
+    "clone_control_failed_as_required": true,
+    "clip": {
+      "closest_reference_similarity": 0.8937718272209167,
+      "limit_p90_of_real_nearest_sibling": 0.9740213394165039,
+      "pass": true
+    },
+    "dinov2": {
+      "closest_reference_similarity": 0.7506771087646484,
+      "limit_p90_of_real_nearest_sibling": 0.9010064125061035,
+      "pass": true
+    }
+  },
+  "integrity": {
+    "pass": false,
+    "closest_reference_dinov2": 0.7506771087646484,
+    "global_floor": 0.7785730004310608,
+    "per_style_floor_advisory": {
+      "limit": 0.7542705535888672,
+      "pass": false
+    }
+  },
+  "gate2": {
+    "status": "scored (local judges, greedy decoding: one reading is the reading)",
+    "pass": false,
+    "advisory_pass": true,
+    "judges": {
+      "smolvlm": {
+        "fidelity": 0.2833333333333333,
+        "threshold": 0.38413461538461535,
+        "pass": false,
+        "role": "gating",
+        "extraction": "{\"product_type\": \"Dress.\", \"colour_family\": \"Orange.\", \"graphical_treatment\": \"Striped.\"}"
+      },
+      "florence2": {
+        "fidelity": 0.5666666666666667,
+        "threshold": 0.33691194400699315,
+        "pass": true,
+        "role": "advisory",
+        "extraction": "{\"product_type\": \"The image is of a red and white striped dress. The dress has a square neckline with puff sleeves and a belt cinching the waist. The stripes ar... [1127 chars, shortened for the transcript]"
+      }
+    }
+  },
+  "gate3": {
+    "status": "scored (local judge)",
+    "pass": true,
+    "judge": "smolvlm",
+    "changes": [
+      "a square neckline with puff sleeves",
+      "a wide self belt tied at the waist"
+    ],
+    "answers": "YY"
+  },
+  "human_visual_check": {
+    "required": true,
+    "status": "not automated",
+    "note": "REQUIRED and never automated: look at the image. The automatic gates have passed visibly malformed garments (cut-out defects, pattern drift, straps on a bottom)... [161 chars, shortened for the transcript]"
+  },
+  "automated_gates_pass": false,
+  "verdict": "REJECT: failed integrity, gate2"
+}
+```
 
-| rank | style_key | predicted_intensity |
-|---|---|---|
-| 1 | Ladieswear || T-shirt || Jersey Basic || Black || Solid | 33.6879 |
-| 1 | Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid | 16.2471 |
-| 2 | Ladieswear || Sweater || Knitwear || Beige || Melange | 18.9703 |
+- Gate 1: CLIP 0.835 <= 0.951, DINOv2 0.661 <= 0.840 -> pass
+- Gate 1b: CLIP 0.894 <= 0.974, DINOv2 0.751 <= 0.901 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.751 >= 0.779 -> FAIL; per-style floor (advisory) 0.754 -> fail
+- Gate 2: smolvlm (gating) 0.283 vs threshold 0.384 -> FAIL; florence2 (advisory) 0.567 vs threshold 0.337 -> pass -> **FAIL**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = False; verdict: `REJECT: failed integrity, gate2`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live False / recorded False; gate2 live False / recorded False; gate3 live True / recorded True)
 
 
-## Step 2 -- orchestrator delegates to `style-profiler` (once per style)
+#### Red dress, seed 44 -- the retry that was shipped
 
-Per `agents/style-profiler.md`: fetch the structured style profile via `get_style_profile` (its only allowed tool), then apply the `style-brief` skill. This run reads the brief from the ALREADY-COMPUTED `reports/tables/design_briefs.json` rather than recomputing it -- the skill's own generation logic is pure/CPU-only and already ran once for these 3 styles; re-running it here would not touch the GPU but would be redundant with a frozen, already-verified artifact.
-
-**style-profiler** calls MCP tool `get_style_profile` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+**[LIVE] critic** calls MCP tool `score_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
 Request:
 ```json
 {
-  "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+  "concept_path": "data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png",
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "include_fidelity": true,
+  "changes": [
+    "a square neckline with puff sleeves",
+    "a wide self belt tied at the waist"
+  ]
 }
 ```
 
 Response:
 ```json
 {
-  "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
-  "attributes": {
-    "index_group_name": "Ladieswear",
-    "product_type_name": "T-shirt",
-    "garment_group_name": "Jersey Basic",
-    "perceived_colour_master_name": "Black",
-    "graphical_appearance_name": "Solid"
+  "concept_path": "data\\generated\\n9\\ladieswear_dress_dresses-ladies_red_solid\\s0.35_seed44.png",
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "n_references": 25,
+  "gate1": {
+    "pass": true,
+    "clip": {
+      "similarity": 0.8813449549674988,
+      "limit_p90_of_real_pairs": 0.9505268812179566,
+      "pass": true
+    },
+    "dinov2": {
+      "similarity": 0.7232677972316742,
+      "limit_p90_of_real_pairs": 0.8402593493461609,
+      "pass": true
+    }
   },
-  "trajectory": {
-    "available": true,
-    "first_week_seen": "2018-09-17",
-    "last_week_seen": "2020-09-21",
-    "n_weeks_total": 106,
-    "recent_weeks": [
-      {
-        "week_start": "2020-06-29",
-        "units": 1857,
-        "revenue": 21.284440677966103,
-        "price_index": 0.9931281941617366,
-        "intensity_shrunk": 66.75452732393227
-      },
-      {
-        "week_start": "2020-07-06",
-        "units": 1591,
-        "revenue": 17.791305084745762,
-        "price_index": 0.9689304409646231,
-        "intensity_shrunk": 59.63597755238108
-      },
-      {
-        "week_start": "2020-07-13",
-        "units": 1632,
-        "revenue": 18.691237288135593,
-        "price_index": 0.9923682697181511,
-        "intensity_shrunk": 55.182749984522715
-      },
-      {
-        "week_start": "2020-07-20",
-        "units": 2055,
-        "revenue": 24.565305084745763,
-        "price_index": 1.0399313077169556,
-        "intensity_shrunk": 71.11711591362396
-      },
-      {
-        "week_start": "2020-07-27",
-        "units": 1817,
-        "revenue": 22.681508474576273,
-        "price_index": 1.081613204167705,
-        "intensity_shrunk": 70.20275726347514
-      },
-      {
-        "week_start": "2020-08-03",
-        "units": 1590,
-        "revenue": 19.945254237288136,
-        "price_index": 1.0869196123573883,
-        "intensity_shrunk": 57.531629206793376
-      },
-      {
-        "week_start": "2020-08-10",
-        "units": 1519,
-        "revenue": 17.44328813559322,
-        "price_index": 0.9917275423222717,
-        "intensity_shrunk": 66.5536087477537
-      },
-      {
-        "week_start": "2020-08-17",
-        "units": 1736,
-        "revenue": 22.330271186440676,
-        "price_index": 1.110877243562188,
-        "intensity_shrunk": 69.77395249625016
-      },
-      {
-        "week_start": "2020-08-24",
-        "units": 1975,
-        "revenue": 26.186118644067797,
-        "price_index": 1.1332834525844735,
-        "intensity_shrunk": 78.95787634951279
-      },
-      {
-        "week_start": "2020-08-31",
-        "units": 1613,
-        "revenue": 21.50135593220339,
-        "price_index": 1.1253355014462725,
-        "intensity_shrunk": 73.51991298760866
-      },
-      {
-        "week_start": "2020-09-07",
-        "units": 1406,
-        "revenue": 18.65228813559322,
-        "price_index": 1.1147232540514356,
-        "intensity_shrunk": 61.833740064651394
-      },
-      {
-        "week_start": "2020-09-14",
-        "units": 1190,
-        "revenue": 15.662271186440679,
-        "price_index": 1.10410042925176,
-        "intensity_shrunk": 55.1334675003802
-      },
-      {
-        "week_start": "2020-09-21",
-        "units": 360,
-        "revenue": 4.553593220338983,
-        "price_index": 1.0589412126425564,
-        "intensity_shrunk": 24.331901245270828
-      }
-    ],
-    "recent_mean_units": 1564.6923076923076,
-    "recent_mean_revenue": 19.329864406779663
+  "gate1b": {
+    "pass": true,
+    "clone_control_failed_as_required": true,
+    "clip": {
+      "closest_reference_similarity": 0.9366931915283203,
+      "limit_p90_of_real_nearest_sibling": 0.9740213394165039,
+      "pass": true
+    },
+    "dinov2": {
+      "closest_reference_similarity": 0.8472558259963989,
+      "limit_p90_of_real_nearest_sibling": 0.9010064125061035,
+      "pass": true
+    }
   },
-  "shap_drivers": {
-    "source": "reports\\tables\\final_three_shap_verdict.csv",
-    "style_specific": true,
-    "drivers": [
-      {
-        "feature": "lag_1",
-        "value": 0.7451153123173221
+  "integrity": {
+    "pass": true,
+    "closest_reference_dinov2": 0.8472558259963989,
+    "global_floor": 0.7785730004310608,
+    "per_style_floor_advisory": {
+      "limit": 0.7542705535888672,
+      "pass": true
+    }
+  },
+  "gate2": {
+    "status": "scored (local judges, greedy decoding: one reading is the reading)",
+    "pass": true,
+    "advisory_pass": true,
+    "judges": {
+      "smolvlm": {
+        "fidelity": 0.85,
+        "threshold": 0.38413461538461535,
+        "pass": true,
+        "role": "gating",
+        "extraction": "{\"product_type\": \"Dress.\", \"colour_family\": \"Red.\", \"graphical_treatment\": \"Solid.\"}"
       },
-      {
-        "feature": "n_active_articles_level",
-        "value": 0.212953116355365
-      },
-      {
-        "feature": "perceived_colour_master_name",
-        "value": 0.11955561709379584
-      },
-      {
-        "feature": "fourier_sin_1",
-        "value": -0.1042796712395504
-      },
-      {
-        "feature": "garment_group_name",
-        "value": 0.10111252504372029
+      "florence2": {
+        "fidelity": 0.5666666666666667,
+        "threshold": 0.33691194400699315,
+        "pass": true,
+        "role": "advisory",
+        "extraction": "{\"product_type\": \"The image shows a red midi dress with puff sleeves and a tie waist. The dress is made of a lightweight fabric and has a flowy silhouette. It h... [1331 chars, shortened for the transcript]"
       }
+    }
+  },
+  "gate3": {
+    "status": "scored (local judge)",
+    "pass": true,
+    "judge": "smolvlm",
+    "changes": [
+      "a square neckline with puff sleeves",
+      "a wide self belt tied at the waist"
     ],
-    "note": null
-  }
+    "answers": "YY"
+  },
+  "human_visual_check": {
+    "required": true,
+    "status": "not automated",
+    "note": "REQUIRED and never automated: look at the image. The automatic gates have passed visibly malformed garments (cut-out defects, pattern drift, straps on a bottom)... [161 chars, shortened for the transcript]"
+  },
+  "automated_gates_pass": true,
+  "verdict": "PASS on all automatic gates; the human visual check is still REQUIRED"
 }
 ```
 
-**style-profiler's brief for `Ladieswear || T-shirt || Jersey Basic || Black || Solid`** (read from `design_briefs.json`, not recomputed):
+- Gate 1: CLIP 0.881 <= 0.951, DINOv2 0.723 <= 0.840 -> pass
+- Gate 1b: CLIP 0.937 <= 0.974, DINOv2 0.847 <= 0.901 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.847 >= 0.779 -> pass; per-style floor (advisory) 0.754 -> pass
+- Gate 2: smolvlm (gating) 0.850 vs threshold 0.384 -> pass; florence2 (advisory) 0.567 vs threshold 0.337 -> pass -> **pass**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = True; verdict: `PASS on all automatic gates; the human visual check is still REQUIRED`
 
-- silhouette: Jersey Basic t-shirt: relaxed, straight-body silhouette with a simple crew or scoop neckline. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.
-- colour_direction: Black as the anchor colour (the attribute that won); charcoal or ink navy as an optional adjacent/complementary accent, not a replacement for the anchor.
-- rendered_prompt: T-shirt, jersey basic construction. Silhouette: relaxed, straight-body silhouette with a simple crew or scoop neckline. Fabric: a soft, stretch single-knit jersey hand with a relaxed, body-skimming drape. Colour: Black, anchor tone (optional accent: charcoal or ink navy). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live True / recorded True; gate3 live True / recorded True)
 
-**style-profiler** calls MCP tool `get_style_profile` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+
+#### Beige knit sweater, seed 44 -- REJECTED candidate (third attempt of the sweater replay)
+
+**[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed44.png`, `include_fidelity=true` (gate summary of the real response):
+
+
+- Gate 1: CLIP 0.904 <= 0.966, DINOv2 0.836 <= 0.904 -> pass
+- Gate 1b: CLIP 0.939 <= 0.983, DINOv2 0.913 <= 0.947 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.913 >= 0.779 -> pass; per-style floor (advisory) 0.835 -> pass
+- Gate 2: smolvlm (gating) 0.000 vs threshold 0.384 -> FAIL; florence2 (advisory) 0.567 vs threshold 0.337 -> pass -> **FAIL**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = False; verdict: `REJECT: failed gate2`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live False / recorded False; gate3 live True / recorded True)
+
+
+#### Beige knit sweater, seed 45 -- shipped
+
+**[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png`, `include_fidelity=true` (gate summary of the real response):
+
+
+- Gate 1: CLIP 0.925 <= 0.966, DINOv2 0.829 <= 0.904 -> pass
+- Gate 1b: CLIP 0.949 <= 0.983, DINOv2 0.901 <= 0.947 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.901 >= 0.779 -> pass; per-style floor (advisory) 0.835 -> pass
+- Gate 2: smolvlm (gating) 0.567 vs threshold 0.384 -> pass; florence2 (advisory) 0.567 vs threshold 0.337 -> pass -> **pass**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = True; verdict: `PASS on all automatic gates; the human visual check is still REQUIRED`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live True / recorded True; gate3 live True / recorded True)
+
+
+#### White jersey top, seed 42 -- shipped (recorded verdict FAIL)
+
+**[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png`, `include_fidelity=true` (gate summary of the real response):
+
+
+- Gate 1: CLIP 0.872 <= 0.977, DINOv2 0.621 <= 0.928 -> pass
+- Gate 1b: CLIP 0.902 <= 0.986, DINOv2 0.733 <= 0.956 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.733 >= 0.779 -> FAIL; per-style floor (advisory) 0.922 -> fail
+- Gate 2: smolvlm (gating) 0.567 vs threshold 0.384 -> pass; florence2 (advisory) 0.283 vs threshold 0.337 -> FAIL -> **pass**
+- Gate 3 (briefed changes visible, SmolVLM): answers YN -> **FAIL**
+- Human visual check: required = True
+- automated_gates_pass = False; verdict: `REJECT: failed integrity, gate3`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live False / recorded False; gate2 live True / recorded True; gate3 live False / recorded False)
+
+
+#### Orange patterned bikini top, seed 48 -- shipped (recorded verdict FAIL)
+
+**[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png`, `include_fidelity=true` (gate summary of the real response):
+
+
+- Gate 1: CLIP 0.838 <= 0.895, DINOv2 0.716 <= 0.847 -> pass
+- Gate 1b: CLIP 0.871 <= 0.920, DINOv2 0.849 <= 0.915 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.849 >= 0.779 -> pass; per-style floor (advisory) 0.662 -> pass
+- Gate 2: smolvlm (gating) 0.283 vs threshold 0.384 -> FAIL; florence2 (advisory) 0.574 vs threshold 0.337 -> pass -> **FAIL**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = False; verdict: `REJECT: failed gate2`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live False / recorded False; gate3 live True / recorded True)
+
+
+#### White jersey top, seed 47 -- DISCREPANCY CHECK: a recorded candidate that clears every gating gate
+
+**[LIVE] critic** calls `score_concept` with `concept_path=data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed47.png`, `include_fidelity=true` (gate summary of the real response):
+
+
+- Gate 1: CLIP 0.929 <= 0.977, DINOv2 0.771 <= 0.928 -> pass
+- Gate 1b: CLIP 0.955 <= 0.986, DINOv2 0.828 <= 0.956 -> pass (exact-clone control failed as required: True)
+- Integrity (GLOBAL floor gates): closest reference 0.828 >= 0.779 -> pass; per-style floor (advisory) 0.922 -> fail
+- Gate 2: smolvlm (gating) 0.850 vs threshold 0.384 -> pass; florence2 (advisory) 0.283 vs threshold 0.337 -> FAIL -> **pass**
+- Gate 3 (briefed changes visible, SmolVLM): answers YY -> **pass**
+- Human visual check: required = True
+- automated_gates_pass = True; verdict: `PASS on all automatic gates; the human visual check is still REQUIRED`
+
+Live vs recorded: all five gating gates agree (gate1 live True / recorded True; gate1b live True / recorded True; integrity live True / recorded True; gate2 live True / recorded True; gate3 live True / recorded True)
+
+
+## Step 6 -- the human visual check
+
+**[HUMAN (recorded)] -- not performed by this run.** The critic can only forward `PASS_PENDING_HUMAN`; no agent decides shippability. What a person saw when they looked at the shipped images is recorded in `nss.generate.h4_deliverables.HUMAN_CHECK` and is reproduced here verbatim. The committed copies are in `reports/concepts/`.
+
+- **Beige knit sweater** (seed 45): every briefed change visible = True. Both briefed changes visible (funnel neck; dark-brown rib cuffs and hem). Body is a light beige, only faintly heathered. One coherent garment.
+
+- **Red dress** (seed 44): every briefed change visible = True. All briefed changes visible (square neckline with puff sleeves; wide self belt tied at the waist). Solid red, plain flat-lay. One coherent garment.
+
+- **White jersey top** (seed 42): every briefed change visible = True. Square neckline and balloon sleeves visible; the cuffs are narrower than the briefed 'wide ribbed' cuffs. Clean flat-lay, one coherent garment.
+
+- **Orange patterned bikini top** (seed 48): every briefed change visible = True. Halter neckline with ties and thick white binding both visible. Orange all-over print, a single top on a plain background: no bottom, no props. One coherent garment.
+
+
+## Step 7 -- orchestrator delegates the closed loop to `forecaster`
+
+`forecast_concept` (added to `agents/forecaster.md`'s allowlist in U5; it was in no agent's allowlist before) matches each shipped image to the nearest real catalogue style by CLIP + DINOv2 retrieval and looks up that style's forecast. **Prototype:** near-ties dominate, so the top-5 and the intended style's position are reported, and the result is about the archetype the picture reads as, not a demand forecast for the new design.
+
+**[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
 Request:
 ```json
 {
-  "style_key": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid"
+  "concept_path": "data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png"
 }
 ```
 
-Response:
+Response (projected: top-5 flattened to one line each, `judges` and `unavailable_judges` omitted; every other field verbatim):
 ```json
 {
-  "style_key": "Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",
-  "attributes": {
-    "index_group_name": "Ladieswear",
-    "product_type_name": "Underwear bottom",
-    "garment_group_name": "Under-, Nightwear",
-    "perceived_colour_master_name": "Red",
-    "graphical_appearance_name": "Solid"
-  },
-  "trajectory": {
-    "available": true,
-    "first_week_seen": "2018-09-17",
-    "last_week_seen": "2020-09-21",
-    "n_weeks_total": 106,
-    "recent_weeks": [
-      {
-        "week_start": "2020-06-29",
-        "units": 256,
-        "revenue": 2.7179322033898305,
-        "price_index": 0.8515630523994427,
-        "intensity_shrunk": 8.52993864661932
-      },
-      {
-        "week_start": "2020-07-06",
-        "units": 151,
-        "revenue": 1.6618983050847458,
-        "price_index": 0.8866662678598951,
-        "intensity_shrunk": 7.522276970264313
-      },
-      {
-        "week_start": "2020-07-13",
-        "units": 89,
-        "revenue": 0.9386949152542373,
-        "price_index": 0.8533140174823306,
-        "intensity_shrunk": 5.940677533924719
-      },
-      {
-        "week_start": "2020-07-20",
-        "units": 64,
-        "revenue": 0.7372542372881355,
-        "price_index": 0.9433093811958233,
-        "intensity_shrunk": 4.934261045128275
-      },
-      {
-        "week_start": "2020-07-27",
-        "units": 39,
-        "revenue": 0.3970508474576271,
-        "price_index": 0.8442929785828304,
-        "intensity_shrunk": 4.913199202806512
-      },
-      {
-        "week_start": "2020-08-03",
-        "units": 30,
-        "revenue": 0.3152372881355932,
-        "price_index": 0.8829324541327277,
-        "intensity_shrunk": 3.8752235655222207
-      },
-      {
-        "week_start": "2020-08-10",
-        "units": 10,
-        "revenue": 0.1235593220338983,
-        "price_index": 1.05049632707308,
-        "intensity_shrunk": 8.621156546328956
-      },
-      {
-        "week_start": "2020-08-17",
-        "units": 15,
-        "revenue": 0.13589830508474576,
-        "price_index": 0.7702679058502018,
-        "intensity_shrunk": 5.67738851207339
-      },
-      {
-        "week_start": "2020-08-24",
-        "units": 13,
-        "revenue": 0.1218135593220339,
-        "price_index": 0.8010264599714969,
-        "intensity_shrunk": 5.12174574107156
-      },
-      {
-        "week_start": "2020-08-31",
-        "units": 10,
-        "revenue": 0.10745762711864407,
-        "price_index": 0.9220822935291632,
-        "intensity_shrunk": 6.247263001195415
-      },
-      {
-        "week_start": "2020-09-07",
-        "units": 12,
-        "revenue": 0.120135593220339,
-        "price_index": 0.8609469021883727,
-        "intensity_shrunk": 5.889053029999044
-      },
-      {
-        "week_start": "2020-09-14",
-        "units": 67,
-        "revenue": 1.0322881355932203,
-        "price_index": 1.3274251930146126,
-        "intensity_shrunk": 10.467058519140256
-      },
-      {
-        "week_start": "2020-09-21",
-        "units": 37,
-        "revenue": 0.5913728813559322,
-        "price_index": 1.3770306398465846,
-        "intensity_shrunk": 19.098344158308915
-      }
-    ],
-    "recent_mean_units": 61.0,
-    "recent_mean_revenue": 0.6923533246414603
-  },
-  "shap_drivers": {
-    "source": "reports\\tables\\final_three_shap_verdict.csv",
-    "style_specific": true,
-    "drivers": [
-      {
-        "feature": "lag_1",
-        "value": 0.4879718268272778
-      },
-      {
-        "feature": "perceived_colour_master_name",
-        "value": -0.12350384274081928
-      },
-      {
-        "feature": "n_active_articles_level",
-        "value": 0.10687098439354158
-      },
-      {
-        "feature": "slope_13w",
-        "value": 0.06188135329019789
-      },
-      {
-        "feature": "share_garment_group",
-        "value": 0.06170162968258172
-      }
-    ],
-    "note": null
-  }
+  "sentence": "maps to Divided || Sweater || Knitwear || Orange || Solid; forecast 7.9 units/product/week; rank 461 of 1,980; confidence low",
+  "style_key": "Divided || Sweater || Knitwear || Orange || Solid",
+  "forecast_units_per_product_per_week": 7.879239910964836,
+  "rank": 461,
+  "n_styles": 1980,
+  "match_level": "retrieval",
+  "confidence": "low",
+  "similarity": 0.9314658641815186,
+  "margin": 0.013558268547058105,
+  "n_indexed_styles": 1980,
+  "top5 (>> = the style this concept was designed from)": [
+    "   1. Divided || Sweater || Knitwear || Orange || Solid  (similarity 0.931, forecast 7.9, rank 461)",
+    "   2. Divided || Sweater || Knitwear || Beige || Melange  (similarity 0.926, forecast 6.6, rank 626)",
+    ">> 3. Ladieswear || Sweater || Knitwear || Beige || Melange  (similarity 0.925, forecast 17.8, rank 106)",
+    "   4. Ladieswear || Sweater || Knitwear || Brown || Solid  (similarity 0.924, forecast 10.3, rank 303)",
+    "   5. Menswear || Sweater || Knitwear || Beige || Solid  (similarity 0.924, forecast 3.5, rank 1307)"
+  ]
 }
 ```
 
-**style-profiler's brief for `Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid`** (read from `design_briefs.json`, not recomputed):
+**Reading for Beige knit sweater**: top-1 `Divided || Sweater || Knitwear || Orange || Solid` (similarity 0.931), forecast 7.9 units/product/week, rank 461 of 1980, confidence low. Intended style is 3rd of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Divided || Sweater || Knitwear || Orange || Solid`, rank 461, confidence low -> live matches the recorded top-1 and matches the recorded rank.
 
-- silhouette: Under-, Nightwear underwear bottom: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.
-- colour_direction: Red as the anchor colour (the attribute that won); burgundy or brick as an optional adjacent/complementary accent, not a replacement for the anchor.
-- rendered_prompt: Underwear bottom, under-, nightwear construction. Silhouette: brief/hipster-style silhouette, low- to mid-rise, following the body's natural line without structural embellishment. Fabric: a lightweight, skin-friendly hand prioritising comfort and breathability over structure. Colour: Red, anchor tone (optional accent: burgundy or brick). Surface treatment: clean solid-ground treatment with no print or graphic; surface interest, if any, comes from construction details (ribbing, seaming, trims) rather than graphics. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.
-
-**style-profiler** calls MCP tool `get_style_profile` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+**[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
 Request:
 ```json
 {
-  "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange"
+  "concept_path": "data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png"
 }
 ```
 
-Response:
+Response (projected: top-5 flattened to one line each, `judges` and `unavailable_judges` omitted; every other field verbatim):
 ```json
 {
-  "style_key": "Ladieswear || Sweater || Knitwear || Beige || Melange",
-  "attributes": {
-    "index_group_name": "Ladieswear",
-    "product_type_name": "Sweater",
-    "garment_group_name": "Knitwear",
-    "perceived_colour_master_name": "Beige",
-    "graphical_appearance_name": "Melange"
-  },
-  "trajectory": {
-    "available": true,
-    "first_week_seen": "2018-09-17",
-    "last_week_seen": "2020-09-21",
-    "n_weeks_total": 106,
-    "recent_weeks": [
-      {
-        "week_start": "2020-06-29",
-        "units": 64,
-        "revenue": 1.990271186440678,
-        "price_index": 0.881657373958697,
-        "intensity_shrunk": 6.0875752932434475
-      },
-      {
-        "week_start": "2020-07-06",
-        "units": 58,
-        "revenue": 1.570915254237288,
-        "price_index": 0.7678781781675597,
-        "intensity_shrunk": 5.4983409128330365
-      },
-      {
-        "week_start": "2020-07-13",
-        "units": 75,
-        "revenue": 3.9553559322033895,
-        "price_index": 1.4951744591259968,
-        "intensity_shrunk": 6.6068234628305555
-      },
-      {
-        "week_start": "2020-07-20",
-        "units": 68,
-        "revenue": 4.637983050847457,
-        "price_index": 1.9029543354998457,
-        "intensity_shrunk": 5.941920169637582
-      },
-      {
-        "week_start": "2020-07-27",
-        "units": 183,
-        "revenue": 4.520661016949152,
-        "price_index": 0.6749209935266991,
-        "intensity_shrunk": 11.972446865548243
-      },
-      {
-        "week_start": "2020-08-03",
-        "units": 52,
-        "revenue": 2.3549830508474576,
-        "price_index": 1.263550385150544,
-        "intensity_shrunk": 5.146853140580612
-      },
-      {
-        "week_start": "2020-08-10",
-        "units": 84,
-        "revenue": 3.0574915254237287,
-        "price_index": 1.0155331349714718,
-        "intensity_shrunk": 7.355278016592856
-      },
-      {
-        "week_start": "2020-08-17",
-        "units": 173,
-        "revenue": 6.152254237288135,
-        "price_index": 0.9921933072866548,
-        "intensity_shrunk": 10.393942392240776
-      },
-      {
-        "week_start": "2020-08-24",
-        "units": 459,
-        "revenue": 15.91879661016949,
-        "price_index": 0.9788425095473953,
-        "intensity_shrunk": 16.604310641369526
-      },
-      {
-        "week_start": "2020-08-31",
-        "units": 594,
-        "revenue": 20.315389830508472,
-        "price_index": 0.9652815132744166,
-        "intensity_shrunk": 20.314973764753034
-      },
-      {
-        "week_start": "2020-09-07",
-        "units": 793,
-        "revenue": 28.658745762711863,
-        "price_index": 1.0245934022236725,
-        "intensity_shrunk": 24.983811482602825
-      },
-      {
-        "week_start": "2020-09-14",
-        "units": 702,
-        "revenue": 24.897627118644067,
-        "price_index": 1.0055146645210167,
-        "intensity_shrunk": 27.104854617134063
-      },
-      {
-        "week_start": "2020-09-21",
-        "units": 217,
-        "revenue": 7.62615254237288,
-        "price_index": 0.9963531924100005,
-        "intensity_shrunk": 13.052564265096159
-      }
-    ],
-    "recent_mean_units": 270.9230769230769,
-    "recent_mean_revenue": 9.66589439374185
-  },
-  "shap_drivers": {
-    "source": "reports\\tables\\final_three_shap_verdict.csv",
-    "style_specific": true,
-    "drivers": [
-      {
-        "feature": "n_active_articles_level",
-        "value": 0.269550166067794
-      },
-      {
-        "feature": "lag_1",
-        "value": 0.1771309885362363
-      },
-      {
-        "feature": "perceived_colour_master_name",
-        "value": 0.06564335945936012
-      },
-      {
-        "feature": "n_active_articles_trend_13w",
-        "value": 0.06183656476312615
-      },
-      {
-        "feature": "fourier_sin_1",
-        "value": 0.05945813349097486
-      }
-    ],
-    "note": null
-  }
+  "sentence": "maps to Ladieswear || Dress || Dresses Ladies || Red || Solid; forecast 11.0 units/product/week; rank 282 of 1,980; confidence high",
+  "style_key": "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+  "forecast_units_per_product_per_week": 10.996816441902132,
+  "rank": 282,
+  "n_styles": 1980,
+  "match_level": "retrieval",
+  "confidence": "high",
+  "similarity": 0.8716384768486023,
+  "margin": 0.035614013671875,
+  "n_indexed_styles": 1980,
+  "top5 (>> = the style this concept was designed from)": [
+    ">> 1. Ladieswear || Dress || Dresses Ladies || Red || Solid  (similarity 0.872, forecast 11.0, rank 282)",
+    "   2. Ladieswear || Dress || Blouses || Orange || Solid  (similarity 0.856, forecast 3.0, rank 1443)",
+    "   3. Divided || Dress || Unknown || Red || Solid  (similarity 0.856, forecast 3.2, rank 1405)",
+    "   4. Ladieswear || Dress || Blouses || Red || Solid  (similarity 0.855, forecast 5.8, rank 770)",
+    "   5. Ladieswear || Dress || Dresses Ladies || Yellow || Solid  (similarity 0.845, forecast 5.1, rank 891)"
+  ]
 }
 ```
 
-**style-profiler's brief for `Ladieswear || Sweater || Knitwear || Beige || Melange`** (read from `design_briefs.json`, not recomputed):
+**Reading for Red dress**: top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid` (similarity 0.872), forecast 11.0 units/product/week, rank 282 of 1980, confidence high. Intended style is 1st of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Ladieswear || Dress || Dresses Ladies || Red || Solid`, rank 282, confidence high -> live matches the recorded top-1 and matches the recorded rank.
 
-- silhouette: Knitwear sweater: semi-fitted through the body with ribbed hem and cuff finishing. No directional fit change is signalled by the source data -- silhouette is a `preserve`, not a `change`, axis.
-- colour_direction: Beige as the anchor colour (the attribute that won); warm oatmeal or camel as an optional adjacent/complementary accent, not a replacement for the anchor.
-- rendered_prompt: Sweater, knitwear construction. Silhouette: semi-fitted through the body with ribbed hem and cuff finishing. Fabric: an engineered knit structure with stretch recovery and a soft, insulating hand. Colour: Beige, anchor tone (optional accent: warm oatmeal or camel). Surface treatment: melange heathered yarn-dye effect for textural depth without a literal print. Novel accents to introduce: one subtle graphic motif, print placement, or embroidery accent not present in the source style (skip this axis if the source is already a strong graphic/print treatment); a trim or construction detail (topstitch colour, binding, rib width, hardware finish); a small proportion tweak within the category's normal range (hem length, cuff width, rise). Product photography of the garment itself, clean studio background, even lighting, no styling props.
-
-
-## Step 3 -- orchestrator delegates to `concept-designer` (once per style)
-
-No MCP tool call in this run (see Run notes above) -- references the REAL task C6 candidate selections from `reports/tables/final_concepts.csv` instead of invoking `generate_concept`.
-
-**concept-designer's candidate for `Ladieswear || T-shirt || Jersey Basic || Black || Solid`**: chosen_seed=43, local_path=`data\generated\final_concepts\ladieswear_t-shirt_jersey-basic_black_solid_seed43.png`, clip_margin=0.0948, dino_margin=0.7245 (clip_in_band=True, dino_in_band=False) -- this is the candidate `critic` evaluates next.
-
-**concept-designer's candidate for `Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid`**: chosen_seed=45, local_path=`data\generated\final_concepts\ladieswear_underwear-bottom_under--nightwear_red_solid_seed45.png`, clip_margin=0.1029, dino_margin=0.4432 (clip_in_band=False, dino_in_band=False) -- this is the candidate `critic` evaluates next.
-
-**concept-designer's candidate for `Ladieswear || Sweater || Knitwear || Beige || Melange`**: chosen_seed=42, local_path=`data\generated\final_concepts\ladieswear_sweater_knitwear_beige_melange_seed42.png`, clip_margin=-0.0408, dino_margin=0.0053 (clip_in_band=False, dino_in_band=False) -- this is the candidate `critic` evaluates next.
-
-
-## Step 4 -- orchestrator delegates to `critic` (once per style, with retries)
-
-Per `agents/critic.md`: QC each candidate via `score_concept` + the `concept-qc` skill, own the accept/reject decision and the max-2-retries-per-concept retry loop. The retry history below is the REAL, already-executed task C7 run -- not re-simulated here.
-
-**critic's retry history for `Ladieswear || T-shirt || Jersey Basic || Black || Solid`:**
-
-
-- **Attempt 0** (seed=43, ip_adapter_scale=0.2): clip_margin=0.0948 (in_band=True), dino_margin=0.7245 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.5 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry with ip_adapter_scale=0.9
-
-- **Attempt 1** (seed=43, ip_adapter_scale=0.9): clip_margin=0.1350 (in_band=False), dino_margin=0.6939 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=1.0 (n_contributing_judges=1), fidelity_pass=True -> **REJECT** -> retry with ip_adapter_scale=0.8
-
-- **Attempt 2** (seed=43, ip_adapter_scale=0.8): clip_margin=0.1359 (in_band=False), dino_margin=0.6824 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.75 (n_contributing_judges=1), fidelity_pass=True -> **REJECT** -> retry cap exhausted, no further attempt
-
-
-**critic's final verdict for `Ladieswear || T-shirt || Jersey Basic || Black || Solid`**: FAILED -- 3 attempts made (1 original + 2 retries), retry cap is 2 retries per `agents/critic.md`.
-
-
-**Protocol proof**: one live `score_concept` MCP call against attempt 0's already-generated image, to confirm the tool works end-to-end over the real protocol (not only readable from the CSV):
-
-
-**critic** calls MCP tool `score_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+**[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
 
 Request:
 ```json
 {
-  "concept_path": "data\\generated\\final_concepts\\ladieswear_t-shirt_jersey-basic_black_solid_seed43.png",
-  "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid"
+  "concept_path": "data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png"
 }
 ```
 
-Response:
+Response (projected: top-5 flattened to one line each, `judges` and `unavailable_judges` omitted; every other field verbatim):
 ```json
 {
-  "concept_path": "data\\generated\\final_concepts\\ladieswear_t-shirt_jersey-basic_black_solid_seed43.png",
-  "style_key": "Ladieswear || T-shirt || Jersey Basic || Black || Solid",
-  "clip_similarity": {
-    "mean": 0.9288285204342434,
-    "max": 0.9535922408103943
-  },
-  "control_similarity": {
-    "mean": 0.8340232491493225,
-    "max": 0.8503772020339966
-  },
-  "clip_band": {
-    "lower": 0.8905517101287842,
-    "upper": 0.9401496052742004
-  },
-  "in_clip_band": true,
-  "clip_margin": 0.09480527128492089,
-  "dino_margin": 0.7245466072644506,
-  "margin_bands": {
-    "clip": [
-      0.0325090693855174,
-      0.09752720815655219
-    ],
-    "dinov2": [
-      0.14358181004346238,
-      0.43074543013038713
-    ]
-  },
-  "in_clip_margin_band": true,
-  "in_dino_margin_band": false,
-  "pass": false,
-  "note": "pass = in_clip_margin_band AND in_dino_margin_band (nss.generate.derive_margin_band has been run for both embedding spaces; this tool's own conservative combination policy -- requiring both to agree -- not an asserted project-wide convention)."
+  "sentence": "maps to Divided || Top || Jersey Fancy || White || Solid; forecast 6.4 units/product/week; rank 651 of 1,980; confidence medium",
+  "style_key": "Divided || Top || Jersey Fancy || White || Solid",
+  "forecast_units_per_product_per_week": 6.433257938528905,
+  "rank": 651,
+  "n_styles": 1980,
+  "match_level": "retrieval",
+  "confidence": "medium",
+  "similarity": 0.8530749082565308,
+  "margin": 0.03478074073791504,
+  "n_indexed_styles": 1980,
+  "top5 (>> = the style this concept was designed from)": [
+    "   1. Divided || Top || Jersey Fancy || White || Solid  (similarity 0.853, forecast 6.4, rank 651)",
+    "   2. Ladieswear || Top || Blouses || White || Solid  (similarity 0.841, forecast 4.3, rank 1088)",
+    "   3. Ladieswear || Top || Jersey Fancy || Unknown || Solid  (similarity 0.829, forecast 3.5, rank 1293)",
+    "   4. Divided || T-shirt || Jersey Fancy || White || Solid  (similarity 0.828, forecast 4.8, rank 955)",
+    "   5. Divided || Blouse || Blouses || White || Solid  (similarity 0.823, forecast 4.7, rank 994)"
+  ]
 }
 ```
 
-Live call reproduced clip_margin=0.09480527128492089 (CSV: 0.09480527128492089, exact match: True) and dino_margin=0.7245466072644506 (CSV: 0.7245466072644506, exact match: True) -- confirms the live tool call and the recorded C7 run compute the identical, deterministic score for the same image.
+**Reading for White jersey top**: top-1 `Divided || Top || Jersey Fancy || White || Solid` (similarity 0.853), forecast 6.4 units/product/week, rank 651 of 1980, confidence medium. Intended style is OUTSIDE the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Divided || Top || Jersey Fancy || White || Solid`, rank 651, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
 
-**critic's retry history for `Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid`:**
+**[LIVE] forecaster** calls MCP tool `forecast_concept` (real call over the MCP stdio protocol -- `ClientSession.call_tool` against a live `nss.mcp_server` subprocess):
+
+Request:
+```json
+{
+  "concept_path": "data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png",
+  "origin": "2020-06-01"
+}
+```
+
+Response (projected: top-5 flattened to one line each, `judges` and `unavailable_judges` omitted; every other field verbatim):
+```json
+{
+  "sentence": "maps to Ladieswear || Bikini top || Swimwear || Orange || All over pattern; forecast 37.9 units/product/week; rank 118 of 3,000; confidence medium",
+  "style_key": "Ladieswear || Bikini top || Swimwear || Orange || All over pattern",
+  "forecast_units_per_product_per_week": 37.876683521254286,
+  "rank": 118,
+  "n_styles": 3000,
+  "match_level": "retrieval",
+  "confidence": "medium",
+  "similarity": 0.8917852640151978,
+  "margin": 0.008845090866088867,
+  "n_indexed_styles": 3000,
+  "top5 (>> = the style this concept was designed from)": [
+    ">> 1. Ladieswear || Bikini top || Swimwear || Orange || All over pattern  (similarity 0.892, forecast 37.9, rank 118)",
+    "   2. Ladieswear || Bikini top || Swimwear || Yellow || All over pattern  (similarity 0.891, forecast 27.8, rank 239)",
+    "   3. Ladieswear || Bikini top || Swimwear || Green || All over pattern  (similarity 0.891, forecast 47.6, rank 65)",
+    "   4. Ladieswear || Bikini top || Swimwear || Black || All over pattern  (similarity 0.884, forecast 44.6, rank 77)",
+    "   5. Ladieswear || Bikini top || Swimwear || Red || All over pattern  (similarity 0.883, forecast 16.5, rank 563)"
+  ]
+}
+```
+
+**Reading for Orange patterned bikini top**: top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern` (similarity 0.892), forecast 37.9 units/product/week, rank 118 of 3000, confidence medium. Intended style is 1st of the top 5. Recorded table (`q2_concept_forecast_retrieval.csv`): top-1 `Ladieswear || Bikini top || Swimwear || Orange || All over pattern`, rank 118, confidence medium -> live matches the recorded top-1 and matches the recorded rank.
 
 
-- **Attempt 0** (seed=45, ip_adapter_scale=0.2): clip_margin=0.1029 (in_band=False), dino_margin=0.4432 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.25 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry with ip_adapter_scale=0.3
+## Step 8 -- orchestrator aggregates the final result
 
-- **Attempt 1** (seed=45, ip_adapter_scale=0.3): clip_margin=0.1200 (in_band=False), dino_margin=0.4629 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.25 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry with ip_adapter_scale=0.4
+Per `agents/orchestrator.md`: each concept is reported with its per-gate verdict; a failing concept is a failed item, not fatal to the request. Verdicts below are the LIVE `score_concept` results on the shipped images, beside the recorded `final_selection_h4.csv` verdict.
 
-- **Attempt 2** (seed=45, ip_adapter_scale=0.4): clip_margin=0.1592 (in_band=False), dino_margin=0.8132 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.0 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry cap exhausted, no further attempt
+| Concept | live automatic gates | failed gates (live) | recorded (h4) | human: briefed changes visible |
+|---|---|---|---|---|
+| Beige knit sweater | PASS_PENDING_HUMAN | none | PASS | True |
+| Red dress | PASS_PENDING_HUMAN | none | PASS | True |
+| White jersey top | FAIL | integrity, gate3 | FAIL | True |
+| Orange patterned bikini top | FAIL | gate2 | FAIL | True |
 
-
-**critic's final verdict for `Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid`**: FAILED -- 3 attempts made (1 original + 2 retries), retry cap is 2 retries per `agents/critic.md`.
-
-**critic's retry history for `Ladieswear || Sweater || Knitwear || Beige || Melange`:**
-
-
-- **Attempt 0** (seed=42, ip_adapter_scale=0.2): clip_margin=-0.0408 (in_band=False), dino_margin=0.0053 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.25 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry with ip_adapter_scale=0.3
-
-- **Attempt 1** (seed=42, ip_adapter_scale=0.3): clip_margin=-0.0364 (in_band=False), dino_margin=0.0190 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.25 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry with ip_adapter_scale=0.4
-
-- **Attempt 2** (seed=42, ip_adapter_scale=0.4): clip_margin=-0.0412 (in_band=False), dino_margin=0.0526 (in_band=False), margin_band_pass=False; mean_attribute_fidelity=0.25 (n_contributing_judges=1), fidelity_pass=False -> **REJECT** -> retry cap exhausted, no further attempt
+**Final outcome: 2 of 4 concepts clear every automatic gate and are forwarded for the human check** (which is recorded above, not re-performed). The others are reported with their failing gates.
 
 
-**critic's final verdict for `Ladieswear || Sweater || Knitwear || Beige || Melange`**: FAILED -- 3 attempts made (1 original + 2 retries), retry cap is 2 retries per `agents/critic.md`.
-
-
-## Step 5 -- orchestrator aggregates the final result
-
-Per `agents/orchestrator.md`'s failure/escalation behaviour: each concept that exhausted critic's retry cap is reported as a failed item (with its full retry history), not treated as fatal to the overall request.
-
-**Final outcome: 0/3 concepts passed QC within the 2-retry cap.** All three styles' concepts were escalated by `critic` as `FAILED` after exhausting their retry budgets (1 original attempt + 2 retries each, 9 attempts total) -- matching task C7's real finding exactly. No concept in this run shipped; this is reported honestly as a failed-but-complete request, not presented as a success.
+**Unresolved discrepancy, flagged rather than absorbed.** The white top is reported as failing by mechanism (integrity floor and Gate 3), and the shipped image (seed 42) does fail both. But the recorded candidate seed 47 (and 48) at the same scale clears every gating gate on `n9_candidates_scored.csv`, and the live `score_concept` call above confirms it for seed 47. `h4_deliverables.SELECTED` pins seed 42 for the white top, so the written selection rule (passes every automatic gate first) does not produce the shipped image. Whether seed 47 passes the human check has not been looked at by a person in this run. The owner of the write-up should decide whether the white top's failure is a property of the style or of seed choice.
