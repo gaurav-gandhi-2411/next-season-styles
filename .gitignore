@@ -45,3 +45,7 @@ vertex-sa.json
 *-sa.json
 *service-account*.json
 dist/
+
+# Track U scratch (regenerable; per-style-week customer aggregates and scratch boosters, never committed)
+reports/u_scratch/
+models_scratch/
