@@ -391,7 +391,14 @@ def build_predictions_frame(panel: pl.DataFrame, origin_weeks: list[date]) -> pl
     base = base.rename({WMAPE_WEIGHT_COL: "weight"})
 
     pred_cols = [f"y_pred_{method}" for method in BASELINE_METHODS]
-    return base.select("style_key", "origin_week", "y_true", "weight", *pred_cols)
+    # ROW ORDER MUST BE FIXED: the joins above do not preserve order, so it varied across processes.
+    # Downstream, tied predictions (global_mean is one constant per origin) are broken by row order
+    # (stable argsort in `nss.models.metrics`) and the random floor permutes `y_true` in row order,
+    # so an unsorted frame made those two rows change between runs. (style_key, origin_week) is
+    # unique, so this is a total order.
+    return base.select("style_key", "origin_week", "y_true", "weight", *pred_cols).sort(
+        "origin_week", "style_key"
+    )
 
 
 def run_backtest(panel: pl.DataFrame, origins: Sequence[Origin] | None = None) -> pl.DataFrame:

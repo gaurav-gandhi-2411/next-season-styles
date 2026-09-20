@@ -501,3 +501,26 @@ def test_run_backtest_and_summarize_end_to_end() -> None:
         assert f"{metric}_mean" in summary.columns
         assert f"{metric}_ci_low" in summary.columns
         assert f"{metric}_ci_high" in summary.columns
+
+
+# ---------------------------------------------------------------------------
+# build_predictions_frame -- row order must be deterministic (regression: order-dependent floor)
+# ---------------------------------------------------------------------------
+
+
+def test_build_predictions_frame_row_order_is_sorted_and_independent_of_input_order() -> None:
+    """Tied predictions (global_mean) and the random floor's permutation both depend on row order,
+    so the frame must come back sorted by (origin_week, style_key) however the panel was ordered.
+    Before the fix the joins' output order varied between processes, moving those two rows."""
+    panel = _full_synthetic_panel()
+    origin_weeks = [_weeks(_N_WEEKS)[20], _weeks(_N_WEEKS)[24]]
+
+    out = build_predictions_frame(panel, origin_weeks)
+    shuffled = build_predictions_frame(
+        panel.sample(fraction=1.0, shuffle=True, seed=7), origin_weeks
+    )
+
+    assert out["origin_week"].to_list() == sorted(out["origin_week"].to_list())
+    keys = list(zip(out["origin_week"].to_list(), out["style_key"].to_list(), strict=True))
+    assert keys == sorted(keys)
+    assert out.equals(shuffled)
