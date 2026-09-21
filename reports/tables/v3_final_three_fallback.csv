@@ -1,0 +1,4 @@
+rank,style_key,index_group_name,product_type_name,garment_group_name,perceived_colour_master_name,graphical_appearance_name,price_index_level,predicted_intensity,guard1_n_active_articles_trailing_mean,guard3_n_weeks_active_trailing,guard1_pass,guard2_pass,guard3_pass,source_table,rank_in_source_table
+1,Ladieswear || T-shirt || Jersey Basic || Black || Solid,Ladieswear,T-shirt,Jersey Basic,Black,Solid,1.0589412126425564,33.773553456977744,23.0,52,true,true,true,T1_intensity (fallback),1
+5,Ladieswear || Sweater || Knitwear || White || Solid,Ladieswear,Sweater,Knitwear,White,Solid,1.2112677461073251,25.917108723701226,26.846153846153847,52,true,true,true,T1_intensity (fallback),5
+10,Divided || Trousers || Trousers || Grey || Solid,Divided,Trousers,Trousers,Grey,Solid,1.1367022022153193,21.69013754898573,15.0,52,true,true,true,T1_intensity (fallback),10

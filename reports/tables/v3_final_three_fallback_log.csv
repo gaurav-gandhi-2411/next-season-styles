@@ -1,0 +1,11 @@
+source_table,rank_in_table,style_key,predicted_intensity,disposition,reason
+T1_intensity (fallback),1,Ladieswear || T-shirt || Jersey Basic || Black || Solid,33.773553456977744,CHOSEN,guards met; no collision
+T1_intensity (fallback),2,Ladieswear || Blazer || Dressed || Black || Solid,26.884951094655623,skipped,colour collision: Black already used
+T1_intensity (fallback),3,Ladieswear || Top || Jersey Basic || Black || Solid,26.806200859583825,skipped,colour collision: Black already used
+T1_intensity (fallback),4,Ladieswear || Cardigan || Knitwear || Black || Solid,26.39068562260886,skipped,colour collision: Black already used
+T1_intensity (fallback),5,Ladieswear || Sweater || Knitwear || White || Solid,25.917108723701226,CHOSEN,guards met; no collision
+T1_intensity (fallback),6,Ladieswear || T-shirt || Jersey Basic || White || Solid,25.197520026067032,skipped,colour collision: White already used
+T1_intensity (fallback),7,Ladieswear || Sweater || Knitwear || Black || Solid,24.678683942305575,skipped,colour collision: Black already used
+T1_intensity (fallback),8,Ladieswear || Leggings/Tights || Jersey Basic || Black || Solid,24.519238018438838,skipped,visual-ambiguity exclusion: 'Leggings/Tights' is not identifiable from a flat-lay without a label
+T1_intensity (fallback),9,Ladieswear || Trousers || Trousers || Black || Check,21.87076963603352,skipped,colour collision: Black already used
+T1_intensity (fallback),10,Divided || Trousers || Trousers || Grey || Solid,21.69013754898573,CHOSEN,guards met; no collision

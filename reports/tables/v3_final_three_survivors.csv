@@ -1,0 +1,4 @@
+current_style,role,survives_as_same_style,same_product_type_in_new_three
+Ladieswear || Sweater || Knitwear || Beige || Melange,sweater,false,true
+Ladieswear || Dress || Dresses Ladies || Red || Solid,dress,false,false
+Ladieswear || Top || Jersey Basic || White || Solid,white top,false,false
