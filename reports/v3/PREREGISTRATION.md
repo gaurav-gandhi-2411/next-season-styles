@@ -272,3 +272,58 @@ Label QA: I look at each generated image once and **exclude and report** any H1/
 ### J7. Critic strictness (report only)
 
 For the two submitted concepts chosen without a gate pass (white jersey top, bikini top), from the cached live scores (`v3_agent_eval_scores.jsonl`): per failing gate, the measured value against its threshold and the margin (absolute and relative); for Gate 3 the per-change answers; for Gate 2 the judge's per-attribute reading against the style's attributes and against the recorded human observation (`final_selection_figures.HUMAN_CHECK`). Classification, fixed now: **marginal** if the measured value is within 10% of its threshold (relative), otherwise **not marginal**; **judge misread** if the judge's answer contradicts the recorded human observation, otherwise **judge consistent with the human record**. The report says which gate drove each rejection and whether the threshold or the judge is implicated, with the evidence; **no threshold, judge or gate is changed.**
+
+---
+
+## K. Where the rule is silent (K2), Gate 2 identity constraints (K4), Gate 1 advisory (K5)
+
+Committed before K2 is run and before K4 is scored. K3 (the scale-direction rule) and K5 are decisions plus a replay of recorded cases, described here so their counting is fixed.
+
+### K2. Judgment where the written rule is silent
+
+**Cases.** Ten scenarios, `evals/fixtures/silent_rule/S01..S10.json` (generator `evals/build_silent_rule_fixtures.py`, committed with this section): scale direction for a Gate 3 miss at 0.35 (S01) and at 0.55 (S02), an integrity-only miss (S03), integrity and Gate 3 failing together (S04); a Gate 2 judge that reads the same thing on every seed while the advisory judge disagrees, on the last attempt (S05); a gate returning an error, transient (S06) and deterministic (S07); conflicting judges in both directions (S08, S09); every gate passing after a person has said the brief is not met (S10). Each fixture carries the scenario, the `score_concept` result with measured values (not only flags), and a **rubric written now**: the good decision, what is equivalent, what is worse, and what would make a decision better.
+
+**Model.** Headless Claude (Sonnet), same call shape as J2 (no tools, no MCP, no settings, `ANTHROPIC_API_KEY` removed), system prompt = `agents/critic.md` and `agents/orchestrator.md` **as they stand at commit 896b10d, i.e. before the K3/K5 edits, so the rule is genuinely silent**, plus an instruction to answer with one JSON object (`verdict`, `next_agent`, `outcome`, `adjust` as {param, direction, value}, `escalate_to_human`, `flags_for_human`, `reason`). **Two arms**, 3 runs each: **A** spec only; **B** spec plus a fixed "project evidence" note (the lever and calibration facts below). 10 cases x 2 arms x 3 runs = 60 calls.
+
+*Project evidence note (arm B), fixed now:* with the production prompt and 8 concatenated references, briefed changes appear at ip_adapter_scale 0.25 to 0.35 and are weaker at 0.45; at 0.6 to 0.7 the references dominate and the changes disappear; with the older prompt, 0.15 and 0.25 collapsed into fabric swatches; the swept window is 0.15 to 0.45 and the per-style choice is 0.35. Gate 3's local reader says yes too easily (specificity 0.58). SmolVLM's Gate 2 reading of the bikini top is identical (fidelity 0.283) on all 24 seeds, and Florence-2 reads its pattern correctly.
+
+**Grading.** Each run is graded against its rubric as **better** (meets a `better_if` beyond the good decision), **equivalent** (the good decision or a listed equivalent), **worse** (a listed worse, or violates the good decision without justification) or **other** (a defensible call the rubric did not anticipate, argued in the report). I grade; the reference for "what a person would choose" is the rubric I wrote from the project evidence, standing in for you, and you can overrule any grade. The report gives per case and arm: the three grades, the model's reasoning for each divergence, and the consistency across the 3 runs. Nothing is tuned after seeing answers; a rubric found wrong is reported as wrong, not edited.
+
+### K4. Gate 2: product type and colour as hard constraints
+
+**Rule.** Gate 2 passes iff **(a)** the gating judge's fidelity is at or above its calibrated threshold (**scorer, averaging and threshold untouched**, so the calibration stands) **and (b)** the gating judge's product-type reading and colour reading each match the style's value under `nss.generate.identity_match` (`PRODUCT_SYNONYMS`, `COLOUR_SYNONYMS`, committed with this section). Pattern is not constrained beyond the average. Florence-2 stays advisory and unconstrained.
+
+**Matching.** Normalise (lower case, punctuation to spaces). Find every word of every family that occurs as a whole word in the reading, keeping the longest overlapping phrase. Match iff the set of families found is exactly {the style's family}. So a reading naming a different family ("sweater dress", "red and white", "bikini top" for a Top) fails; a reading naming no known word ("coral") fails; an unknown style value falls back to token containment in either direction.
+
+**Why this cannot loosen Gate 2.** (b) is an AND on top of the unchanged (a): it can only turn a pass into a fail. The synonym lists can only prevent new failures. Consequence stated in advance: **the bikini cannot flip to pass**, because its fidelity (0.283) is below 0.384 regardless of synonyms. I will still report exactly which reading and entry decides each result. The separate scorer defect (the trailing period makes "Bikini." fail to match "Bikini top" in the averaged score) is NOT fixed here, since it would move the calibration; it is reported.
+
+**Synonym lists and justification (fixed before any scoring).** *I had seen these judge readings before writing the lists: "Sweater.", "Turtleneck.", "T-shirt.", "Dress.", "Bikini.", and the colours "Orange.", "Green.", "Brown.", "White." from earlier reports; I had not seen the readings of any candidate under the new rule.*
+
+| Style value | Accepted words | Justification |
+|---|---|---|
+| Sweater | sweater, jumper, pullover, turtleneck, polo neck, roll neck, knit, knitwear | Names for one garment (UK/US); turtleneck and roll neck are neck variants of a sweater, and the sweater brief itself asks for a high funnel neck, so "turtleneck" is a *correct* reading of the design; "knit/knitwear" is the catalogue's word. Not accepted: cardigan, hoodie, sweatshirt, top. |
+| Dress | dress, sundress, frock | Same garment. |
+| Top | top, blouse, shirt, t-shirt, tee, tank top | Upper-body jersey/woven tops a judge reasonably calls a plain top; blouse and shirt as you listed. Loosest entry: t-shirt/tee (a separate H&M type). It can only prevent a new failure. |
+| Bikini top | bikini top, bikini, swim top, swimsuit top, bikini bra | "Bikini" is the head noun a judge gives for a single-top image; it also fits a bikini bottom, which is the looseness. |
+| T-shirt | t-shirt, tee, tshirt, t shirt | Spelling variants only ("top" is deliberately not accepted). |
+| Underwear bottom | underwear bottom, underwear, briefs, panties, knickers, underpants | Names for the same garment. |
+| Trousers | trousers, pants, slacks, chinos | Names for the same garment (jeans deliberately not). |
+| Blazer / Cardigan | blazer, suit jacket / cardigan, cardi | Same garment. |
+| Colour | Accepted words | Justification |
+|---|---|---|
+| Beige | beige, tan, sand, oatmeal | Light warm neutrals inside H&M's Beige master colour (camel and taupe left out: browner). |
+| White | white, off-white, ivory, cream | H&M's White includes off-white; cream is between white and beige and is put with white. |
+| Black | black | No neighbours. |
+| Red | red, crimson, scarlet, burgundy, maroon, wine | Shades of red. **Deliberately excluded: coral, salmon, pink, orange, rust**, the neighbours the coral dress and a colour-swapped dress need to fail. |
+| Orange | orange, tangerine, amber | Shades of orange (rust and coral left out). |
+| Blue, Green, Grey, Pink, Brown, Yellow, Purple, Turquoise | blue/navy/cobalt; green/emerald/olive/mint; grey/gray/silver/charcoal; pink/rose/blush/fuchsia; brown/chocolate/mocha/chestnut; yellow/mustard; purple/lavender/violet; turquoise/teal | Shades inside each master colour; also the vocabulary that makes "red and white" or "emerald" a conflict for a red style. |
+
+**Required outcomes (stated before scoring).** The emerald-green dress (`H1_wrong_attribute_Dress`) and both coral dresses (`m3_coral_dress_attempt1`, `_attempt2`) must FAIL Gate 2; the submitted sweater and dress must still PASS it. If any of these is not met, that is reported and the rule is not adjusted to fit. **Reported separately and plainly:** the effect on the submitted white top and bikini top; every Gate 2 verdict that changes across all stored cases (the 129 H3/J6 cases and the 54 recorded candidates, rescored offline from the stored extractions, no judge re-run).
+
+### K5. Gate 1 advisory
+
+Gate 1 keeps being computed and reported, and is removed from the accept/reject decision (`critic_rule`, `critic.md`, `SKILL.md` together). Expected and to be reported: **no verdict changes** across the 129 cases (Gate 1 failed in none of them).
+
+### K3. Scale-direction rule (decision, with a replay)
+
+Written into `critic.md` from the lever evidence above, per failure type. To be reported: which recorded retry decisions it would have changed (the scripted live run, the LLM run's attempts, and the J2 `adjust` reference).

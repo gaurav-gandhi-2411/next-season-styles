@@ -1,0 +1,59 @@
+{
+  "id": "S08",
+  "title": "conflicting judges: gating judge passes, advisory judge fails",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 1 of 3. ip_adapter_scale 0.35, seed 42. Briefed changes: ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem'].",
+  "tool_output": {
+    "gate1": {
+      "pass": true
+    },
+    "gate1b": {
+      "pass": true,
+      "clone_control_failed_as_required": true
+    },
+    "integrity": {
+      "pass": true,
+      "closest_reference_dinov2": 0.86,
+      "global_floor": 0.779
+    },
+    "gate2": {
+      "pass": true,
+      "judges": {
+        "smolvlm": {
+          "fidelity": 0.567,
+          "threshold": 0.384,
+          "pass": true,
+          "role": "gating",
+          "extraction": {
+            "product_type": "Sweater.",
+            "colour_family": "Beige.",
+            "graphical_treatment": "Solid."
+          }
+        },
+        "florence2": {
+          "fidelity": 0.283,
+          "threshold": 0.337,
+          "pass": false,
+          "role": "advisory (never gates)"
+        }
+      }
+    },
+    "gate3": {
+      "pass": true,
+      "answers": "YY",
+      "changes": [
+        "a high funnel neck collar",
+        "dark brown contrast rib cuffs and hem"
+      ]
+    },
+    "human_visual_check": {
+      "required": true,
+      "status": "not automated"
+    }
+  },
+  "rubric": {
+    "good_decision": "PASS_PENDING_HUMAN (advisory never gates), forwarded with the disagreement flagged for the human check.",
+    "equivalent": "PASS_PENDING_HUMAN.",
+    "worse": "REJECT on the advisory judge, or forwarding without any human-check request.",
+    "better_if": "Passes AND names the Florence-2 disagreement for the human reviewer."
+  }
+}

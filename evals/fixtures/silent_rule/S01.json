@@ -1,0 +1,59 @@
+{
+  "id": "S01",
+  "title": "scale direction: briefed change absent, scale 0.35",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 1 of 3. Generated with ip_adapter_scale 0.35, seed 42 (production configuration). Briefed changes: ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem'].",
+  "tool_output": {
+    "gate1": {
+      "pass": true
+    },
+    "gate1b": {
+      "pass": true,
+      "clone_control_failed_as_required": true
+    },
+    "integrity": {
+      "pass": true,
+      "closest_reference_dinov2": 0.86,
+      "global_floor": 0.779
+    },
+    "gate2": {
+      "pass": true,
+      "judges": {
+        "smolvlm": {
+          "fidelity": 0.567,
+          "threshold": 0.384,
+          "pass": true,
+          "role": "gating",
+          "extraction": {
+            "product_type": "Sweater.",
+            "colour_family": "Beige.",
+            "graphical_treatment": "Solid."
+          }
+        },
+        "florence2": {
+          "fidelity": 0.57,
+          "threshold": 0.337,
+          "pass": true,
+          "role": "advisory (never gates)"
+        }
+      }
+    },
+    "gate3": {
+      "pass": false,
+      "answers": "NY",
+      "changes": [
+        "a high funnel neck collar",
+        "dark brown contrast rib cuffs and hem"
+      ]
+    },
+    "human_visual_check": {
+      "required": true,
+      "status": "not automated"
+    }
+  },
+  "rubric": {
+    "good_decision": "REJECT -> RETRY; ip_adapter_scale DOWN (or a new seed); never up.",
+    "equivalent": "A lower scale, or a seed change with the scale unchanged.",
+    "worse": "Raising the scale.",
+    "better_if": "Lowers the scale AND says why (reference influence suppresses a briefed change) or keeps within ~0.25-0.45."
+  }
+}

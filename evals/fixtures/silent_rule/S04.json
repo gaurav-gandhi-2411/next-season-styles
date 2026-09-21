@@ -1,0 +1,59 @@
+{
+  "id": "S04",
+  "title": "scale direction: failures that pull opposite ways",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 1 of 3. ip_adapter_scale 0.35, seed 42. Briefed changes: ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem'].",
+  "tool_output": {
+    "gate1": {
+      "pass": true
+    },
+    "gate1b": {
+      "pass": true,
+      "clone_control_failed_as_required": true
+    },
+    "integrity": {
+      "pass": false,
+      "closest_reference_dinov2": 0.735,
+      "global_floor": 0.779
+    },
+    "gate2": {
+      "pass": true,
+      "judges": {
+        "smolvlm": {
+          "fidelity": 0.567,
+          "threshold": 0.384,
+          "pass": true,
+          "role": "gating",
+          "extraction": {
+            "product_type": "Sweater.",
+            "colour_family": "Beige.",
+            "graphical_treatment": "Solid."
+          }
+        },
+        "florence2": {
+          "fidelity": 0.57,
+          "threshold": 0.337,
+          "pass": true,
+          "role": "advisory (never gates)"
+        }
+      }
+    },
+    "gate3": {
+      "pass": false,
+      "answers": "YN",
+      "changes": [
+        "a high funnel neck collar",
+        "dark brown contrast rib cuffs and hem"
+      ]
+    },
+    "human_visual_check": {
+      "required": true,
+      "status": "not automated"
+    }
+  },
+  "rubric": {
+    "good_decision": "REJECT -> RETRY with the scale UNCHANGED and a new seed: the integrity miss wants more reference influence and the Gate 3 miss wants less, so no scale move is justified.",
+    "equivalent": "A seed change with the scale unchanged.",
+    "worse": "Moving the scale either way without acknowledging that the two failures conflict.",
+    "better_if": "Names the conflict explicitly."
+  }
+}

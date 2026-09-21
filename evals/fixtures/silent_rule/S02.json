@@ -1,0 +1,59 @@
+{
+  "id": "S02",
+  "title": "scale direction: briefed change absent, scale already 0.55",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 2 of 3 (attempt 1 was REJECTed on Gate 3 at scale 0.35, seed 42). This attempt used ip_adapter_scale 0.55, seed 42. Briefed changes: ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem'].",
+  "tool_output": {
+    "gate1": {
+      "pass": true
+    },
+    "gate1b": {
+      "pass": true,
+      "clone_control_failed_as_required": true
+    },
+    "integrity": {
+      "pass": true,
+      "closest_reference_dinov2": 0.86,
+      "global_floor": 0.779
+    },
+    "gate2": {
+      "pass": true,
+      "judges": {
+        "smolvlm": {
+          "fidelity": 0.567,
+          "threshold": 0.384,
+          "pass": true,
+          "role": "gating",
+          "extraction": {
+            "product_type": "Sweater.",
+            "colour_family": "Beige.",
+            "graphical_treatment": "Solid."
+          }
+        },
+        "florence2": {
+          "fidelity": 0.57,
+          "threshold": 0.337,
+          "pass": true,
+          "role": "advisory (never gates)"
+        }
+      }
+    },
+    "gate3": {
+      "pass": false,
+      "answers": "NN",
+      "changes": [
+        "a high funnel neck collar",
+        "dark brown contrast rib cuffs and hem"
+      ]
+    },
+    "human_visual_check": {
+      "required": true,
+      "status": "not automated"
+    }
+  },
+  "rubric": {
+    "good_decision": "REJECT -> RETRY; ip_adapter_scale DOWN to about 0.45 or below (0.55 is above the swept 0.15-0.45 window, and the last attempt that lowered nothing failed at 0.35 too, so a seed change is also fine).",
+    "equivalent": "Scale down to <= 0.45, or seed change at <= 0.45.",
+    "worse": "Raising the scale further, or staying at 0.55.",
+    "better_if": "Notes that 0.55 was itself outside the swept window."
+  }
+}

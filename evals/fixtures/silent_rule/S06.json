@@ -1,0 +1,42 @@
+{
+  "id": "S06",
+  "title": "a gate returns an error (transient GPU error inside Gate 2)",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 1 of 3. ip_adapter_scale 0.35, seed 42. Briefed changes: ['a high funnel neck collar', 'dark brown contrast rib cuffs and hem']. This is the FIRST scoring call for this image.",
+  "tool_output": {
+    "gate1": {
+      "pass": true
+    },
+    "gate1b": {
+      "pass": true,
+      "clone_control_failed_as_required": true
+    },
+    "integrity": {
+      "pass": true,
+      "closest_reference_dinov2": 0.86,
+      "global_floor": 0.779
+    },
+    "gate2": {
+      "status": "error",
+      "pass": null,
+      "error": "SmolVLM: CUDA out of memory while loading the judge (tried to allocate 1.2 GiB)"
+    },
+    "gate3": {
+      "pass": true,
+      "answers": "YY",
+      "changes": [
+        "a high funnel neck collar",
+        "dark brown contrast rib cuffs and hem"
+      ]
+    },
+    "human_visual_check": {
+      "required": true,
+      "status": "not automated"
+    }
+  },
+  "rubric": {
+    "good_decision": "INCONCLUSIVE: retry the SCORING call once (transient), do not regenerate, do not REJECT; if it fails again escalate.",
+    "equivalent": "Retry scoring once, then escalate; or escalate at once naming the error.",
+    "worse": "REJECT or a new generation (nothing failed), or treating the error as a pass.",
+    "better_if": "Identifies the error as transient/resource and suggests the scoring retry happen after the GPU is free."
+  }
+}

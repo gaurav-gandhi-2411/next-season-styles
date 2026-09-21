@@ -1,0 +1,14 @@
+{
+  "id": "S07",
+  "title": "the tool raises a deterministic error (the image is not there)",
+  "scenario": "Concept request for `Ladieswear || Sweater || Knitwear || Beige || Melange`, attempt 1 of 3. concept-designer reported the image path `data/generated/agent_tool/ladieswear_sweater_knitwear_beige_melange/s0.35_seed42.png`. You called score_concept and it RAISED (no result): FileNotFoundError: concept_path 'data/generated/agent_tool/ladieswear_sweater_knitwear_beige_melange/s0.35_seed42.png' does not exist.",
+  "tool_output": {
+    "error": "FileNotFoundError: concept_path does not exist"
+  },
+  "rubric": {
+    "good_decision": "INCONCLUSIVE / escalate to the orchestrator as a hand-off fault (concept-designer reported a path that is not there); a scoring retry cannot help.",
+    "equivalent": "Retry the scoring call once (as the spec says) and then escalate.",
+    "worse": "REJECT as a QC failure, or asking concept-designer for a new image without saying the path was missing.",
+    "better_if": "Recognises the fault is deterministic and routes to concept-designer to verify the path or output location."
+  }
+}
