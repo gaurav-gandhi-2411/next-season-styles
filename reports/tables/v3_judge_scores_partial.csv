@@ -1,0 +1,7 @@
+label,judge,mean_score,n_dims,threshold,pass
+submitted:Dress,florence2,0.5666666666666667,3,0.33691194400699315,true
+submitted:Dress,gemini,1.0,3,0.6666666666666666,true
+submitted:Dress,smolvlm,0.85,3,0.38413461538461535,true
+submitted:Sweater,florence2,0.5666666666666667,3,0.33691194400699315,true
+submitted:Sweater,gemini,0.6166666666666667,3,0.6666666666666666,false
+submitted:Sweater,smolvlm,0.5666666666666667,3,0.38413461538461535,true
