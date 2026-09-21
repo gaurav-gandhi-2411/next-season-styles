@@ -31,9 +31,12 @@ See the README's "MCP server" section for a ready-to-paste `mcpServers` client c
 
 from __future__ import annotations
 
+import functools
+import threading
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, ParamSpec, TypeVar
 
 import polars as pl
 from mcp.server.mcpserver import MCPServer
@@ -424,8 +427,28 @@ def get_reference_images(style_key: str, n: int) -> list[str]:
 
 
 PRODUCTION_OUTPUT_ROOT = Path("data/generated/agent_tool")
+P = ParamSpec("P")
+R = TypeVar("R")
+
+# The model-heavy tools share one process-wide set of models and an 8 GB GPU. Concurrent calls
+# (an orchestrator dispatching three concept-designers, then three critics, in parallel) all failed
+# with an untyped tool error -- three generate_concept calls, then three score_concept calls --
+# while the same calls one at a time succeed. Serialise them.
+_MODEL_LOCK = threading.Lock()
 
 
+def _serialised(fn: Callable[P, R]) -> Callable[P, R]:
+    """Run `fn` under `_MODEL_LOCK`, keeping its signature (the MCP schema uses it)."""
+
+    @functools.wraps(fn)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        with _MODEL_LOCK:
+            return fn(*args, **kwargs)
+
+    return wrapper
+
+
+@_serialised
 def generate_concept(
     prompt: str = "",
     reference_images: list[str] | None = None,
@@ -508,6 +531,7 @@ def generate_concept(
     return [p.as_posix() for p in result_paths]
 
 
+@_serialised
 def score_concept(
     concept_path: str,
     style_key: str,
@@ -557,6 +581,7 @@ def score_concept(
     )
 
 
+@_serialised
 def forecast_concept(
     concept_path: str, include_api_judges: bool = True, origin: str = PRECOMPUTED_FORECAST_ORIGIN
 ) -> dict[str, Any]:

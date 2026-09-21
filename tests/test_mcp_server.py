@@ -460,3 +460,63 @@ def test_generate_concept_production_mode_fails_loudly_on_bad_input(
 ) -> None:
     with pytest.raises(ValueError, match=match):
         generate_concept(**kwargs)
+
+
+def test_model_heavy_calls_are_serialised() -> None:
+    """Concurrent generate/score calls all failed; the lock lets one run at a time."""
+    import threading
+    import time
+
+    active = {"now": 0, "max": 0}
+    guard = threading.Lock()
+
+    def slow(style: str, scale: float, seed: int, out_root: Path) -> tuple[Path, float]:
+        with guard:
+            active["now"] += 1
+            active["max"] = max(active["max"], active["now"])
+        time.sleep(0.05)
+        with guard:
+            active["now"] -= 1
+        return out_root / f"{seed}.png", 0.05
+
+    with patch("nss.generate.concept_generation.generate_candidate", side_effect=slow):
+        threads = [
+            threading.Thread(
+                target=generate_concept,
+                kwargs={"style_key": DRESS_KEY, "ip_adapter_scale": 0.35, "seed": 40 + i},
+            )
+            for i in range(4)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    assert active["max"] == 1
+
+
+def test_generate_concept_keeps_its_signature_for_the_mcp_schema() -> None:
+    import inspect
+
+    params = inspect.signature(generate_concept).parameters
+    assert list(params) == [
+        "prompt",
+        "reference_images",
+        "backend",
+        "ip_adapter_scale",
+        "seed",
+        "n",
+        "style_key",
+    ]
+
+
+def test_score_and_forecast_concept_share_the_lock_and_keep_their_signatures() -> None:
+    import inspect
+
+    for fn in (mcp_server.score_concept, mcp_server.forecast_concept):
+        assert hasattr(fn, "__wrapped__")  # decorated with the serialiser
+    assert list(inspect.signature(mcp_server.score_concept).parameters) == [
+        "concept_path",
+        "style_key",
+        "include_fidelity",
+        "changes",
+    ]
