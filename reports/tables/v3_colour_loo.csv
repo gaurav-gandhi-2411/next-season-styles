@@ -1,0 +1,6 @@
+style,n,passed,pass_rate,fallbacks,threshold
+Ladieswear || Sweater || Knitwear || Beige || Melange,17,15,0.8823529411764706,1,3.4355401672860744
+Ladieswear || Dress || Dresses Ladies || Red || Solid,25,23,0.92,0,4.500300063670908
+Ladieswear || Top || Jersey Basic || White || Solid,19,16,0.8421052631578947,19,1.0562865632327942
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,8,7,0.875,0,16.444062087118716
+"Ladieswear || Underwear bottom || Under-, Nightwear || Red || Solid",4,3,0.75,0,23.719272337637832
