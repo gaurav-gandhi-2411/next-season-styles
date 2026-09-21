@@ -68,3 +68,29 @@ Rule committed in `a0a13ad` (erratum `b0c475b`: 48 weekly origins, not 47). **Th
 **On ranking quality and error the model's edge over seasonal naive is stable across densities** (weekly, block 13): NDCG@10 +0.130 [+0.080, +0.226] (ESS about 6), Spearman +0.200 [+0.192, +0.241], WMAPE -0.041 [-0.055, -0.034]. The intervals exclude zero at both spacings. What is not established is a top-3 advantage.
 
 Tables: `v3_power_per_origin_weekly.csv`, `v3_power_paired.csv`. Code: `src/nss/models/eval_power.py`; tests: `tests/test_eval_power.py`.
+
+## 2c. Selective prediction: NOT DEMONSTRATED (the wrong direction)
+
+Rule committed in `48ca1a0` before any spread was computed: uncertainty is the quantile spread `q90 - q10` (log1p scale) from two extra LightGBM quantile models trained like the point model; a pick is **confident** iff its spread is at or below the median spread of all evaluated styles at that origin. The point model, and so the picks, are unchanged; a gate confirms the all-picks hit rate at the 12 grid origins is the reported 0.5278 (19/36). Quantile crossing (q10 above q90) happened in 9 of 141,916 style-origins, negligible.
+
+**Primary (12 grid origins, 36 picks, block 4), the decision:**
+
+| | Picks | Hit rate |
+|---|---|---|
+| All picks | 36 | 0.528 |
+| Confident picks (coverage 0.500) | 18 | 0.389 |
+| **Difference (confident - all)** | | **-0.139, 95% interval [-0.597, 0.000]** |
+
+Random-abstention floor (confidence labels permuted within each origin's 3 picks): mean difference -0.009, 95% range [-0.083, +0.083]; the observed value is at the low end, one-sided p = 1.00 for "confident is better".
+
+**Verdict: NOT DEMONSTRATED.** The interval's lower bound is not above zero (it is -0.597) even though coverage (0.50) clears the 0.30 minimum. More than "not demonstrated": the point estimate is negative. The confident picks hit less often than all picks, 7 of 18 against 19 of 36, and the abstained picks did better than the kept ones (12 of 18).
+
+**Secondary (48 weekly origins, block 13, exploratory, decision does not depend on it):** coverage 0.424; confident 0.279 vs all 0.431; difference -0.152 [-0.515, +0.015]; floor mean -0.043; p = 1.00. Same direction.
+
+**Exploratory, spread quantiles (not decision-bearing):** at the 0.75 quantile coverage is about 1.0 (grid 1.00, weekly 0.986) and the difference is 0.000 (grid) / +0.006 (weekly), i.e. nothing is abstained. At the 0.25 quantile coverage is 0 on the grid and 2.1% of weekly picks (0 hits among them): the model's top picks almost never have low spread.
+
+**Does the spread carry information at all?** Across all evaluated styles, the mean per-origin Spearman correlation between spread and the absolute error of the point prediction is **0.450** (grid) and **0.458** (weekly). Wide quantile spreads do predict larger errors. The pooled correlation between predicted level and spread is only 0.07, so this is not just "big predictions have big spreads". So the spread is a reasonable error indicator over the whole population, yet it does not separate the model's top-3 hits from its top-3 misses.
+
+**Reading, and what it does not say.** 36 picks are a very small sample and the interval reaches zero at the top. What can be said is that at the pre-stated threshold, abstaining on the wide-spread picks did not raise the hit rate and, on this sample, lowered it. A plausible reason, not tested here: a top-3 miss is mostly a *ranking* failure among comparably strong styles, which a per-style error-width does not capture. Do not use this spread to filter the final picks.
+
+Tables: `v3_selective_summary.csv`, `v3_selective_picks_grid.csv`, `v3_selective_spread_error.csv`. Code: `src/nss/models/selective_prediction.py`; tests: `tests/test_selective_prediction.py`.

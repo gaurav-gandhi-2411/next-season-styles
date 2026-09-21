@@ -155,6 +155,8 @@ def block_bootstrap_difference(
         d = statistic([picks[i] for i in idx])[2]
         if not np.isnan(d):
             diffs.append(d)
+    if not diffs:  # no confident pick in any resample: the difference is undefined, not zero
+        return (float("nan"), float("nan"))
     lo, hi = np.percentile(diffs, [2.5, 97.5])
     return float(lo), float(hi)
 
@@ -177,6 +179,9 @@ def permutation_floor(
         if not np.isnan(d):
             null.append(d)
     arr = np.asarray(null)
+    if arr.size == 0:
+        nan = float("nan")
+        return {"null_mean": nan, "null_lo": nan, "null_hi": nan, "p_one_sided": nan}
     lo, hi = np.percentile(arr, [2.5, 97.5])
     return {
         "null_mean": float(arr.mean()),
