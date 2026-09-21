@@ -124,3 +124,11 @@ def test_unvalidated_clone_control_is_not_a_definite_failure() -> None:
     gates["gate2"]["pass"] = False
     verdict, automated = qc_gates.verdict_from_gates(gates)
     assert automated is False and verdict.startswith("REJECT: failed gate2")
+
+
+def test_failed_advisory_gate1_is_named_but_does_not_reject() -> None:
+    """K5: Gate 1 fails, everything gating passes -> still a pass, with the advisory noted."""
+    verdict, automated = qc_gates.verdict_from_gates(_gates(gate1=False))
+    assert automated is True and "advisory gate1 failed" in verdict
+    verdict, automated = qc_gates.verdict_from_gates(_gates(gate1=False, gate3=False))
+    assert automated is False and verdict.startswith("REJECT: failed gate3")

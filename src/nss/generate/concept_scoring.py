@@ -38,6 +38,7 @@ from nss.generate import (
     final_concepts,
     final_registry,
     gate3,
+    identity_match,
     integrity_global,
     local_judge_calibration,
     local_vlm,
@@ -135,7 +136,27 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
         # control could not be run (Kaggle 429). See reports/v3/TRACK1e_pattern.md.
         fid = SKILL.mean_score(scores)
         row[f"{backend}_fidelity"] = fid
-        row[f"{backend}_gate2_pass"] = fid >= thresholds[backend]
+        # K4: for the GATING judge, product type and colour are hard identity constraints on top of
+        # the unchanged averaged fidelity (an AND: it can only tighten Gate 2). Advisory judges keep
+        # the plain threshold.
+        gating = backend in GATING_JUDGES
+        row[f"{backend}_product_ok"] = (
+            identity_match.product_type_ok(
+                extraction.get("product_type", ""), truth["product_type"]
+            )
+            if gating
+            else True
+        )
+        row[f"{backend}_colour_ok"] = (
+            identity_match.colour_ok(extraction.get("colour_family", ""), truth["colour_family"])
+            if gating
+            else True
+        )
+        row[f"{backend}_gate2_pass"] = bool(
+            fid >= thresholds[backend]
+            and row[f"{backend}_product_ok"]
+            and row[f"{backend}_colour_ok"]
+        )
         row[f"{backend}_extraction"] = json.dumps(extraction)
         if backend != "florence2" and changes:  # a captioner cannot answer yes/no questions
             g3 = gate3.gate3_local(path, changes)

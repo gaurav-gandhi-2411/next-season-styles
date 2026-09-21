@@ -233,11 +233,8 @@ def routing_checks(cases: list[ae.Case]) -> list[dict[str, Any]]:
         r = ae.route(v, 1, ae.failing(c.passes, clone_ok=c.clone_ok))
         if v == ae.REJECT:
             ok = (r.next_agent, r.tool) == ("concept-designer", "generate_concept")
-            ok = ok and r.adjust == (
-                "seed"
-                if ae.failing(c.passes, clone_ok=c.clone_ok) == ["integrity"]
-                else "ip_adapter_scale"
-            )
+            keeps = ae.scale_direction(ae.failing(c.passes, clone_ok=c.clone_ok)) == "keep"
+            ok = ok and r.adjust == ("seed" if keeps else "ip_adapter_scale")
         else:
             ok = (r.next_agent, r.tool) == EXPECTED_HOP[v]
         if not ok:

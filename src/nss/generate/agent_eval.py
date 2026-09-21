@@ -20,11 +20,22 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-from nss.generate.critic_rule import GATES, INCONCLUSIVE, PASS, REJECT, Passes, decide
+from nss.generate.critic_rule import (
+    ADVISORY,
+    GATES,
+    INCONCLUSIVE,
+    PASS,
+    REJECT,
+    Passes,
+    decide,
+)
 from nss.generate.critic_rule import failing as _failing
 
 RETRY_CAP = 2  # `critic.md`: at most 2 retries, i.e. 3 attempts in total
-MIN_SCALE, SCALE_STEP = 0.15, 0.10  # the pre-registered retry rule for ip_adapter_scale
+# K3: the retry rule for ip_adapter_scale. Window from the lever experiments (prompt_lever_summary):
+# briefed changes appear at 0.25-0.35 and weaken at 0.45; 0.6-0.7 removes them (the references
+# dominate); with the older prompt 0.15-0.25 collapsed into fabric swatches.
+SCALE_MIN, SCALE_MAX, SCALE_STEP = 0.25, 0.45, 0.10
 _ROW_COLUMNS = {
     "gate1": "gate1_pass",
     "gate1b": "gate1b_pass",
@@ -73,7 +84,54 @@ class Route:
     outcome: str
 
 
-def route(verdict: str, attempt: int, failed: list[str] | None = None) -> Route:
+def scale_direction(failed: list[str], previous_failed: tuple[str, ...] | list[str] = ()) -> str:
+    """K3: which way a REJECT should move `ip_adapter_scale`: `down`, `up` or `keep` (change seed).
+
+    - Gate 3 (a briefed change is absent) or Gate 1b (too close to a reference): DOWN; reference
+      influence suppresses briefed changes and produces near-copies.
+    - Integrity (too far from every reference): a seed-dependent, near-floor miss, so KEEP the scale
+      and change the seed; UP only when the previous attempt also failed integrity.
+    - Integrity together with Gate 3 or Gate 1b: the two pull opposite ways, KEEP (change the seed).
+    - Gate 2 alone: nothing evidence-based moves a judge's reading with the scale (the bikini reads
+      identically on every seed, the sweater fails 13 of 14 candidates), so KEEP (change the seed).
+    """
+    down = "gate3" in failed or "gate1b" in failed
+    integrity = "integrity" in failed
+    if down and integrity:
+        return "keep"
+    if down:
+        return "down"
+    if integrity and "integrity" in previous_failed:
+        return "up"
+    return "keep"
+
+
+def next_attempt(
+    failed: list[str],
+    scale: float,
+    seed: int,
+    previous_failed: tuple[str, ...] | list[str] = (),
+) -> tuple[float, int]:
+    """The retry rule: change exactly one of scale and seed, never leaving [0.25, 0.45].
+
+    A scale above the window (0.55) goes back inside on `down`. When the move would leave the
+    window, the seed changes instead.
+    """
+    direction = scale_direction(failed, previous_failed)
+    if direction != "keep":
+        new = round(scale - SCALE_STEP if direction == "down" else scale + SCALE_STEP, 2)
+        if SCALE_MIN <= new <= SCALE_MAX:
+            return new, seed
+    return scale, seed + 1
+
+
+def route(
+    verdict: str,
+    attempt: int,
+    failed: list[str] | None = None,
+    previous_failed: tuple[str, ...] | list[str] = (),
+    scale: float = 0.35,
+) -> Route:
     """The next hop for `verdict` on the given 1-based `attempt`."""
     if verdict == PASS:
         return Route("forecaster", "forecast_concept", None, "FORWARD")
@@ -83,15 +141,9 @@ def route(verdict: str, attempt: int, failed: list[str] | None = None) -> Route:
         raise ValueError(f"unknown verdict {verdict!r}")
     if attempt > RETRY_CAP:
         return Route(None, None, None, "FAILED")
-    adjust = "seed" if failed == ["integrity"] else "ip_adapter_scale"
+    new_scale, _seed = next_attempt(failed or [], scale, 0, previous_failed)
+    adjust = "ip_adapter_scale" if new_scale != scale else "seed"
     return Route("concept-designer", "generate_concept", adjust, "RETRY")
-
-
-def next_attempt(failed: list[str], scale: float, seed: int) -> tuple[float, int]:
-    """The pre-registered retry rule: change only the seed (integrity-only miss) or the scale."""
-    if failed == ["integrity"]:
-        return scale, seed + 1
-    return round(max(MIN_SCALE, scale - SCALE_STEP), 2), seed
 
 
 def score_with_retry(
@@ -183,7 +235,8 @@ def ablate(cases: list[Case]) -> list[dict[str, Any]]:
             caught = unique = sole = 0
             for c in sub:
                 f = failing(c.passes, clone_ok=c.clone_ok)
-                caught += gate in f
+                # an advisory gate never enters `failing`, but its own failures are still counted
+                caught += gate in f or (gate in ADVISORY and c.passes.get(gate) is False)
                 sole += f == [gate]
                 unique += (
                     decide(c.passes, c.clone_ok) != PASS

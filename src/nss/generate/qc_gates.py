@@ -121,17 +121,22 @@ def verdict_from_gates(gates: dict[str, dict[str, Any]]) -> tuple[str, bool | No
     clone_ok = critic_rule.clone_ok_from_gates(gates)
     failed = critic_rule.failing(passes, clone_ok)
     not_run = critic_rule.unmeasured(passes, clone_ok)
+    advisory = [g for g in critic_rule.ADVISORY if gates[g].get("pass") is False]
+    adv_note = f" (advisory {', '.join(advisory)} failed)" if advisory else ""
     if failed:
         note = f"; {', '.join(not_run)} not run" if not_run else ""
-        return "REJECT: failed " + ", ".join(failed) + note, False
+        return "REJECT: failed " + ", ".join(failed) + note + adv_note, False
     if not_run:
         passed = [n for n in GATE_NAMES if n not in not_run]
         return (
             f"{', '.join(passed)} passed; {', '.join(not_run)} not run; "
-            "human visual check REQUIRED",
+            f"human visual check REQUIRED{adv_note}",
             None,
         )
-    return "PASS on all automatic gates; the human visual check is still REQUIRED", True
+    return (
+        f"PASS on all gating gates{adv_note}; the human visual check is still REQUIRED",
+        True,
+    )
 
 
 def _local_panel(
@@ -164,6 +169,8 @@ def _local_panel(
             "threshold": thresholds[b],
             "pass": row[f"{b}_gate2_pass"],
             "role": "gating" if b in concept_scoring.GATING_JUDGES else "advisory",
+            "product_type_ok": row[f"{b}_product_ok"],
+            "colour_ok": row[f"{b}_colour_ok"],
             "extraction": row[f"{b}_extraction"],
         }
         for b in backends
@@ -229,6 +236,7 @@ def score_gates(
     sims = {s: concept_similarity(emb[s], ref_embs[s])["mean"] for s in SPACES}
     limits = {s: style_benchmark(ref_embs[s])["pair_p90"] for s in SPACES}
     gate1 = {
+        "role": "advisory (K5: reported, never gates)",
         "pass": SKILL.within_style_novelty_pass(sims, limits),
         **{
             s: {

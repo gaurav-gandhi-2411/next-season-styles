@@ -829,3 +829,26 @@ invalid and Groq's daily budget spent, SmolVLM is the gating Gate 2 judge and Fl
 never gating (`concept_scoring.GATING_JUDGES` / `ADVISORY_JUDGES`). This was decided on measured agreement,
 not to pass concepts; it changes one verdict (white top Gate 2: fail -> pass) and no overall verdict.
 Restore Florence-2 as a gate only if its kappa against a live API judge rises above ~0.6.
+
+
+## CURRENT (K5): Gate 1 is advisory
+
+Gate 1 (within-style p90 range, above) is still computed and reported by `score_concept`, but it is
+**no longer part of the accept/reject decision** (`nss.generate.critic_rule`: `ADVISORY = ("gate1",)`).
+Reason, measured: it failed in none of 129 scored cases (the H3 set of malformed, swatch, clone,
+wrong-style, approved and coherent images plus the J6 hard negatives, including an averaged-garment
+image built to trip it). Structurally it asks for less similarity than the 90th percentile of real
+sibling pairs, which almost nothing generated fails; Gate 1b and the integrity floor carry the
+copy and coherence questions. No verdict in those 129 cases changes. `qc_gates.score_gates` marks it
+`role: advisory`, `verdict_from_gates` names a failed Gate 1 without acting on it, and
+`agents/critic.md` says the same.
+
+## CURRENT (K4): Gate 2 has hard identity constraints
+
+Gate 2 now passes iff the gating judge's averaged fidelity clears its calibrated threshold (scorer
+and threshold unchanged) **and** its product-type reading and colour reading each match the style's
+value under `nss.generate.identity_match` (a justified synonym list; pre-registered in
+`reports/v3/PREREGISTRATION.md`, section K4). It is an AND on the old rule, so it can only turn a
+pass into a fail. Reason, measured: an emerald-green dress passed every gate because two of three
+attributes right cleared 0.384. Pattern stays in the average only. Effect on the recorded cases is
+in `reports/tables/v3_gate2_identity_rescore*.csv`.

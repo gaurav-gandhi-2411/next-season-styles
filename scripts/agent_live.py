@@ -181,6 +181,7 @@ async def run() -> None:
             )
 
             scale, seed = START_SCALE, START_SEED
+            previous: list[str] = []
             outcome = "FAILED (retry cap exhausted)"
             for attempt in range(1, ae.RETRY_CAP + 2):
                 gen_args = {
@@ -230,7 +231,7 @@ async def run() -> None:
                         f"changes):\n\n{format_live_gates(score)}",
                         ssecs,
                     )
-                hop = ae.route(verdict, attempt, failed)
+                hop = ae.route(verdict, attempt, failed, previous, scale)
                 tr.step(
                     "LOCAL",
                     f"critic decision `{verdict}` (failing gates: {failed or 'none'}); router: "
@@ -266,7 +267,8 @@ async def run() -> None:
                         else "FAILED (retry cap exhausted)"
                     )
                     break
-                scale, seed = ae.next_attempt(failed, scale, seed)
+                scale, seed = ae.next_attempt(failed, scale, seed, previous)
+                previous = failed
             outcomes[style] = outcome
             last = attempts[-1]["image"]
             tr.step(

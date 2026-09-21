@@ -6,6 +6,8 @@ Before J3 three places answered "a gate failed and another gate was not run" thr
 
 The rule, in order:
 
+0. Gate 1 is advisory (K5) and never enters the decision; everything below is about the
+   gating gates (Gate 1b, integrity, Gate 2, Gate 3).
 1. A gate is *unmeasured* if its `pass` is `None` / missing, or it is Gate 1b and its exact-clone
    control did not fail as required (the gate is UNVALIDATED and "cannot pass anything", so its own
    `False` is not evidence about the concept either).
@@ -22,6 +24,13 @@ from __future__ import annotations
 from typing import Any
 
 GATES = ("gate1", "gate1b", "integrity", "gate2", "gate3")
+# K5: Gate 1 (mean similarity to the references at or below the p90 of real sibling pairs) is
+# ADVISORY: still computed and reported, no longer part of the accept/reject decision. It failed in
+# none of 129 scored cases, including the averaged-garment hard negative built for it: passing it
+# only requires being less similar than the 90th percentile of real sibling pairs, which almost
+# nothing generated fails.
+ADVISORY = ("gate1",)
+GATING = tuple(g for g in GATES if g not in ADVISORY)
 REJECT, PASS, INCONCLUSIVE = "REJECT", "PASS_PENDING_HUMAN", "INCONCLUSIVE"
 
 Passes = dict[str, bool | None]
@@ -32,7 +41,7 @@ def measured(
 ) -> dict[str, bool | None]:
     """Each gate's result with unmeasured gates as `None` (`mask`ed gates are dropped)."""
     out: dict[str, bool | None] = {}
-    for gate in GATES:
+    for gate in GATING:
         if gate in mask:
             continue
         value = passes.get(gate)

@@ -47,7 +47,7 @@ def test_mask_removes_a_gate_from_the_decision() -> None:
 
 
 def test_route_table() -> None:
-    assert ae.route(ae.REJECT, 1, ["gate2"]) == ae.Route(
+    assert ae.route(ae.REJECT, 1, ["gate3"]) == ae.Route(
         "concept-designer", "generate_concept", "ip_adapter_scale", "RETRY"
     )
     assert ae.route(ae.REJECT, 2, ["integrity"]).adjust == "seed"
@@ -56,10 +56,31 @@ def test_route_table() -> None:
     assert ae.route(ae.INCONCLUSIVE, 1).next_agent is None
 
 
-def test_next_attempt_changes_only_one_parameter() -> None:
+def test_scale_direction_per_failure_type() -> None:
+    """K3: Gate 3 or 1b down; integrity keep (up on a repeat); conflicts and Gate 2 keep."""
+    assert ae.scale_direction(["gate3"]) == "down"
+    assert ae.scale_direction(["gate1b"]) == "down"
+    assert ae.scale_direction(["gate2", "gate3"]) == "down"  # Gate 3 governs
+    assert ae.scale_direction(["integrity"]) == "keep"
+    assert ae.scale_direction(["integrity"], ["integrity"]) == "up"
+    assert ae.scale_direction(["integrity", "gate3"]) == "keep"  # opposite pulls
+    assert ae.scale_direction(["gate2"]) == "keep"
+
+
+def test_next_attempt_changes_exactly_one_parameter_inside_the_window() -> None:
     assert ae.next_attempt(["integrity"], 0.35, 42) == (0.35, 43)
-    assert ae.next_attempt(["gate1", "gate3"], 0.35, 42) == (0.25, 42)
-    assert ae.next_attempt(["gate2"], 0.15, 42) == (0.15, 42)  # floor
+    assert ae.next_attempt(["gate3"], 0.35, 42) == (0.25, 42)
+    assert ae.next_attempt(["gate3"], 0.55, 42) == (0.45, 42)  # back inside the window
+    assert ae.next_attempt(["gate3"], 0.25, 42) == (0.25, 43)  # would leave the floor: seed
+    assert ae.next_attempt(["integrity"], 0.45, 42, ["integrity"]) == (0.45, 43)  # ceiling: seed
+    assert ae.next_attempt(["integrity"], 0.35, 42, ["integrity"]) == (0.45, 42)
+    assert ae.next_attempt(["gate2"], 0.35, 42) == (0.35, 43)
+
+
+def test_route_names_the_parameter_that_actually_changes() -> None:
+    assert ae.route(ae.REJECT, 1, ["gate3"]).adjust == "ip_adapter_scale"
+    assert ae.route(ae.REJECT, 1, ["gate2"]).adjust == "seed"
+    assert ae.route(ae.REJECT, 1, ["gate3"], scale=0.25).adjust == "seed"
 
 
 def test_tool_error_is_retried_once_then_inconclusive() -> None:
@@ -129,8 +150,19 @@ def test_confusion_and_precision_recall() -> None:
         ae.Case("tp", "p", True, ALL_PASS),
         ae.Case("fn", "p", True, {**ALL_PASS, "gate2": False}),
         ae.Case("fp", "n", False, ALL_PASS),
-        ae.Case("tn", "n", False, {**ALL_PASS, "gate1": False}),
+        ae.Case("tn", "n", False, {**ALL_PASS, "gate2": False}),
     ]
     pr = ae.precision_recall(ae.confusion(cases))
     assert (pr["tp"], pr["fp"], pr["fn"], pr["tn"]) == (1, 1, 1, 1)
     assert pr["precision"] == 0.5 and pr["recall"] == 0.5
+
+
+def test_gate1_is_advisory_it_never_changes_a_verdict() -> None:
+    """K5: a failed Gate 1 is reported (counted as a catch) but does not reject or block a pass."""
+    p = {**ALL_PASS, "gate1": False}
+    assert ae.decide(p) == ae.PASS
+    assert ae.failing(p) == []
+    c = ae.Case("x", "bad", False, p)
+    row = next(r for r in ae.ablate([c]) if r["gate"] == "gate1")
+    assert row["catches"] == 1 and row["unique"] == 0
+    assert ae.decide({**p, "gate1": None}) == ae.PASS  # an unmeasured advisory gate is not blocking
