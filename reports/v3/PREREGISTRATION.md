@@ -158,3 +158,23 @@ If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging h
 **FALLBACK (stated now, no further variants).** If the redesigned score is not adopted, the final three are chosen from the validated INTENSITY table (the incumbent list, guard-passing styles ranked by predicted intensity with the existing diversity constraint on (product type, colour)), then through the unchanged `reselect_final_three` rules: intimates and visual-ambiguity exclusions, no two styles sharing a colour or a product type, first three that survive, shortfall reported and not backfilled.
 
 **G2 selection procedure.** At the live forecast origin 2020-09-21 with the frozen final model: under adoption, the emerging list is the P3-style pool ranked by the redesigned score (diversity-constrained on (product type, colour), top 10) and then the same `reselect` rules; under the fallback, as above. A control gate first reproduces the committed `top_styles_emerging.csv` and the current final three with the existing code. Reported: the new final three, the full skip log, and which of the current three (sweater, dress, white top) survive. **Nothing is regenerated**; the user decides whether regeneration is worth it.
+
+**Outcome and decisions after G1/G2 (user):** the redesigned score was not adopted; the fallback three were reported; concepts are NOT regenerated and the submitted three remain the deliverable; the four-season concept generation (Track 3b) is dropped for the same selection problem; the per-season performance split (Track 3a) is kept because it is evaluation only.
+
+---
+
+## H2. Per-season performance split of the intensity backtest (evaluation only)
+
+**Source.** The 48 weekly origins of 2b (same 12 models, intensity ranking, all styles), from `v3_power_per_origin_weekly.csv`: model, the four baselines and the random floor, all seven metrics.
+
+**Season of an origin (fixed).** The calendar month of the **midpoint of its 13-week target window** (origin + 7 weeks), mapped with `final_forecast.SEASON_MONTHS`: winter Dec-Feb, spring Mar-May, summer Jun-Aug, autumn Sep-Nov.
+
+**Reported per season, per comparator (seasonal naive, EWMA persistence, parent-category mean, global mean, random floor), per metric:** the model's mean, the comparator's mean, the paired mean difference (model minus comparator) and a 95% moving-block bootstrap interval (2,000 resamples, seed 42) with **block length 4** (the project standard; the 13-origin block of 2b cannot be used inside a cell of about a dozen origins). Also the number of origins, the number where the comparator is defined, and both effective-sample-size estimators of 2b.
+
+**Thin-cell rule (fixed).** A cell is flagged **THIN** if fewer than 8 origins have both methods defined, or its `ess_ac` is below 5. A THIN cell is reported with its point estimate and its interval, marked "direction only, not a claim". A cell that is not THIN is still one season observed once.
+
+**Stated in advance, not to be softened later:**
+- Each season occurs **once** in the test period (about one year of test origins), so a season's origins are one contiguous stretch whose outcome windows overlap heavily. A per-season interval describes one 13-week stretch, not "that season in general". No claim of a seasonal pattern in model quality can be made from this.
+- Season is confounded with calendar time (each season's model was trained on a different training set) and with COVID (windows overlapping March-June 2020 fall in spring and summer cells).
+- No between-season comparison is tested; the table lets the reader see the numbers, nothing more.
+- Seasonal naive is undefined before 2019-09-16 (52-week lag), which thins the autumn cell.
