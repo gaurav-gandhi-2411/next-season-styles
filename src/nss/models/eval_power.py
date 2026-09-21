@@ -173,7 +173,7 @@ def main() -> None:
         if grid_weeks[0] <= o.origin_week <= LAST_WEEKLY_ORIGIN
     ]
     weekly_weeks = [o.origin_week for o in weekly]
-    assert set(grid_weeks) <= set(weekly_weeks) and len(weekly) == 47, len(weekly)
+    assert set(grid_weeks) <= set(weekly_weeks) and len(weekly) == 48, len(weekly)
 
     frame = growth_backtest.predictions_for_origins(panel, grid, weekly_weeks, INITIAL_POOL_SIZE)
     model_table = model_rows(frame, weekly)
