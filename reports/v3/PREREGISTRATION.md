@@ -64,3 +64,34 @@ Not started. Requires a GCP GPU, and I cannot verify from the CLI that free cred
 **No-side-effect check:** re-score all 96 candidates (24 seeds x 4 styles) with the mapping on, from the stored extractions (deterministic judges), and compare every gate column with the pre-mapping table. For the three non-bikini styles the result must be identical. (The rule is inactive for any label except "All over pattern", so any change there would be a bug.)
 
 **Reported:** the bikini's Gate 2 pass count and its all-gate pass count across 24 seeds under the mapped rule, beside the unmapped 0/24.
+
+---
+
+## Track 2
+
+### 2a. Growth backtest: is the emerging (growth) ranking validated?
+
+The final three take one incumbent (ranked by predicted intensity) and two **emerging** styles ranked by `growth_ratio = predicted_intensity / trailing_13w_mean_intensity` (`diversity_forecast`). The existing backtest only ever scored the intensity ranking. This evaluates the growth ranking itself.
+
+**What is ranked and scored.** At each of the 12 shared embargoed test origins (same model, same training origins at least 16 weeks before each test origin, same locked `FINAL_MODEL_CONFIG`, seed 42):
+
+- **Realised growth** of a style = `expm1(y_true) / trailing_13w_mean_intensity`, where `y_true` is the realised `log1p(mean units per active article)` over the next 13 weeks and the denominator is the deployed one (raw `units_per_active_article`, trailing 13 weeks inclusive of the origin week).
+- **Predicted growth** of a method = `expm1(its prediction) / trailing_13w_mean_intensity`. The model uses its own prediction; each baseline (seasonal naive, EWMA persistence, global mean, parent-category mean, from `backtest.build_predictions_frame`) uses its own. A baseline's growth is therefore a level forecast divided by the same denominator, which is exactly how the deployed ranking is built.
+- **Random floor:** the realised growth ratios permuted across the eligible styles (20 seeds, the same construction as the intensity floor).
+- **Metrics:** the same seven as the intensity backtest (Hit@3-in-top20 is the headline), per origin, then pooled with the moving-block bootstrap (block 4, 2,000 resamples, seed 42) and paired per origin against each comparator.
+
+**Populations (both reported; the first is primary).**
+
+- **P2, deployed (primary):** the population the emerging list is actually drawn from: passes guards 1-3, trailing mean > 0, and predicted intensity at or above the median predicted intensity of the guard-passing styles at that origin (the model's own floor, `t2_absolute_intensity_floor`). The same set of styles is used for every method, so comparisons are paired on identical populations.
+- **P1, guard-passing (sensitivity):** guards 1-3 and trailing mean > 0, no model-derived floor.
+- **Restriction, stated:** only styles with an observed full 13-week outcome can be scored, so a style that stops selling within 13 weeks is absent from the population and from the floor's median. This differs from the live forecast, which cannot see it.
+
+**Decision categories, fixed now, on P2, pooled over the 12 origins, using the same rule form as the earlier experiments.** A method X "beats" a comparator iff the paired X-minus-comparator difference has (A) a 95% CI excluding zero on the improving side for Hit@3-in-top20 (`ci_lo > 0`), OR (B) `ci_lo > 0` on both NDCG@10 and Spearman with a Hit@3-in-top20 mean difference of at least 0.
+
+- **VALIDATED:** the model beats every one of the four baselines *and* the random floor.
+- **PARTIAL:** the model beats the random floor but not all four baselines. The result then says which baselines it does not beat.
+- **NOT VALIDATED:** the model does not beat the random floor.
+
+If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging half of the final-three selection then rests on a ranking that has not been validated, and that is stated at the top of the report. P1 is reported as a sensitivity check and cannot change the category. No tuning, no second variant.
+
+**Secondary (reported, not decision-bearing):** the mean realised growth ratio of each method's top 3 by predicted growth, relative to the population mean (a lift), per origin with a block-bootstrap CI.
