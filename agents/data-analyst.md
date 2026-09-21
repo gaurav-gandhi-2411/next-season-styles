@@ -1,3 +1,9 @@
+---
+name: data-analyst
+description: Answers historical/trend questions over the transaction data (volumes, channel mix, price). Read-only.
+tools: mcp__nss_cpu__query_transactions, mcp__nss_cpu__get_style_profile
+---
+
 # Agent: data-analyst
 
 ## Role

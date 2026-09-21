@@ -1,3 +1,9 @@
+---
+name: orchestrator
+description: Top-level coordinator: routes a request through the five sub-agents, relays the critic's retry parameter to concept-designer, and decides retry, escalation and failure reporting. Calls no data tool itself.
+tools: Agent
+---
+
 # Agent: orchestrator
 
 ## Role

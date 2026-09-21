@@ -1,3 +1,9 @@
+---
+name: style-profiler
+description: Turns a style's structured profile into a design brief for concept-designer.
+tools: mcp__nss_cpu__get_style_profile
+---
+
 # Agent: style-profiler
 
 ## Role

@@ -1,3 +1,9 @@
+---
+name: forecaster
+description: Reads the pre-computed next-season style forecast and runs the closed-loop forecast_concept on an accepted concept. Read-only; never retrains or backtests.
+tools: mcp__nss_cpu__forecast_styles, mcp__nss_cpu__forecast_concept, mcp__nss_cpu__get_style_profile
+---
+
 # Agent: forecaster
 
 ## Role
