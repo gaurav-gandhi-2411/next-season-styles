@@ -91,7 +91,7 @@ def test_judge_rows_uses_row_changes_without_a_sidecar(tmp_path: Path) -> None:
         patch.object(
             concept_scoring.colour_check,
             "check",
-            return_value={"pass": True, "nearest_delta_e": 1.0, "threshold": 4.5},
+            return_value={"verdict": "pass", "nearest_delta_e": 1.0, "threshold": 4.5},
         ),
         patch.object(
             concept_scoring.product_retrieval,
@@ -144,7 +144,7 @@ def test_failed_advisory_gate1_is_named_but_does_not_reject() -> None:
     assert automated is False and verdict.startswith("REJECT: failed gate3")
 
 
-def _judge_with(colour_ok: bool, product_ok: bool, tmp_path: Path) -> dict[str, Any]:
+def _judge_with(colour: str, product_ok: bool, tmp_path: Path) -> dict[str, Any]:
     image = tmp_path / "c.png"
     image.write_bytes(b"x")
     row: dict[str, Any] = {
@@ -171,7 +171,7 @@ def _judge_with(colour_ok: bool, product_ok: bool, tmp_path: Path) -> dict[str, 
         patch.object(
             concept_scoring.colour_check,
             "check",
-            return_value={"pass": colour_ok, "nearest_delta_e": 9.0, "threshold": 4.5},
+            return_value={"verdict": colour, "nearest_delta_e": 9.0, "threshold": 4.5},
         ),
         patch.object(
             concept_scoring.product_retrieval,
@@ -185,6 +185,25 @@ def _judge_with(colour_ok: bool, product_ok: bool, tmp_path: Path) -> dict[str, 
 
 def test_gate2_needs_fidelity_and_measured_colour_and_retrieved_product(tmp_path: Path) -> None:
     """L3: a fidelity pass alone is not enough; either identity check failing fails Gate 2."""
-    assert _judge_with(True, True, tmp_path)["smolvlm_gate2_pass"] is True
-    assert _judge_with(False, True, tmp_path)["smolvlm_gate2_pass"] is False
-    assert _judge_with(True, False, tmp_path)["smolvlm_gate2_pass"] is False
+    assert _judge_with("pass", True, tmp_path)["smolvlm_gate2_pass"] is True
+    assert _judge_with("fail", True, tmp_path)["smolvlm_gate2_pass"] is False
+    assert _judge_with("pass", False, tmp_path)["smolvlm_gate2_pass"] is False
+
+
+def test_a_colour_in_the_noise_band_leaves_gate2_unmeasured_unless_something_failed(
+    tmp_path: Path,
+) -> None:
+    """M3: ESCALATE is None (INCONCLUSIVE downstream), and a definite failure still wins."""
+    assert _judge_with("escalate", True, tmp_path)["smolvlm_gate2_pass"] is None
+    assert _judge_with("escalate", False, tmp_path)["smolvlm_gate2_pass"] is False
+
+
+def test_the_panel_rule_keeps_an_unmeasured_gate2_unmeasured() -> None:
+    row: dict[str, Any] = {
+        "floor_max_sim": 0.9,
+        "integrity_floor_pass": True,
+        "smolvlm_gate2_pass": None,
+        "smolvlm_gate3_pass": True,
+    }
+    concept_scoring.apply_panel_rule(row)
+    assert row["gate2_pass"] is None

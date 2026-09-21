@@ -146,16 +146,21 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
             colour = colour_check.check(path, row["style_id"])
             product = product_retrieval.check(path, row["style_id"])
         else:
-            colour = {"pass": True, "nearest_delta_e": None, "threshold": None}
+            colour = {"verdict": colour_check.PASS, "nearest_delta_e": None, "threshold": None}
             product = {"pass": True, "retrieved": None}
-        row[f"{backend}_colour_ok"] = colour["pass"]
+        row[f"{backend}_colour_verdict"] = colour["verdict"]
         row[f"{backend}_colour_delta_e"] = colour["nearest_delta_e"]
         row[f"{backend}_colour_threshold"] = colour["threshold"]
         row[f"{backend}_product_ok"] = product["pass"]
         row[f"{backend}_product_retrieved"] = product["retrieved"]
-        row[f"{backend}_gate2_pass"] = bool(
-            fid >= thresholds[backend] and colour["pass"] and product["pass"]
-        )
+        # M3: a colour distance inside the noise band is unmeasured, not pass or fail: Gate 2 is
+        # None (INCONCLUSIVE in `critic_rule`) unless something else already failed it.
+        if not (fid >= thresholds[backend] and product["pass"]) or colour["verdict"] == "fail":
+            row[f"{backend}_gate2_pass"] = False
+        elif colour["verdict"] == colour_check.ESCALATE:
+            row[f"{backend}_gate2_pass"] = None
+        else:
+            row[f"{backend}_gate2_pass"] = True
         row[f"{backend}_extraction"] = json.dumps(extraction)
         if backend != "florence2" and changes:  # a captioner cannot answer yes/no questions
             g3 = gate3.gate3_local(path, changes)
@@ -177,7 +182,8 @@ def apply_panel_rule(row: dict[str, Any]) -> None:
     row["global_floor_limit"] = integrity_global.global_floor()
     row["integrity_floor_pass"] = bool(row["floor_max_sim"] >= row["global_floor_limit"])
     gating = [j for j in GATING_JUDGES if f"{j}_gate2_pass" in row]
-    row["gate2_pass"] = all(row[f"{j}_gate2_pass"] for j in gating)
+    values = [row[f"{j}_gate2_pass"] for j in gating]
+    row["gate2_pass"] = False if False in values else (None if None in values else all(values))
     advisory = [j for j in ADVISORY_JUDGES if f"{j}_gate2_pass" in row]
     row["gate2_advisory_pass"] = all(row[f"{j}_gate2_pass"] for j in advisory) if advisory else None
     g3 = [row[f"{j}_gate3_pass"] for j in GATING_JUDGES if f"{j}_gate3_pass" in row]
