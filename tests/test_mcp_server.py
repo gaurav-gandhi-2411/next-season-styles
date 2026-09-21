@@ -262,7 +262,7 @@ def test_get_reference_images_n_less_than_1_raises() -> None:
 
 def test_generate_concept_wraps_backend_and_converts_paths() -> None:
     """generate_concept converts str paths to Path on the way in and back to str on the way out."""
-    fake_result = [Path("data/generated/local_sdxl/seed42_00.png")]
+    fake_result = [Path("data/generated/local_sdxl/nostyle_s0.60_seed42_00.png")]
     with patch.object(mcp_server.backends, "generate_concept", return_value=fake_result) as mock:
         result = generate_concept(
             prompt="a black solid jersey basic t-shirt concept",
@@ -279,8 +279,9 @@ def test_generate_concept_wraps_backend_and_converts_paths() -> None:
         ip_adapter_scale=0.6,
         seed=42,
         n=1,
+        style_key=None,
     )
-    assert result == ["data/generated/local_sdxl/seed42_00.png"]
+    assert result == ["data/generated/local_sdxl/nostyle_s0.60_seed42_00.png"]
 
 
 # --- score_concept: the shipped gates; qc_gates is mocked -- no model load ---
@@ -412,3 +413,50 @@ def test_forecast_concept_unknown_origin_is_refused(tmp_path: Path) -> None:
     image.write_bytes(b"x")
     with pytest.raises(ValueError, match="origin must be one of"):
         mcp_server.forecast_concept(str(image), origin="2021-01-01")
+
+
+# --- generate_concept, production mode (mocked candidate generator -- no GPU) ---
+
+DRESS_KEY = "Ladieswear || Dress || Dresses Ladies || Red || Solid"
+
+
+def test_generate_concept_production_mode_uses_the_deliverables_generator() -> None:
+    """With `style_key`, the tool calls `generate_candidate` (the code that made the submission)."""
+    seen: list[tuple] = []
+
+    def fake(style: str, scale: float, seed: int, out_root: Path) -> tuple[Path, float]:
+        seen.append((style, scale, seed, out_root))
+        return out_root / f"s{scale:.2f}_seed{seed}.png", 1.0
+
+    with patch("nss.generate.concept_generation.generate_candidate", side_effect=fake):
+        result = generate_concept(style_key=DRESS_KEY, ip_adapter_scale=0.35, seed=44, n=2)
+    root = mcp_server.PRODUCTION_OUTPUT_ROOT
+    assert seen == [(DRESS_KEY, 0.35, 44, root), (DRESS_KEY, 0.35, 45, root)]
+    assert result == [
+        (root / "s0.35_seed44.png").as_posix(),
+        (root / "s0.35_seed45.png").as_posix(),
+    ]
+    assert root != Path("data/generated/n9")  # never writes into the deliverables' candidate dir
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        (
+            {"style_key": "Nope || X || Y || Z || W", "ip_adapter_scale": 0.35},
+            "no production brief",
+        ),
+        ({"style_key": DRESS_KEY}, "ip_adapter_scale"),
+        ({"style_key": DRESS_KEY, "ip_adapter_scale": 0.35, "backend": "gemini"}, "local_sdxl"),
+        ({"style_key": DRESS_KEY, "ip_adapter_scale": 0.35, "prompt": "x"}, "leave prompt"),
+        (
+            {"style_key": DRESS_KEY, "ip_adapter_scale": 0.35, "reference_images": ["a.jpg"]},
+            "leave prompt",
+        ),
+    ],
+)
+def test_generate_concept_production_mode_fails_loudly_on_bad_input(
+    kwargs: dict, match: str
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        generate_concept(**kwargs)

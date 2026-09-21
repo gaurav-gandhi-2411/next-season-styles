@@ -423,45 +423,87 @@ def get_reference_images(style_key: str, n: int) -> list[str]:
     return [Path(p).as_posix() for p in matches["local_image_path"].head(n).to_list()]
 
 
+PRODUCTION_OUTPUT_ROOT = Path("data/generated/agent_tool")
+
+
 def generate_concept(
-    prompt: str,
-    reference_images: list[str],
-    backend: str,
-    ip_adapter_scale: float | None,
-    seed: int,
-    n: int,
+    prompt: str = "",
+    reference_images: list[str] | None = None,
+    backend: str = "local_sdxl",
+    ip_adapter_scale: float | None = None,
+    seed: int = 42,
+    n: int = 1,
+    style_key: str | None = None,
 ) -> list[str]:
-    """Generate `n` concept images -- thin wrapper around `nss.generate.backends.generate_concept`.
+    """Generate `n` concept images; with `style_key`, in the deliverables' configuration.
 
     This is the one tool in this module that performs live GPU (or paid-API) work when actually
-    invoked: `backend="local_sdxl"` runs SDXL + IP-Adapter locally; `backend="gemini"` calls the
-    Gemini 2.5 Flash Image API. No logic is duplicated here -- see `nss.generate.backends` for
-    the full generation implementation, output paths, and metadata sidecar format.
+    invoked. Two modes:
+
+    * **Production (`style_key` set, one of the styles with a brief in
+      `concept_generation.CHANGES`)**: `backend="local_sdxl"`, concat IP-Adapter mode over the
+      style's 8 best screened references, the brief's negative prompt and the compel-weighted
+      natural prompt (`concept_generation.generate_candidate`, the code that made the submitted
+      concepts). `prompt` and `reference_images` must be left empty (the registry supplies them);
+      passing them raises rather than being silently ignored. `ip_adapter_scale` is required; image
+      `i` uses seed `seed + i`. Files go to
+      `data/generated/agent_tool/<style>/s<scale>_seed<seed>.png` and are never written over an
+      existing candidate directory such as `data/generated/n9/`.
+    * **Basic (`style_key` unset)**: a thin wrapper around `nss.generate.backends.generate_concept`
+      with the caller's `prompt` and `reference_images` (single reference for SDXL, no negative
+      prompt, no concat mode). Kept for other styles and Gemini; not the deliverables'
+      configuration.
 
     Args:
-        prompt: Text prompt describing the fashion concept.
-        reference_images: Local image paths used as style/content references (non-empty).
-        backend: `"local_sdxl"` or `"gemini"`.
-        ip_adapter_scale: IP-Adapter conditioning strength (`"local_sdxl"` only; must be `None`
-            for `"gemini"`).
-        seed: Random seed.
-        n: Number of images to generate.
+        prompt: Text prompt (basic mode only).
+        reference_images: Local reference image paths (basic mode only; non-empty there).
+        backend: `"local_sdxl"` or `"gemini"` (production mode is `"local_sdxl"` only).
+        ip_adapter_scale: IP-Adapter strength (`"local_sdxl"` only; `None` for `"gemini"`).
+        seed: Random seed (first seed in production mode).
+        n: Number of images.
+        style_key: `" || "`-joined style key selecting production mode, or `None`.
 
     Returns:
         POSIX-style paths to the `n` saved images.
 
     Raises:
-        ValueError: see `nss.generate.backends.generate_concept`.
+        ValueError: production mode with an unknown style, a non-SDXL backend, a missing scale, or a
+            `prompt`/`reference_images`; basic mode with an empty prompt or references; see also
+            `nss.generate.backends.generate_concept`.
         RuntimeError: missing `GEMINI_API_KEY`, or no CUDA GPU visible for `"local_sdxl"`.
     """
-    ref_paths = [Path(p) for p in reference_images]
+    if style_key is not None:
+        from nss.generate import concept_generation
+
+        if style_key not in concept_generation.CHANGES:
+            raise ValueError(
+                f"no production brief for {style_key!r}; "
+                f"known: {sorted(concept_generation.CHANGES)}"
+            )
+        if backend != backends.LOCAL_SDXL or ip_adapter_scale is None:
+            raise ValueError("production mode needs backend='local_sdxl' and an ip_adapter_scale")
+        if prompt or reference_images:
+            raise ValueError(
+                "production mode takes its prompt and references from the style's brief; "
+                "leave prompt and reference_images empty"
+            )
+        if n < 1:
+            raise ValueError(f"n must be >= 1, got {n}")
+        paths = [
+            concept_generation.generate_candidate(
+                style_key, ip_adapter_scale, seed + i, PRODUCTION_OUTPUT_ROOT
+            )[0]
+            for i in range(n)
+        ]
+        return [p.as_posix() for p in paths]
     result_paths = backends.generate_concept(
         prompt=prompt,
-        reference_images=ref_paths,
+        reference_images=[Path(p) for p in reference_images or []],
         backend=backend,
         ip_adapter_scale=ip_adapter_scale,
         seed=seed,
         n=n,
+        style_key=None,
     )
     return [p.as_posix() for p in result_paths]
 

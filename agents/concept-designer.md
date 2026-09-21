@@ -1,3 +1,9 @@
+---
+name: concept-designer
+description: Generates candidate concept images from a brief (production configuration when given a style_key). Never judges its own output.
+tools: mcp__nss_gpu__generate_concept
+---
+
 # Agent: concept-designer
 
 ## Role
@@ -25,7 +31,13 @@ executes generation requests, including retried ones with adjusted parameters.
 
 ## MCP tools it may call (allowlist)
 
-- `generate_concept` — the only tool this agent calls.
+- `generate_concept` — the only tool this agent calls. For a style that has a production brief
+  (the styles in `concept_generation.CHANGES`), pass `style_key`, `ip_adapter_scale` and `seed`
+  and leave `prompt` / `reference_images` empty: the tool then generates in the configuration that
+  made the submitted concepts (concat mode over the style's 8 best references, the brief's
+  negative prompt, the weighted prompt) and writes a file named for the style, scale and seed.
+  Without `style_key` it is the basic path (one reference, no negative prompt) with the
+  prompt and references from the brief.
 
 No other tools. In particular: no `get_style_profile`/`query_transactions` (all the context it
 needs arrives pre-packaged in the brief from `style-profiler` — it does not re-fetch or

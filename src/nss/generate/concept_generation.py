@@ -115,10 +115,65 @@ def style_id_for(keyword: str) -> str:
     )
 
 
-def image_path(style_id: str, scale: float, seed: int) -> Path:
-    """Where `generate` writes one candidate."""
+def image_path(style_id: str, scale: float, seed: int, out_root: Path = OUT_ROOT) -> Path:
+    """Where `generate` / `generate_candidate` write one candidate."""
     slug = final_concepts._slugify(style_id)
-    return OUT_ROOT / slug / f"s{scale:.2f}_seed{seed}.png"
+    return out_root / slug / f"s{scale:.2f}_seed{seed}.png"
+
+
+def generate_candidate(
+    style_id: str,
+    scale: float,
+    seed: int,
+    out_root: Path = OUT_ROOT,
+    embeds: dict[str, Any] | None = None,
+) -> tuple[Path, float]:
+    """One candidate in the configuration that made the deliverables (GPU). Returns (path, secs).
+
+    Concat mode over the style's `N_REFS` best screened references, the brief's negative prompt
+    (generic rules + the style's extras) and the compel-weighted natural prompt. `embeds` may be
+    passed to reuse one text encoding across candidates of the same style; the file is
+    overwritten if it exists, so callers that must not overwrite check first (`generate` does).
+    """
+    brief = brief_for(style_id)
+    _prompt, negative = final_concepts.build_generation_spec(style_id, {**_pad(brief)})
+    refs = load_refs()[style_id][:N_REFS]
+    if embeds is None:
+        embeds = levers.compel_embeds(
+            natural_prompt(style_id, brief["applied_changes"], WEIGHT), negative
+        )
+    path = image_path(style_id, scale, seed, out_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img, secs = levers.generate_variant(
+        "",
+        negative,
+        None,
+        refs,
+        mode="concat",
+        scale=scale,
+        seed=seed,
+        weighted_prompt_embeds=embeds,
+    )
+    img.save(path)
+    path.with_suffix(".json").write_text(
+        json.dumps(
+            {
+                "style_id": style_id,
+                "scale": scale,
+                "seed": seed,
+                "weight": WEIGHT,
+                "mode": "concat",
+                "n_refs": len(refs),
+                "refs": [str(p) for p in refs],
+                "prompt": natural_prompt(style_id, brief["applied_changes"], WEIGHT),
+                "negative": negative,
+                "changes": brief["applied_changes"],
+            },
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
+    return path, secs
 
 
 def generate(style_id: str, scales: list[float], seeds: list[int]) -> None:
@@ -134,39 +189,9 @@ def generate(style_id: str, scales: list[float], seeds: list[int]) -> None:
     print("REFS:", [p.name for p in refs])
     for scale in scales:
         for seed in seeds:
-            path = image_path(style_id, scale, seed)
-            if path.exists():
+            if image_path(style_id, scale, seed).exists():
                 continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            img, secs = levers.generate_variant(
-                "",
-                negative,
-                None,
-                refs,
-                mode="concat",
-                scale=scale,
-                seed=seed,
-                weighted_prompt_embeds=embeds,
-            )
-            img.save(path)
-            path.with_suffix(".json").write_text(
-                json.dumps(
-                    {
-                        "style_id": style_id,
-                        "scale": scale,
-                        "seed": seed,
-                        "weight": WEIGHT,
-                        "mode": "concat",
-                        "n_refs": len(refs),
-                        "refs": [str(p) for p in refs],
-                        "prompt": natural_prompt(style_id, brief["applied_changes"], WEIGHT),
-                        "negative": negative,
-                        "changes": brief["applied_changes"],
-                    },
-                    indent=1,
-                ),
-                encoding="utf-8",
-            )
+            path, secs = generate_candidate(style_id, scale, seed, embeds=embeds)
             print(f"scale {scale} seed {seed}: {secs:.1f}s -> {path}")
     free_sdxl_pipeline()
 

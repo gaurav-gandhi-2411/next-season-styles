@@ -1,0 +1,3 @@
+style,scale,seed,recorded,regenerated,sha256_equal,same_shape,max_abs_pixel_diff,mean_abs_pixel_diff
+Ladieswear || Sweater || Knitwear || Beige || Melange,0.35,45,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,data/generated/agent_tool/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,true,true,0,0.0
+Ladieswear || Dress || Dresses Ladies || Red || Solid,0.35,44,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,data/generated/agent_tool/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,true,true,0,0.0
