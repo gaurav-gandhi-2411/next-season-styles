@@ -130,3 +130,31 @@ If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging h
 **Decision (fixed).** Selective prediction is reported as **HELPS** iff the block-bootstrap 95% interval of `hit_rate(confident) - hit_rate(all)` has a lower bound above 0 (with the 1e-9 tolerance) **and** coverage is at least 0.30. Otherwise it is reported as **NOT DEMONSTRATED**, with the reason (interval, coverage, or both). No threshold sweep can change that verdict.
 
 **Descriptive, labelled exploratory and not decision-bearing:** (i) the same statistic at spread quantiles 0.25 and 0.75; (ii) the Spearman correlation, per origin then averaged, between spread and the absolute error of the point prediction, which says whether the spread carries any information about error.
+
+---
+
+## G1/G2. Redesigning the emerging ranking (Tracks 3 and 4 and the white-top check are on hold)
+
+**Finding that motivates this (2a):** the deployed emerging score, `predicted intensity / trailing 13-week mean`, mostly ranks styles by low recent intensity (mean reversion). A constant global-mean forecast scores 0.733 Hit@3-in-top20 on it, against the model's 0.767 and seasonal naive's 0.800 (random floor 0.177).
+
+**Three scores, all computed for the model and for every baseline's own forecast (log1p-scale forecasts `f`, `sn` = seasonal-naive forecast for the same style and origin, `trailing` = trailing 13-week mean intensity):**
+
+1. **Current ratio:** `expm1(f) / trailing`.
+2. **Redesigned (the candidate): excess over the naive forecaster:** `f - sn` on the log1p scale, i.e. the model's forecast minus the seasonal-naive forecast for the same style and horizon. No trailing-mean denominator. For the seasonal-naive baseline this score is identically 0 (a constant, no ranking), so it is reported as degenerate rather than ranked.
+3. **Residualised ratio:** at each origin, ordinary least squares of the current ratio on `trailing` over the scored population, then the residuals (literal reading of the request; comparison only).
+
+**Population (identical for every score, method and floor, so all comparisons are paired).** P3 = the deployed emerging pool (guards 1-3, trailing mean above zero, predicted intensity at or above the median of the guard-passing styles) **intersected with styles for which a seasonal-naive forecast exists** (a full 13-week window one year earlier). Limitation, stated in advance: the redesigned score cannot rank a style younger than about 65 weeks, so it can never nominate the newest styles; the number of styles lost to this is reported per origin.
+
+**Realised target (all scores):** the 2a realised growth, `expm1(y_true) / trailing`, so that every score is judged against the same outcome.
+
+**Origins.** The 10 evaluable grid origins from 2a (the first two have no `price_index`), and the weekly grid of 2b (48 origins, of which those with a non-empty P3 are evaluable, count reported, same 12 models), block length 4 and 13 respectively, 2,000 resamples, seed 42.
+
+**PRIMARY (decision-bearing).** The redesigned score's Hit@3-in-top20 minus **seasonal naive's current-ratio Hit@3-in-top20** (the strongest baseline on the deployed formula, 0.800 in 2a), paired per origin, must have a 95% block-bootstrap interval whose lower bound is above 0 (with the 1e-9 tolerance) **on both** the 10-origin grid **and** the weekly grid. One of the two is a failure.
+
+**BASE-EFFECT DIAGNOSTIC (mandatory, stated first in the report).** Under the redesigned score, the constant global-mean baseline (`global_mean forecast - sn`) must fall to within noise of the random floor. Fixed criteria, both required, on both origin sets: (i) its pooled Hit@3-in-top20 is within 0.10 of the random floor's, and (ii) its paired difference from the random floor has a 95% interval whose lower bound is at or below 0. If it still scores near 0.733 the base effect was not removed, and that is reported as a failure regardless of the primary.
+
+**ADOPTION RULE.** The redesigned score is adopted for selection **only if the primary passes AND the diagnostic passes.** Otherwise it is not adopted.
+
+**FALLBACK (stated now, no further variants).** If the redesigned score is not adopted, the final three are chosen from the validated INTENSITY table (the incumbent list, guard-passing styles ranked by predicted intensity with the existing diversity constraint on (product type, colour)), then through the unchanged `reselect_final_three` rules: intimates and visual-ambiguity exclusions, no two styles sharing a colour or a product type, first three that survive, shortfall reported and not backfilled.
+
+**G2 selection procedure.** At the live forecast origin 2020-09-21 with the frozen final model: under adoption, the emerging list is the P3-style pool ranked by the redesigned score (diversity-constrained on (product type, colour), top 10) and then the same `reselect` rules; under the fallback, as above. A control gate first reproduces the committed `top_styles_emerging.csv` and the current final three with the existing code. Reported: the new final three, the full skip log, and which of the current three (sweater, dress, white top) survive. **Nothing is regenerated**; the user decides whether regeneration is worth it.
