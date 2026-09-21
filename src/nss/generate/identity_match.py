@@ -67,18 +67,15 @@ def normalise(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9\- ]+", " ", text.lower())).strip()
 
 
-def _phrases_in(text: str, vocabulary: dict[str, frozenset[str]]) -> dict[str, set[str]]:
-    """Family -> phrases of that family found as whole words, longest match wins."""
-    found: list[tuple[str, str]] = []
-    for family, words in vocabulary.items():
-        for word in words:
-            if re.search(rf"(?<![a-z0-9\-]){re.escape(word)}(?![a-z0-9\-])", text):
-                found.append((family, word))
-    kept = [(f, w) for f, w in found if not any(w != w2 and w in w2 for _f2, w2 in found)]
-    out: dict[str, set[str]] = {}
-    for family, word in kept:
-        out.setdefault(family, set()).add(word)
-    return out
+def _words_in(text: str, vocabulary: dict[str, frozenset[str]]) -> set[str]:
+    """Every vocabulary word found as a whole word in `text`, longest overlapping phrase wins."""
+    found = {
+        word
+        for words in vocabulary.values()
+        for word in words
+        if re.search(rf"(?<![a-z0-9\-]){re.escape(word)}(?![a-z0-9\-])", text)
+    }
+    return {w for w in found if not any(w != w2 and w in w2 for w2 in found)}
 
 
 def _match(reading: str, truth: str, vocabulary: dict[str, frozenset[str]]) -> bool:
@@ -86,7 +83,10 @@ def _match(reading: str, truth: str, vocabulary: dict[str, frozenset[str]]) -> b
     if not text or not want:
         return False
     if want in vocabulary:
-        return set(_phrases_in(text, vocabulary)) == {want}
+        # every known word in the reading must belong to the style's own family (a word shared
+        # with another family, such as "tee" for Top and T-shirt, is fine), and there must be one
+        found = _words_in(text, vocabulary)
+        return bool(found) and found <= vocabulary[want]
     a, b = set(text.split()), set(want.split())
     return bool(a) and bool(b) and (a <= b or b <= a)
 
