@@ -39,3 +39,28 @@ The rule is implemented in `src/nss/generate/candidate_selection.py` and unit-te
 ### 1d. FLUX comparison (optional)
 
 Not started. Requires a GCP GPU, and I cannot verify from the CLI that free credits cover it. The cost estimate and a request for confirmation go to the user first; nothing is provisioned before that. If approved, its comparison rule will be committed in this file before it runs.
+
+**Decision (user): 1d is SKIPPED.** The binding constraints are the judges and the pass rates, not the generator.
+
+---
+
+## 1e. "All over pattern" is satisfied by any named visible pattern
+
+*Motivation, measured:* SmolVLM's fidelity for the bikini is exactly 0.283 on all 24 seeds, so Gate 2 carries no seed-level information for it. The judge always names a pattern (Melange 8, Floral 5, Checkered 5, Polka dot 3, other 3) and never says "solid", but it never says the bucket label "All over pattern". H&M's `graphical_appearance_name` values "Jersey Basic" and "Other structure" were already excluded for the same reason (no describable visual referent).
+
+*Correction to my Track 1 note:* the 0.283 is the colour dimension alone (0.85 / 3). The product-type dimension also scores 0 for the bikini, because SmolVLM answers "Bikini." and the label is "Bikini top" (the scorer keeps the answer's trailing period, so neither string contains the other). That is a second, separate defect. It is **not** changed here; it is out of the 1e scope and is reported only.
+
+**Rule (implemented in `src/nss/generate/pattern_label.py`, committed before any control was run):**
+
+- Active only when the ground-truth label is exactly "All over pattern" and the judge's answer is at most 6 words (long free-text captions, i.e. Florence-2, keep the legacy score: they say "plain background").
+- Satisfied (score 1.0) iff the answer contains a word from an explicit pattern list and no word from the plain list (`solid`, `plain`, `none`, ...). Everything else (solid, plain, nonsense, empty, or "solid, striped") scores 0.0.
+- The pattern list is explicit and includes `melange` (the rule is "any named pattern"). Disclosure: I had already seen the 24 bikini answers (8 were "Melange").
+- No threshold changes: Gate 2's per-judge threshold stays the calibrated 0.75 x positive mean (SmolVLM 0.384).
+
+**Mandatory negative control:** 6 real catalogue photos of SOLID-colour bikini tops (the lowest article id per colour among Orange, Black, White, Red, Blue, Pink, fetched with the existing fetcher). SmolVLM's short answer for each is run through the rule with the label "All over pattern". **Every one must FAIL.** If any solid bikini passes, the mapping is broken: it is reverted (the `concept_scoring` hook removed) and the failure is reported.
+
+**Positive control (reported, not gating):** all real "All over pattern" bikini tops with a local photo (22 found). The pass rate says whether the rule is usable on real prints.
+
+**No-side-effect check:** re-score all 96 candidates (24 seeds x 4 styles) with the mapping on, from the stored extractions (deterministic judges), and compare every gate column with the pre-mapping table. For the three non-bikini styles the result must be identical. (The rule is inactive for any label except "All over pattern", so any change there would be a bug.)
+
+**Reported:** the bikini's Gate 2 pass count and its all-gate pass count across 24 seeds under the mapped rule, beside the unmapped 0/24.
