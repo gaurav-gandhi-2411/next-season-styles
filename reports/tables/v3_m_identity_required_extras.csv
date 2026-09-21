@@ -1,0 +1,5 @@
+name,style,colour_pass,colour_verdict,colour_raw_threshold,colour_de,colour_threshold,mask_fallback,product_pass,product_retrieved,product_top1_style
+red_dress_seed47_s0.35,Dress,true,pass,4.3,3.43,4.3,false,true,Dress,Ladieswear || Dress || Blouses || Orange || Solid
+red_dress_seed43_s0.45,Dress,true,pass,4.3,1.64,4.3,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+submitted_dress_seed44,Dress,true,pass,4.3,1.67,4.3,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+submitted_sweater_seed45,Sweater,true,pass,3.2,2.75,3.75,false,true,Sweater,Divided || Sweater || Knitwear || Orange || Solid

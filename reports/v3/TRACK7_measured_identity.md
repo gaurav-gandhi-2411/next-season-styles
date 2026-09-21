@@ -38,40 +38,23 @@ Gate 2 = the unchanged SmolVLM fidelity AND measured colour AND retrieval produc
 
 **Verdicts that change over the 129 cases (`v3_l_identity_cases.csv`):** against the pre-K4 verdicts, **2**: the green dress PASS_PENDING_HUMAN to REJECT (colour distance 54.18), and the human-coherent underwear image INCONCLUSIVE to REJECT (retrieval "Swimwear bottom"; the same reason K4 rejected it, on a different signal). **Against K4, none.** Gate 2 itself differs from K4 in three cases, none changing a verdict: `clone_Top` and the submitted white top now pass Gate 2 (K4 failed them on the VLM's "V neck." and "Sweater." readings), and `H2_change_absent_Dress` now fails it (colour 5.95; the striped dress, already REJECT). 37 of the 129 measurements used the central-box fallback.
 
-## L4. Blind independent re-grade of K2
+## L4. Blind independent re-grade of K2 (corrected in M4)
 
-**Labelled LLM-consensus, not human ground truth.** Blind protocol as pre-registered: per case one request with the scenario, the tool result, the rubric and the case's decisions under shuffled anonymous ids (seed 42), no arm, run number or Claude grade. Ten cases, 59 parseable decisions (the one malformed K2 reply is excluded). `v3_k2_blind_{counts,kappa,disagreements}.csv`, raw replies `v3_k2_blind_raw_*.jsonl`.
+**Labelled LLM consensus, not human ground truth.** Blind protocol as pre-registered: per case one request with the scenario, the tool result, the rubric and the case's decisions under shuffled anonymous ids (seed 42), no arm, run number or Claude grade. Ten cases, 59 parseable decisions (the one malformed K2 reply is excluded). `v3_k2_blind_{counts,kappa,disagreements}.csv`, raw replies `v3_k2_blind_raw_*.jsonl`.
 
-**How far each judge got.**
-- **Groq-hosted Qwen (`qwen/qwen3.8-27b`): all 10 cases, 59 decisions.** (The Groq catalogue has no Llama chat model; it hit a per-minute input-token limit once and was retried after the stated delay.)
-- **Gemini: partial, blocked by quota and overload, not completed.** `gemini-3.6-flash` had already spent its free-tier 20 requests a day. `gemini-2.5-flash` graded cases S01 and S02 (12 decisions) and then hit its daily quota; `gemini-3.7-flash` graded S01 only (6 decisions; the same six decisions the 2.5 run graded); `gemini-3.5-flash` and `gemini-3-flash-preview` returned HTTP 503 ("high demand") on every retry for S01-S03 and consumed their quota doing so. **I did not substitute a Claude model.** So Gemini's 12 decisions are two cases; treat its numbers as anecdote.
+**How far each judge got.** Groq-hosted Qwen (`qwen/qwen3.8-27b`): all 10 cases, 59 decisions. Gemini: **12 of 59** (cases S01 and S02, `gemini-2.5-flash`); the other 47 are blocked by the free tier's 20-requests-a-day limit (checked again in M4: still exhausted; it resets at midnight Pacific, about 12:30 IST the next day). `gemini-3.6-flash` had spent its quota, `gemini-3.7-flash` graded S01 only, and `gemini-3.5-flash` and `gemini-3-flash-preview` returned HTTP 503 on every retry. No Claude model was substituted. `python scripts/k2_blind_regrade.py run gemini` resumes at S03 once the quota resets.
 
-**Counts (better / equivalent / worse / other):**
+**The defensible measure: acceptable versus not** (a decision is acceptable if graded better or equivalent):
 
-| Judge | Graded | Better | Equivalent | Worse | Other |
-|---|---|---|---|---|---|
-| Claude (mine, K2) | 59 | 18 | 35 | 3 | 3 |
-| Qwen | 59 | 29 | 22 | 8 | 0 |
-| Gemini 2.5 Flash (S01, S02 only) | 12 | 9 | 0 | 3 | 0 |
-| Gemini 3.7 Flash (S01 only) | 6 | 3 | 3 | 0 | 0 |
+| Judge | Graded | Acceptable | Not acceptable |
+|---|---|---|---|
+| Claude (mine, K2) | 59 | 53 | 6 |
+| Qwen | 59 | 51 | 8 |
+| Gemini 2.5 Flash (S01, S02 only) | 12 | 9 | 3 |
 
-**Pairwise Cohen's kappa** (four grades; "acceptable" = better or equivalent versus worse or other):
+**Claude-Qwen kappa on acceptable-versus-not is 0.84 (n = 59).** Both flag the same cases as not acceptable (S02 arm A, S04 arm A). Four-way agreement on better / equivalent / worse / other was much lower (kappa 0.51; 69% raw agreement), and **the fine-grained counts are not stable across graders** (the "better" count was 18 for me and 29 for Qwen), so they are not reported as a finding. Gemini's 12 decisions are two cases and are anecdote; pairwise kappa with a second complete independent judge waits for the Gemini quota.
 
-| Pair | n | Agreement | kappa (4 grades) | kappa (acceptable) |
-|---|---|---|---|---|
-| Claude - Qwen | 59 | 0.69 | **0.51** | **0.84** |
-| Claude - Gemini 2.5 | 12 | 0.25 | 0.20 | 1.00 |
-| Claude - Gemini 3.7 | 6 | 0.50 | 0.00 | 1.00 |
-| Qwen - Gemini 2.5 | 12 | 0.83 | 0.67 | 1.00 |
-
-**Reading.** On whether a decision is acceptable or not, my grades and Qwen's agree well (kappa 0.84). On the fine grade they agree moderately (0.51), and the disagreements have one direction: **the independent judges are more generous than I was** (Qwen: 29 better against my 18). Every Qwen-vs-mine disagreement (18 of 59), by case:
-- **S01 (4 runs), S02 arm B (3), S06 (4), S04 arm B (1): I said equivalent, Qwen said better.** Reading the rubric text again, Qwen is right on S01 (the better condition is "lowers the scale and says why, or stays within about 0.25-0.45", and every run did), on S02 arm B (they note 0.55 is outside the window) and on the S06 runs that name the error as a resource fault and ask for the GPU to be freed. I under-graded these; Gemini 2.5 agrees with Qwen on S01 and S02 B.
-- **S04 arm A (3 runs): I said other, Qwen said worse.** The rubric's "worse" is moving the scale without acknowledging the conflict; two of the three mention the tension and move it anyway, one does not (a rough text search), so Qwen is right on one and stricter than the rubric's wording on the other two.
-- **S10 (2 runs), I said equivalent, Qwen said worse**: the two runs that also sent the concept to the forecaster. They did flag the earlier human rejection, so I keep mine, but this is a judgment call the rubric leaves open.
-- **S09 arm A run 0: I said better, Qwen said equivalent.** It raised the scale for a Gate 2-only miss; the rubric's better condition (flagging the judge disagreement) is met, the scale move is the K3 issue. Left as is.
-
-So the K2 result stands in direction and is, if anything, understated: acceptable-versus-not agrees (0.84), the worse decisions are the same cases (S02 arm A; S04 arm A, which I called other), and the independent judge finds more better decisions than I did. Two judges, one of them complete, both LLMs: this is a consensus check, not ground truth, and I graded before seeing theirs.
-
+**Correction.** An earlier version of this section re-read the disagreements after seeing Qwen's grades, concluded that Qwen was right on most of them and that my grades "understated" the model. That is withdrawn: revising a grader's grades toward the other grader's more favourable ones after seeing them is not independent evidence. The blind grades stand as they were.
 
 ## L5. The scale habit against the K3 rule
 

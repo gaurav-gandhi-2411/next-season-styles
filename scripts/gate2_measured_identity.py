@@ -1,6 +1,7 @@
 """L1/L2/L3: score the measured colour check and the retrieval product type on every stored case.
 
-Rules pre-registered in `reports/v3/PREREGISTRATION.md` (section L, commit c5799c3). For each of the
+Rules pre-registered in `reports/v3/PREREGISTRATION.md` (sections L and M, commits c5799c3,
+3b63aa9). For each of the
 129 cases (115 H3 + 14 J6) and the 54 recorded candidates: measured colour (`colour_check`),
 retrieval product type (`product_retrieval`), and Gate 2 rebuilt as the UNCHANGED SmolVLM fidelity
 pass AND colour AND product type. Verdicts are compared with the pre-K4 and the K4 ones.
@@ -67,6 +68,8 @@ def _measure(style: str, path: str) -> dict[str, Any]:
     prod = product_retrieval.check(path, style)
     return {
         "colour_pass": col["pass"],
+        "colour_verdict": col["verdict"],
+        "colour_raw_threshold": round(col["raw_threshold"], 2),
         "colour_de": round(col["nearest_delta_e"], 2),
         "colour_threshold": round(col["threshold"], 2),
         "mask_fallback": col["used_fallback"],
@@ -74,6 +77,13 @@ def _measure(style: str, path: str) -> dict[str, Any]:
         "product_retrieved": prod["retrieved"],
         "product_top1_style": prod["top1_style"],
     }
+
+
+def _gate2(fid: bool, m: dict[str, Any]) -> bool | None:
+    """Gate 2 with the M3 band: a colour inside the band is unmeasured (None), unless failed."""
+    if not fid or not m["product_pass"] or m["colour_verdict"] == "fail":
+        return False
+    return None if m["colour_verdict"] == "escalate" else True
 
 
 def cases() -> pl.DataFrame:
@@ -86,10 +96,11 @@ def cases() -> pl.DataFrame:
         prod_ok, col_ok = _identity(r["style"], r["reading"])  # K4 (VLM readings)
         fid = bool(r["old_gate2"])
         k4 = fid and prod_ok and col_ok
-        l3 = fid and m["colour_pass"] and m["product_pass"]
+        l3 = fid and m["colour_pass"] and m["product_pass"]  # binary colour, shrunk threshold
+        gm = _gate2(fid, m)  # M3: tri-state
         v_pre = critic_rule.decide(r["passes"], r["clone_ok"])
         v_k4 = critic_rule.decide({**r["passes"], "gate2": k4}, r["clone_ok"])
-        v_l3 = critic_rule.decide({**r["passes"], "gate2": l3}, r["clone_ok"])
+        v_l3 = critic_rule.decide({**r["passes"], "gate2": gm}, r["clone_ok"])
         rows.append(
             {
                 "name": r["name"],
@@ -97,11 +108,12 @@ def cases() -> pl.DataFrame:
                 "style": style.split(" || ")[1],
                 "fidelity_pass": fid,
                 "k4_gate2": k4,
-                "l3_gate2": l3,
+                "binary_gate2": l3,
+                "m_gate2": gm,
                 **m,
                 "verdict_pre_k4": v_pre,
                 "verdict_k4": v_k4,
-                "verdict_l3": v_l3,
+                "verdict_m": v_l3,
             }
         )
     return pl.DataFrame(rows)
@@ -127,7 +139,8 @@ def candidates() -> pl.DataFrame:
                 "fidelity_pass": fid,
                 "all_pre_k4": others and fid,
                 "all_k4": others and bool(k["new_gate2"]),
-                "all_l3": others and fid and m["colour_pass"] and m["product_pass"],
+                "all_binary": others and fid and m["colour_pass"] and m["product_pass"],
+                "all_m": others and _gate2(fid, m) is True,
                 **m,
             }
         )
@@ -145,11 +158,11 @@ def extras() -> pl.DataFrame:
 def main() -> None:
     """Write the tables and print the required outcomes and the headline counts."""
     c = cases()
-    c.write_csv(TABLES / "v3_l_identity_cases.csv")
+    c.write_csv(TABLES / "v3_m_identity_cases.csv")
     cand = candidates()
-    cand.write_csv(TABLES / "v3_l_identity_candidates.csv")
+    cand.write_csv(TABLES / "v3_m_identity_candidates.csv")
     ex = extras()
-    ex.write_csv(TABLES / "v3_l_identity_required_extras.csv")
+    ex.write_csv(TABLES / "v3_m_identity_required_extras.csv")
     print("--- required (L1): FAIL expected")
     for n in REQUIRED_FAIL:
         r = c.filter(pl.col("name") == n).to_dicts()[0]
@@ -197,12 +210,14 @@ def main() -> None:
         int(cand["all_pre_k4"].sum()),
         "K4",
         int(cand["all_k4"].sum()),
-        "L3",
-        int(cand["all_l3"].sum()),
+        "binary-M",
+        int(cand["all_binary"].sum()),
+        "M (banded)",
+        int(cand["all_m"].sum()),
     )  # noqa: E501
     ch = c.filter(
-        (pl.col("verdict_pre_k4") != pl.col("verdict_l3"))
-        | (pl.col("verdict_k4") != pl.col("verdict_l3"))
+        (pl.col("verdict_pre_k4") != pl.col("verdict_m"))
+        | (pl.col("verdict_k4") != pl.col("verdict_m"))
     )
     print("verdict changes vs pre-K4 or K4:", ch.height)
 

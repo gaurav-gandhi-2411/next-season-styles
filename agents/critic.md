@@ -30,10 +30,13 @@ check. Every gate below except the human check runs inside one `score_concept` c
    to carry a verdict). Local decoding is greedy, so one reading per judge IS the reading; there is
    no median-of-3 (that was the retired Groq path, whose single reading varied by +/-0.21).
    **Identity constraints (L3, replacing K4):** Gate 2 also requires, IN ADDITION to the averaged
-   fidelity clearing its threshold, (a) a MEASURED garment colour: the dominant colour of the masked
-   garment, in CIELAB, within the p90 of the real nearest-sibling colour distances of that style
+   fidelity clearing its threshold, (a) a MEASURED garment colour: the dominant colour of the
+   garment (rembg mask), in CIELAB, within the p90 of the real nearest-sibling colour distances of
+   that style, shrunk toward the global median for styles with few references
    (`nss.generate.colour_check`; the VLM's colour reading is no longer a constraint, it misread red
-   as orange), and (b) the product type of the image's top-1 retrieval match (`product_retrieval`)
+   as orange). A distance within the measured mask-noise band (0.403 CIEDE2000) of the threshold is
+   **neither pass nor fail**: Gate 2 is then unmeasured (`pass: null`, `colour_verdict: escalate`),
+   so the verdict is INCONCLUSIVE and goes to a person unless another gate already failed; and (b) the product type of the image's top-1 retrieval match (`product_retrieval`)
    equal to the style's, as an exact catalogue string. Pattern is not constrained (judges misread
    melange and "All over pattern"; it stays in the average). Gate 3 stays the only yes/no question
    put to the VLM. The result carries `colour_ok`, `colour_delta_e`, `product_type_ok` and

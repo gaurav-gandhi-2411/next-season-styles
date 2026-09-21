@@ -83,4 +83,6 @@ def test_band_gives_pass_fail_or_escalate() -> None:
     assert cc.verdict_for(4.5, 4.5, band=1.0) == cc.ESCALATE
     assert cc.verdict_for(5.4, 4.5, band=1.0) == cc.ESCALATE
     assert cc.verdict_for(5.5, 4.5, band=1.0) == cc.FAIL
-    assert cc.verdict_for(4.6, 4.5, band=None) == cc.FAIL  # no band: the binary rule
+    assert cc.verdict_for(4.6, 4.5, band=0.0) == cc.FAIL  # zero band: the binary rule
+    assert cc.verdict_for(4.5, 4.5, band=0.0) == cc.PASS
+    assert cc.verdict_for(4.6, 4.5) == cc.ESCALATE  # default band is the measured W_BAND

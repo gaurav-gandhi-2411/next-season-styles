@@ -854,7 +854,12 @@ only tighten it.
   Lab colour (k-means, k=3, seed 42), minimum CIEDE2000 to the dominant colours of the style's real
   reference articles, threshold = the p90 of the real nearest-sibling distances (calibrated like Gate 1b).
   A white garment on a near-white background falls back to the central 40% of the image (reported).
-  Nested leave-one-out on the real references: 0.884 pass rate over the four final styles.
+  Nested leave-one-out on the real references: 0.884 pass rate over the four final styles (L1).
+  **M update:** the mask is rembg `u2net` (no fallback needed on the references); the threshold is
+  shrunk toward the global median with weight n / (n + 17); and a distance within 0.403 of the
+  threshold (the p95 of measured mask noise over 8 jittered crops per real reference) is ESCALATE:
+  Gate 2 is unmeasured, so the verdict is INCONCLUSIVE. Nested leave-one-out: 0.855 unshrunk, 0.870
+  shrunk (the bikini's real-article pass rate falls from 0.75 to 0.50 under shrinkage).
 - **Product type (`nss.generate.product_retrieval`).** Top-1 style of CLIP+DINOv2 retrieval over 3,003
   styles; exact H&M string match, no synonym list. Retrieval read product type at 82.5% on the 40 real
   photos against 65% for free-text SmolVLM.

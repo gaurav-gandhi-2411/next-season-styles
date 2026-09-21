@@ -4,7 +4,7 @@
 Rule pre-registered in `reports/v3/PREREGISTRATION.md` (section L4, commit c5799c3). Per case, one
 request: the scenario, the `score_concept` result, the rubric and the case's decisions with shuffled
 anonymous ids (seed 42), without arm, run number or any Claude grade. Judges: Gemini
-(`gemini-3-flash-preview`; 3.6, 3.7, 3.5 and 2.5-flash were overloaded or over their daily free-tier quotas) and Groq-hosted Qwen (`qwen/qwen3.8-27b`; the Groq catalogue has no Llama chat
+(`gemini-2.5-flash`; 3.6, 3.7, 3.5 and 3-preview were over quota or overloaded) and Groq-hosted Qwen (`qwen/qwen3.8-27b`; the Groq catalogue has no Llama chat
 model). Temperature 0. A quota stop is reported, never papered over with a Claude model.
 
     uv run --no-sync python scripts/k2_blind_regrade.py run gemini|qwen
@@ -31,12 +31,14 @@ ROOT = Path(__file__).resolve().parent.parent
 TABLES = ROOT / "reports" / "tables"
 FIXTURES = ROOT / "evals" / "fixtures" / "silent_rule"
 RUNS = TABLES / "v3_silent_rule_runs.jsonl"
-GEMINI_MODEL = "gemini-3-flash-preview"  # 3.6, 3.7, 3.5 and 2.5-flash spent their daily quotas or were overloaded
+GEMINI_MODEL = (
+    "gemini-2.5-flash"  # graded S01-S02; resumes here once its daily free-tier quota resets
+)
 QWEN_MODEL = "qwen/qwen3.8-27b"
 GRADES = ("better", "equivalent", "worse", "other")
 # the Gemini runs that got through before their free-tier quotas or overload stopped them are kept
 # as partial judges of their own
-JUDGES = ("gemini", "gemini25_partial", "gemini37_partial", "qwen")
+JUDGES = ("gemini", "gemini37_partial", "qwen")
 SYSTEM = """You grade decisions made by an automated quality-control critic/orchestrator in an
 image-generation pipeline, against a rubric that was written in advance. For each decision, choose
 exactly one grade:
