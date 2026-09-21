@@ -363,3 +363,25 @@ The 60 K2 decisions (`v3_silent_rule_runs.jsonl`), the ten scenarios and the rub
 ### L5. The scale habit against the K3 rule
 
 S09 only, 3 runs, Sonnet, same call shape as K2, system prompt = the **current** `agents/critic.md` and `agents/orchestrator.md` (K3 in context) and no evidence note. **Good** (the K3 rule): REJECT, RETRY with a **seed** change and the scale kept (this is attempt 1, so no repeat yet; escalation is for a repeated reading). **The habit persists** iff at least one of the 3 runs changes `ip_adapter_scale`. Utilisation is checked and reported before the run.
+
+---
+
+## M. Shrunk colour thresholds, rembg masks, a borderline band, and the K2 statement
+
+Committed before any M1-M3 scoring. **Facts stated in advance.** Before M2: the L1 thresholds (CIEDE2000, p90 of real nearest-sibling distances, border-sampled mask) were sweater 3.44, dress 4.50, white top 1.06 (all 19 references on the central-box fallback), bikini top 16.44 (8 references), underwear 23.72 (4 references); nested leave-one-out on the four final styles 0.884 (`v3_colour_loo.csv`). Installing rembg needs 5 packages into the project venv with `pillow` held at the project's pinned 10.4 (rembg 2.0.69, onnxruntime 1.30.0, pooch, pymatting, flatbuffers) and downloads the u2net model, **175.997 MB** (`u2net.onnx`, checked with a HEAD request; `U2NET_HOME=data/rembg_models`, not committed).
+
+### M2. rembg mask (changes the mask source only)
+
+The garment mask is the rembg `u2net` alpha mask of the same 256-px image (`only_mask=True`, binarised at 128), then the unchanged steps: largest connected component, holes filled, 3 px erosion, k-means dominant colour, the 3% fallback to the central box (counted and reported). Applied to **every** style and to every reference and concept. Reported: masks still on the fallback, the white top's new threshold, the per-style leave-one-out pass rates, and any style whose raw threshold moves by more than 25% (relative) or more than 2 CIEDE2000 units.
+
+### M1. Empirical-Bayes shrinkage of the threshold
+
+`T_style = w * p90_style + (1 - w) * T_global`, with `w = n / (n + K)`, `n` the style's reference count, `T_global` the **median of the raw per-style p90 thresholds** over the five calibrated styles (sweater, dress, white top, bikini top, underwear), and **`K` = the median reference count over those five styles = 17** (17, 25, 19, 8, 4), the same convention as `K_SHRINKAGE` for intensity (a style with the typical amount of evidence gets `w = 0.5`). Fixed now; not tuned. In the nested leave-one-out, the held-out article is removed from its style (`n - 1`), the style's p90 is recomputed without it, and `T_global` is recomputed with that style's leave-one-out p90. **Required outcomes unchanged** (evaluated on the binary pass/fail): FAIL the emerald-green dress and both coral dresses; PASS the submitted dress, the submitted sweater and the two red dresses K4 rejected. Reported: old (L1) versus new raw and shrunk threshold per style.
+
+### M3. Borderline band -> ESCALATE
+
+**Band half-width `w_band` from measured mask noise, not chosen.** For each real reference article of the four final styles, 8 jittered crops (a window of 90% of the width and of the height at a uniformly random offset, `random.Random(42 + image index)`), run through the full M2 pipeline (rembg mask, k-means); the deviation is the CIEDE2000 between the crop's dominant colour and the full image's. **`w_band` = the 95th percentile of the pooled deviations** (also reported per style). Because a concept's statistic is a minimum distance to references, a dominant-colour error of `delta` moves it by at most `delta`, so a distance within `w_band` of the threshold can be flipped by mask noise alone. **Verdict:** `d <= T - w_band` PASS; `d >= T + w_band` FAIL; otherwise **ESCALATE** (Gate 2 unmeasured, hence INCONCLUSIVE in `critic_rule` unless another gate already failed). If `w_band >= T` for a style there is no outright-pass region for it; that is reported, not adjusted. The noise is measured on real references only, before any concept is scored, and the value is committed before scoring. The required outcomes stay binary (above); the report also lists every case that falls in the band.
+
+### M4. K2 statement and the second Gemini judge
+
+The K2 conclusion is restated on the defensible measure only: acceptable-versus-not, Claude-Qwen kappa 0.84 (n = 59), labelled LLM consensus; four-way agreement was 0.51 and the four-way counts are not stable across graders, so they are not a finding. The post-hoc re-reading of the disagreements after seeing Qwen's grades is withdrawn (it revised my grades toward the more favourable result). When the Gemini free-tier quota allows, `gemini-2.5-flash` (the model that graded the first 12 decisions) grades the remaining 47 under the same blind protocol; pairwise kappa is reported once it is complete, and if it is blocked I report how far it got. No Claude model is substituted.
