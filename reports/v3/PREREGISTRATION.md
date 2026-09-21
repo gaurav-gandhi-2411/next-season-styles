@@ -95,3 +95,18 @@ The final three take one incumbent (ranked by predicted intensity) and two **eme
 If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging half of the final-three selection then rests on a ranking that has not been validated, and that is stated at the top of the report. P1 is reported as a sensitivity check and cannot change the category. No tuning, no second variant.
 
 **Secondary (reported, not decision-bearing):** the mean realised growth ratio of each method's top 3 by predicted growth, relative to the population mean (a lift), per origin with a block-bootstrap CI.
+
+*Defect disclosed after the 2a run, for later rules:* an equality between two hit rates evaluated to -5.6e-18 and decided a "not worse" clause. Every "mean difference >= 0" clause from here on is evaluated as `mean_diff >= -1e-9`. The 2a rule itself was not edited.
+
+### 2b. Evaluation power: the same model at a 1-week origin step
+
+**Question (the only decision-bearing one):** at 1-week origin spacing, does the paired 95% interval for the embargoed model minus seasonal naive on **Hit@3-in-top20** (the reported intensity ranking, all styles) exclude zero? At the 4-week spacing it did not: +0.233 [0.000, 0.567].
+
+**This is the same model measured with more origins, not a stronger model.** The model is the shipped locked config under the 16-week embargo. For a weekly test origin `t`, the training origins are the 4-week-grid origins at least 16 weeks before `t`. That set is identical to the training set of the greatest grid test origin at or before `t`, so 12 models are trained (as in the reported run) and each weekly origin uses its block's model with its own features. No retraining, no tuning.
+
+- **Weekly origins:** every Monday from the first walk-forward test origin (2019-07-29) to the last origin whose 13-week outcome fits in the panel (2020-06-22): 47 origins. The 12 grid origins are a subset.
+- **Reproduction gate:** at the 12 grid origins the per-origin model metrics must equal the committed embargoed per-origin table (`backtest_embargo_per_origin.csv`, lightgbm) to 1e-9, or the run stops.
+- **Uncertainty:** moving-block bootstrap on the per-origin paired differences, **block length 13 origins (the 13-week horizon)**, 2,000 resamples, seed 42, at weekly spacing. The 4-week run uses the reported block length 4 (which is also about the 13-week horizon expressed in origins). Both are shown side by side. Seasonal naive is undefined without a 52-week lag, so its paired rows use fewer origins; n is reported.
+- **Effective sample size, two estimators, both reported.** `ESS_ac = n / (1 + 2 * sum_{k=1..L} (1 - k/(L+1)) * rho_k)` with `L = 12` (Bartlett-weighted autocorrelation of the paired difference series; floored at 1, capped at n) and `ESS_boot = n * Var_iid(mean) / Var_block(mean)`, the iid variance of the mean over the block-bootstrap variance of the mean. The raw origin count is never presented as the sample size.
+- **Floor and comparators:** the random-permutation floor and all four baselines are in the same table; the question concerns seasonal naive only.
+- **Reporting rule:** the result is stated as "the interval does / does not exclude zero at weekly spacing". If it does, it is presented as "the same model with more power", never as an improved model.
