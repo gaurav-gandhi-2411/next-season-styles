@@ -1,0 +1,5 @@
+style_id,n,rows_with_any_gate_or_fidelity_change,gate2_pass_before,gate2_pass_after,all_gates_pass_before,all_gates_pass_after
+Ladieswear || Sweater || Knitwear || Beige || Melange,24,0,2,2,2,2
+Ladieswear || Dress || Dresses Ladies || Red || Solid,24,0,22,22,10,10
+Ladieswear || Top || Jersey Basic || White || Solid,24,0,22,22,4,4
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,24,23,0,23,0,8

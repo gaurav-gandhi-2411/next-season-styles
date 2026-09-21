@@ -157,5 +157,52 @@ def rescore() -> None:
         print(summary.with_columns(pl.col("style_id").str.slice(12, 16)))
 
 
+def supplementary() -> None:
+    """SUPPLEMENTARY (not the pre-registered control): real solid non-bikini garments.
+
+    The mandatory control needs solid-bikini photos, which the Kaggle API refused (HTTP 429). This
+    runs the same rule on the screened real catalogue photos of two SOLID styles (white top, red
+    dress) as if the target label were "All over pattern": every one should FAIL. It shows how
+    SmolVLM's answer behaves on plain garments; it does not replace the bikini control.
+    """
+    from nss.generate import concept_generation, final_registry
+
+    refs = concept_generation.load_refs()
+    groups = {
+        "solid_white_top": refs[final_registry.TOP][:8],
+        "solid_red_dress": refs[final_registry.DRESS][:8],
+    }
+    rows = []
+    local_vlm.load("smolvlm")
+    for name, paths in groups.items():
+        for path in paths:
+            answer = local_vlm.extract_attributes_local(path, ("graphical_treatment",))[
+                "graphical_treatment"
+            ]
+            satisfied = pattern_label.mapped_graphical_score(answer, pattern_label.LABEL) == 1.0
+            rows.append(
+                {
+                    "control": f"supplementary_{name}",
+                    "image": str(path),
+                    "smolvlm_answer": answer,
+                    "satisfies_all_over_pattern": satisfied,
+                }
+            )
+    local_vlm.unload()
+    table = pl.DataFrame(rows)
+    table.write_csv(Path("reports/tables/v3_pattern_control_supplementary.csv"))
+    wrong = int(table["satisfies_all_over_pattern"].sum())
+    with pl.Config(tbl_rows=40, tbl_width_chars=160, tbl_formatting="ASCII_FULL"):
+        print(table.select("control", "smolvlm_answer", "satisfies_all_over_pattern"))
+    print(f"SUPPLEMENTARY: {table.height} solid garments, {wrong} wrongly satisfy the mapped check")
+
+
+COMMANDS = {
+    "fetch": fetch,
+    "controls": controls,
+    "rescore": rescore,
+    "supplementary": supplementary,
+}
+
 if __name__ == "__main__":
-    {"fetch": fetch, "controls": controls, "rescore": rescore}[sys.argv[1]]()
+    COMMANDS[sys.argv[1]]()

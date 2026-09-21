@@ -41,7 +41,6 @@ from nss.generate import (
     integrity_global,
     local_judge_calibration,
     local_vlm,
-    pattern_label,
 )
 from nss.generate.concept_qc_pipeline import parse_style_attributes
 from nss.generate.fidelity import applicable_dimensions
@@ -131,9 +130,9 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
         dims = applicable_dimensions(truth["graphical_treatment"])
         extraction = local_vlm.extract_attributes_local(path, dims)
         scores = SKILL.score_attributes(extraction, {d: truth[d] for d in dims})
-        # "All over pattern" is satisfied by any named visible pattern (pattern_label.py); inactive
-        # for every other label, so no other style's score changes.
-        scores = pattern_label.apply_mapping(scores, extraction, truth)
+        # The "All over pattern" mapping (pattern_label.py) is NOT applied here: its supplementary
+        # negative control false-passed a solid dress ("Melange."), and the mandatory solid-bikini
+        # control could not be run (Kaggle 429). See reports/v3/TRACK1e_pattern.md.
         fid = SKILL.mean_score(scores)
         row[f"{backend}_fidelity"] = fid
         row[f"{backend}_gate2_pass"] = fid >= thresholds[backend]
