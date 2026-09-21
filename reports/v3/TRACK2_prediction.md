@@ -44,3 +44,27 @@ The machine-computed verdicts are in `reports/tables/v3_growth_decision_P2.csv`:
 **Limits.** Ten origins overlapping by 9 of 13 weeks is a small effective sample (2b addresses power). Only styles with an observed 13-week outcome can be scored. The two most recent-history baselines (seasonal naive, EWMA) are strong on this target.
 
 Tables: `v3_growth_{per_origin,summary,paired,decision,lift,lift_ci,population}_{P2,P1}.csv`. Code: `src/nss/models/growth_backtest.py`; tests: `tests/test_growth_backtest.py`.
+
+## 2b. Evaluation power: the interval still includes zero
+
+Rule committed in `a0a13ad` (erratum `b0c475b`: 48 weekly origins, not 47). **This is the same model measured with more origins, not a stronger model.** The 12 models are unchanged; each weekly origin uses its 4-week block's model (identical training set under the 16-week embargo). The reproduction gate passed: at the 12 grid origins the per-origin model metrics equal the committed table to 1e-9.
+
+**The pre-registered question: at weekly spacing, does the paired interval for model minus seasonal naive on Hit@3-in-top20 exclude zero? No.**
+
+| Spacing | Origins with seasonal naive defined | Block | Effective sample size (ESS_ac / ESS_boot) | Mean difference | 95% interval |
+|---|---|---|---|---|---|
+| 4-week (reported) | 10 of 12 | 4 | 9.4 / 6.0 | +0.233 | [0.000, +0.567] |
+| **1-week** | **42 of 48** | **13** | **15.3 / 15.3** | **+0.095** | **[-0.040, +0.278]** |
+| 1-week, block 4 (sensitivity) | 42 of 48 | 4 | 15.3 / 24.4 | +0.095 | [-0.024, +0.246] |
+
+(Seasonal naive needs a 52-week lag, so it is defined at 10 grid and 42 weekly origins. The `n_origins` column in `v3_power_paired.csv` counts joined rows including the undefined ones; the effective sample sizes above are computed on the defined ones.)
+
+**What denser origins bought, in numbers.** Going from 12 to 48 origins (4x) raised the effective sample size for this comparison from about 6-9 to about 15 (roughly 1.6-2.5x), because adjacent weekly origins share 12 of their 13 forecast weeks. The interval narrowed from 0.567 wide to 0.318 wide.
+
+**The reported +0.233 was a favourable draw.** Where seasonal naive is defined, the mean difference is +0.233 at the 10 grid origins and only +0.052 at the 32 non-grid weekly origins; the weekly average is +0.095. The denser estimate is smaller and its interval contains zero. The top-3 comparison with seasonal naive therefore stays undecided, now with a smaller point estimate than the write-up carried. That figure is in the submitted write-up (Section 3, "+0.233, CI [0.000, 0.567]"); it is unchanged there, and this is the disclosure of its fragility.
+
+**Against the other comparators the conclusion does not change** (Hit@3-in-top20, weekly, block 13): EWMA persistence +0.160 [+0.111, +0.271], parent-category mean +0.396 [+0.361, +0.590], global mean +0.431 [+0.410, +0.618], random floor +0.425 [+0.409, +0.607]; all exclude zero, as at 4-week spacing.
+
+**On ranking quality and error the model's edge over seasonal naive is stable across densities** (weekly, block 13): NDCG@10 +0.130 [+0.080, +0.226] (ESS about 6), Spearman +0.200 [+0.192, +0.241], WMAPE -0.041 [-0.055, -0.034]. The intervals exclude zero at both spacings. What is not established is a top-3 advantage.
+
+Tables: `v3_power_per_origin_weekly.csv`, `v3_power_paired.csv`. Code: `src/nss/models/eval_power.py`; tests: `tests/test_eval_power.py`.
