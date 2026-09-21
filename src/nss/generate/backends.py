@@ -286,6 +286,26 @@ def _write_metadata(path: Path, **fields: Any) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def output_stem(style_key: str | None, scale: float | None, seed: int, index: int) -> str:
+    """Collision-free file stem: style, IP-Adapter scale, seed and batch index.
+
+    The old stem (`seed<N>_<i>`) let two styles at the same seed, or one style at two scales,
+    overwrite each other's image. `style_key=None` gives `nostyle`, `scale=None` (Gemini, which has
+    no scale) gives `sna`.
+    """
+    slug = (
+        "nostyle"
+        if not style_key
+        else style_key.lower()
+        .replace(" || ", "_")
+        .replace(", ", "-")
+        .replace(",", "-")
+        .replace(" ", "-")
+    )
+    scale_label = "na" if scale is None else f"{scale:.2f}"
+    return f"{slug}_s{scale_label}_seed{seed}_{index:02d}"
+
+
 def generate_concept(
     prompt: str,
     reference_images: list[Path],
@@ -296,6 +316,7 @@ def generate_concept(
     negative_prompt: str | None = None,
     prompt_2: str | None = None,
     negative_prompt_2: str | None = None,
+    style_key: str | None = None,
 ) -> list[Path]:
     """Generate `n` fashion concept images from `prompt` (+ `reference_images`) via `backend`.
 
@@ -321,8 +342,12 @@ def generate_concept(
         negative_prompt_2: Optional negative prompt for encoder 2, `"local_sdxl"` only. Must be
             `None` for `"gemini"` (raises `ValueError` otherwise), same convention.
 
+        style_key: The style the concept is for; only used to name the output files (and recorded
+            in the sidecar), so two styles at the same seed and scale cannot overwrite each other.
+
     Returns:
-        Paths to the `n` saved PNG files under `data/generated/<backend>/`. A JSON metadata
+        Paths to the `n` saved PNG files under `data/generated/<backend>/`, named
+        `<style>_s<scale>_seed<seed>_<i>.png` (see `output_stem`). A JSON metadata
         sidecar (same stem, `.json`) is written next to each image recording backend, prompt,
         negative_prompt, prompt_2, negative_prompt_2, reference image paths, seed, the
         `ip_adapter_scale` actually applied (`null` for `"gemini"`), and the batch generation time.
@@ -382,7 +407,7 @@ def generate_concept(
 
     paths: list[Path] = []
     for i, image in enumerate(images):
-        stem = f"seed{seed}_{i:02d}"
+        stem = output_stem(style_key, effective_scale, seed, i)
         image_path = output_dir / f"{stem}.png"
         image.save(image_path)
         _write_metadata(
@@ -395,6 +420,7 @@ def generate_concept(
             reference_images=[str(p) for p in reference_images],
             ip_adapter_scale=effective_scale,
             seed=seed,
+            style_key=style_key,
             index=i,
             batch_generation_seconds=elapsed,
         )

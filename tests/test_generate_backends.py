@@ -260,3 +260,50 @@ def test_require_gemini_api_key_returns_key_when_set(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("GEMINI_API_KEY", "fake-test-key")
     with patch("dotenv.load_dotenv", return_value=True):
         assert backends._require_gemini_api_key() == "fake-test-key"
+
+
+SWEATER = "Ladieswear || Sweater || Knitwear || Beige || Melange"
+DRESS = "Ladieswear || Dress || Dresses Ladies || Red || Solid"
+
+
+def _generate(tmp_path: Path, style_key: str | None, scale: float | None, seed: int) -> Path:
+    with (
+        patch.object(backends, "OUTPUT_ROOT", tmp_path),
+        patch.object(backends, "_generate_local_sdxl", return_value=(_fake_images(1), 1.0)),
+    ):
+        return generate_concept(
+            prompt="p",
+            reference_images=[Path("r.jpg")],
+            backend=backends.LOCAL_SDXL,
+            ip_adapter_scale=scale,
+            seed=seed,
+            n=1,
+            style_key=style_key,
+        )[0]
+
+
+def test_two_styles_with_the_same_seed_and_scale_do_not_collide(tmp_path: Path) -> None:
+    """The defect: `seed42_00.png` for every style. Two styles at one seed must get two files."""
+    a = _generate(tmp_path, SWEATER, 0.35, 42)
+    b = _generate(tmp_path, DRESS, 0.35, 42)
+    assert a != b and a.exists() and b.exists()
+    assert Image.open(a).getpixel((0, 0)) == Image.open(b).getpixel((0, 0))  # same fake content
+    assert json.loads(a.with_suffix(".json").read_text("utf-8"))["style_key"] == SWEATER
+    assert json.loads(b.with_suffix(".json").read_text("utf-8"))["style_key"] == DRESS
+
+
+def test_one_style_at_two_scales_or_seeds_does_not_collide(tmp_path: Path) -> None:
+    names = {
+        _generate(tmp_path, SWEATER, 0.35, 42).name,
+        _generate(tmp_path, SWEATER, 0.25, 42).name,
+        _generate(tmp_path, SWEATER, 0.35, 43).name,
+    }
+    assert len(names) == 3
+
+
+def test_filename_carries_style_scale_and_seed() -> None:
+    assert (
+        backends.output_stem(SWEATER, 0.35, 44, 0)
+        == "ladieswear_sweater_knitwear_beige_melange_s0.35_seed44_00"
+    )
+    assert backends.output_stem(None, None, 7, 1) == "nostyle_sna_seed7_01"
