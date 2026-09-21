@@ -1,0 +1,13 @@
+label,reading,extraction
+submitted:Sweater,0,"{""product_type"": ""sweater"", ""colour_family"": ""beige and brown"", ""graphical_treatment"": ""colour blocking""}"
+submitted:Sweater,1,"{""product_type"": ""turtleneck sweater"", ""colour_family"": ""beige and brown"", ""graphical_treatment"": ""colorblock""}"
+submitted:Sweater,2,"{""product_type"": ""sweater"", ""colour_family"": ""beige"", ""graphical_treatment"": ""colourblocking""}"
+submitted:Dress,0,"{""product_type"": ""dress"", ""colour_family"": ""red"", ""graphical_treatment"": ""solid""}"
+submitted:Dress,1,"{""product_type"": ""dress"", ""colour_family"": ""red"", ""graphical_treatment"": ""solid""}"
+submitted:Dress,2,"{""product_type"": ""dress"", ""colour_family"": ""red"", ""graphical_treatment"": ""solid""}"
+submitted:Top,0,"{""product_type"": ""blouse"", ""colour_family"": ""white"", ""graphical_treatment"": ""solid""}"
+submitted:Top,1,"{""product_type"": ""blouse"", ""colour_family"": ""white"", ""graphical_treatment"": ""solid color""}"
+submitted:Top,2,"{""product_type"": ""blouse"", ""colour_family"": ""white"", ""graphical_treatment"": ""solid color""}"
+submitted:Bikini top,0,"{""product_type"": ""bikini top"", ""colour_family"": ""orange"", ""graphical_treatment"": ""patterned""}"
+submitted:Bikini top,1,"{""product_type"": ""bikini top"", ""colour_family"": ""orange"", ""graphical_treatment"": ""geometric pattern""}"
+submitted:Bikini top,2,"{""product_type"": ""halter bikini top"", ""colour_family"": ""orange"", ""graphical_treatment"": ""geometric print""}"

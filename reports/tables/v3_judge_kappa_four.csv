@@ -1,0 +1,4 @@
+judge_a,judge_b,n_items,raw_agreement,kappa
+florence2,gemini,12,0.8333333333333334,0.6363636363636365
+florence2,smolvlm,12,0.75,0.47058823529411764
+gemini,smolvlm,12,0.9166666666666666,0.7999999999999999

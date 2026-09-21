@@ -1,0 +1,13 @@
+label,dim,smolvlm,florence2,gemini
+submitted:Bikini top,colour_family,0.85,0.85,1.0
+submitted:Bikini top,graphical_treatment,0.0,0.02127659574468085,0.0
+submitted:Bikini top,product_type,0.0,0.85,1.0
+submitted:Dress,colour_family,0.85,0.85,1.0
+submitted:Dress,graphical_treatment,0.85,0.0,1.0
+submitted:Dress,product_type,0.85,0.85,1.0
+submitted:Sweater,colour_family,0.85,0.85,0.85
+submitted:Sweater,graphical_treatment,0.0,0.0,0.0
+submitted:Sweater,product_type,0.85,0.85,1.0
+submitted:Top,colour_family,0.85,0.85,1.0
+submitted:Top,graphical_treatment,0.85,0.0,0.85
+submitted:Top,product_type,0.0,0.0,0.0

@@ -1,0 +1,37 @@
+label,image,judge,dim,score
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,smolvlm,product_type,0.85
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,smolvlm,colour_family,0.85
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,smolvlm,graphical_treatment,0.0
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,florence2,product_type,0.85
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,florence2,colour_family,0.85
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,florence2,graphical_treatment,0.0
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,gemini,product_type,1.0
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,gemini,colour_family,0.85
+submitted:Sweater,data/generated/n9/ladieswear_sweater_knitwear_beige_melange/s0.35_seed45.png,gemini,graphical_treatment,0.0
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,smolvlm,product_type,0.85
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,smolvlm,colour_family,0.85
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,smolvlm,graphical_treatment,0.85
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,florence2,product_type,0.85
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,florence2,colour_family,0.85
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,florence2,graphical_treatment,0.0
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,gemini,product_type,1.0
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,gemini,colour_family,1.0
+submitted:Dress,data/generated/n9/ladieswear_dress_dresses-ladies_red_solid/s0.35_seed44.png,gemini,graphical_treatment,1.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,smolvlm,product_type,0.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,smolvlm,colour_family,0.85
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,smolvlm,graphical_treatment,0.85
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,florence2,product_type,0.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,florence2,colour_family,0.85
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,florence2,graphical_treatment,0.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,gemini,product_type,0.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,gemini,colour_family,1.0
+submitted:Top,data/generated/n9/ladieswear_top_jersey-basic_white_solid/s0.35_seed42.png,gemini,graphical_treatment,0.85
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,smolvlm,product_type,0.0
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,smolvlm,colour_family,0.85
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,smolvlm,graphical_treatment,0.0
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,florence2,product_type,0.85
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,florence2,colour_family,0.85
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,florence2,graphical_treatment,0.02127659574468085
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,gemini,product_type,1.0
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,gemini,colour_family,1.0
+submitted:Bikini top,data/generated/n9/ladieswear_bikini-top_swimwear_orange_all-over-pattern/s0.35_seed48.png,gemini,graphical_treatment,0.0

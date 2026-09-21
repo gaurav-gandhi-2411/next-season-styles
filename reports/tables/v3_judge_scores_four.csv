@@ -1,0 +1,13 @@
+label,judge,mean_score,n_dims,threshold,judge_gate2_pass
+submitted:Bikini top,florence2,0.573758865248227,3,0.33691194400699315,true
+submitted:Bikini top,gemini,0.6666666666666666,3,0.6666666666666666,true
+submitted:Bikini top,smolvlm,0.2833333333333333,3,0.38413461538461535,false
+submitted:Dress,florence2,0.5666666666666667,3,0.33691194400699315,true
+submitted:Dress,gemini,1.0,3,0.6666666666666666,true
+submitted:Dress,smolvlm,0.85,3,0.38413461538461535,true
+submitted:Sweater,florence2,0.5666666666666667,3,0.33691194400699315,true
+submitted:Sweater,gemini,0.6166666666666667,3,0.6666666666666666,false
+submitted:Sweater,smolvlm,0.5666666666666667,3,0.38413461538461535,true
+submitted:Top,florence2,0.2833333333333333,3,0.33691194400699315,false
+submitted:Top,gemini,0.6166666666666667,3,0.6666666666666666,false
+submitted:Top,smolvlm,0.5666666666666667,3,0.38413461538461535,true
