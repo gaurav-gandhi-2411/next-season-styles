@@ -1,0 +1,7 @@
+name,agree,stored_gate1,stored_gate1b,stored_integrity,stored_gate2,stored_gate3,live_gate1,live_gate1b,live_integrity,live_gate2,live_gate3
+wrong_03,true,true,true,false,false,false,true,true,false,false,false
+wrong_14,true,true,true,false,false,false,true,true,false,false,false
+wrong_31,true,true,true,false,true,false,true,true,false,true,false
+wrong_35,true,true,true,false,false,true,true,true,false,false,true
+wrong_81,true,true,true,false,false,false,true,true,false,false,false
+wrong_94,true,true,true,false,false,false,true,true,false,false,false

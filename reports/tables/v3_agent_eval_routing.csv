@@ -1,0 +1,14 @@
+check,n,failures,detail
+"a: route() == pre-registered hop, every case",115,0,""
+"b: retry cap over N1 seeds 42,44,45 (literal critic.md)",3,0,1:INCONCLUSIVE->ESCALATE_INCONCLUSIVE; driver critic_replay: FAILED (retry cap exhausted)
+"b: retry cap over N1 seeds 42,44,45 (reject_first)",3,0,1:REJECT->RETRY | 2:REJECT->RETRY | 3:REJECT->FAILED; driver critic_replay: FAILED (retry cap exhausted)
+c: raises twice,1,0,"got ('INCONCLUSIVE', [], 2) want verdict/calls INCONCLUSIVE/2"
+"c: raises once, recovers",1,0,"got ('PASS_PENDING_HUMAN', [], 2) want verdict/calls PASS_PENDING_HUMAN/2"
+c: gate2 not_run,1,0,"got ('INCONCLUSIVE', [], 1) want verdict/calls INCONCLUSIVE/1"
+c: gate3 pass null,1,0,"got ('INCONCLUSIVE', [], 1) want verdict/calls INCONCLUSIVE/1"
+c: clone control not validated,1,0,"got ('INCONCLUSIVE', ['gate1b'], 1) want verdict/calls INCONCLUSIVE/1"
+d: concept-designer lists generate_concept,1,0,['generate_concept']
+d: forecaster lists forecast_concept,1,0,"['forecast_concept', 'forecast_styles', 'get_style_profile']"
+d: critic omits generate_concept,1,0,"['get_style_profile', 'score_concept']"
+d: critic omits forecast_concept,1,0,"['get_style_profile', 'score_concept']"
+d: critic omits forecast_styles,1,0,"['get_style_profile', 'score_concept']"
