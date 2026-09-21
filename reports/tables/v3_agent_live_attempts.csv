@@ -1,0 +1,6 @@
+style,attempt,ip_adapter_scale,seed,image,verdict,failing,next,generate_s
+Ladieswear || Sweater || Knitwear || Beige || Melange,1,0.35,42,data/generated/agent_live/sweater_a1_s0.35_seed42.png,REJECT,"gate2,gate3",RETRY,33.7
+Ladieswear || Sweater || Knitwear || Beige || Melange,2,0.25,42,data/generated/agent_live/sweater_a2_s0.25_seed42.png,REJECT,gate2,RETRY,23.9
+Ladieswear || Sweater || Knitwear || Beige || Melange,3,0.15,42,data/generated/agent_live/sweater_a3_s0.15_seed42.png,REJECT,"gate2,gate3",FAILED,23.6
+Ladieswear || Dress || Dresses Ladies || Red || Solid,1,0.35,42,data/generated/agent_live/dress_a1_s0.35_seed42.png,PASS_PENDING_HUMAN,"",FORWARD,23.2
+Ladieswear || Top || Jersey Basic || White || Solid,1,0.35,42,data/generated/agent_live/top_a1_s0.35_seed42.png,PASS_PENDING_HUMAN,"",FORWARD,25.2
