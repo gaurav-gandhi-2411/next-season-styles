@@ -327,3 +327,39 @@ Gate 1 keeps being computed and reported, and is removed from the accept/reject 
 ### K3. Scale-direction rule (decision, with a replay)
 
 Written into `critic.md` from the lever evidence above, per failure type. To be reported: which recorded retry decisions it would have changed (the scripted live run, the LLM run's attempts, and the J2 `adjust` reference).
+
+---
+
+## L. Measured colour, retrieval product type, restructured identity check, blind re-grade
+
+Committed before any L1/L2/L3 scoring, before the L4 judges are called and before the L5 re-run. Environment facts already known and stated: `rembg` is not installed (and needs a model download); `scikit-image`, `scikit-learn`, `scipy` and `opencv` are.
+
+### L1. Measured colour check
+
+**Why border sampling and not rembg.** rembg is not installed, would need a network model download, and its failure modes on white-on-white flat-lays are unknown; a border-sampled background needs no dependency, is deterministic and is inspectable. Its known weakness (a white garment on a near-white background yields a tiny mask) is handled by a stated fallback below, and reported.
+
+**Method (fixed).** (1) Load RGB, resize so the longest side is 256 px (LANCZOS). (2) Convert to CIELAB (skimage, D65). (3) Background colour = per-channel median Lab of the outer ring (4% of width and height). (4) Candidate mask = pixels whose CIE76 distance from the background is above 12. (5) Morphological opening (3x3), keep the largest connected component, fill holes, erode by 3 px (drops the anti-aliased edge and drop-shadow fringe). (6) If the mask covers under 3% of the image, use the central 40% box instead (the white-on-white fallback; every use is counted and reported). (7) Dominant garment colour = centre of the largest cluster of k-means (k=3, `random_state=42`, `n_init=10`) over the mask's Lab pixels.
+
+**Distance and statistic (fixed).** CIEDE2000 between dominant colours. For a concept, `d` = the minimum CIEDE2000 from its dominant colour to the dominant colour of each of the style's real reference articles (`qc_gates.reference_paths_for_style`, the same references the other gates use).
+
+**Threshold, calibrated exactly like Gate 1b (fixed).** Per style, the p90 of the real nearest-sibling distances: for each real reference, the minimum CIEDE2000 to the other references; the threshold is the 90th percentile of those values. A concept passes iff `d` is at or below its style's threshold.
+
+**Leave-one-out validation on real articles (fixed).** For each real reference `i` of a style: remove it, recompute the other references' nearest-sibling distances among the remaining ones and their p90, then test whether `i`'s minimum distance to the remaining references is at or below that threshold. Report the real-article pass rate per style and overall. **Stop rule:** if the overall pass rate is below 80%, or any of the four final styles is below 75%, the mask or the distance is wrong: report and stop, without scoring the concepts.
+
+**Required outcomes (stated before scoring; no tuning if unmet).** **FAIL:** the emerald-green dress (`hard_negatives/H1_wrong_attribute_Dress.png`) and both coral dresses (`final_concepts_m3/attempt1|2/..._dress_..._seed45.png`). **PASS:** the submitted dress (`n9/..red_solid/s0.35_seed44.png`), the submitted sweater (`n9/..beige_melange/s0.35_seed45.png`), and the two red dresses K4 rejected (`n9/..red_solid/s0.35_seed47.png` and `s0.45_seed43.png`). Reported alongside, not required: the submitted white top and bikini, the mask-fallback count, and the colour distances of every case.
+
+### L2. Product type from retrieval
+
+The product type of an image is that of the top-1 style of `concept_forecast_index` retrieval (CLIP + DINOv2 averaged cosine to the mean embedding of each style's real photos, at most 8 per style, headline view unchanged), over the union of the autumn table (1,980 styles) and the summer table (3,000 styles), 3,003 distinct styles, all with photos. The check passes iff that style's `product_type_name` equals the style's own product type as an exact H&M string: **no synonym list**. The 82.5% product-type accuracy on the 40 real photos is the submission's figure (`reports/SUBMISSION/WRITEUP.md`) and is not re-measured here. **Required:** the four submitted concepts (sweater, dress, white top, bikini) pass; reported plainly for the white top and the bikini whatever happens.
+
+### L3. Restructured Gate 2
+
+Gate 2 passes iff **(a)** the SmolVLM averaged fidelity clears its calibrated threshold (scorer, averaging, threshold untouched; it still contains the judge's own colour and product readings, which no longer decide anything alone) **and (b)** the measured colour check passes **and (c)** the retrieval product type passes. The K4 VLM-reading constraints (`identity_match`) are removed from the decision. Pattern stays VLM-scored and averaged. Gate 3 stays the only VLM-decided yes/no question. `critic_rule`, `critic.md`, `SKILL.md` and `qc_gates`/`concept_scoring` change together. **Re-run** on the 129 cases (115 H3 + 14 J6, including the 4 label-QA exclusions, flagged) and the 54 recorded candidates, offline from stored judge readings for the fidelity part (no judge re-run) and freshly computed colour and retrieval. **Reported:** the all-gate pass count on the 54 recorded candidates against the K4 figure (9 before K4, 5 after) and the new figure; every verdict that changes against both the pre-K4 and the K4 verdicts, with the reason (which of (a), (b), (c) flipped).
+
+### L4. Blind independent re-grade of K2
+
+The 60 K2 decisions (`v3_silent_rule_runs.jsonl`), the ten scenarios and the rubric text (`evals/fixtures/silent_rule/`) go to two non-Claude text models from different families: **Gemini** and a **Groq-hosted Llama or Qwen** (the first available of `llama-3.3-70b-versatile`, then a Qwen model; recorded). They receive, per case, the scenario, the `score_concept` result, the rubric and the six decisions with **shuffled anonymous ids** (seed 42) and **without the arm, the run number or any Claude grade**; the instruction is to grade each decision better / equivalent / worse / other against the rubric, as JSON, temperature 0. One request per case (10 per judge; Gemini's free tier is 20 requests a day). **Reported:** each judge's better/equivalent/worse/other counts; pairwise Cohen's kappa over the graded decisions among {my grades, Gemini, the Groq model}, on the four grades and on a collapsed "acceptable (better or equivalent) vs not"; every decision where either independent judge disagrees with my grade, with the disagreement. Labelled **LLM consensus, not human ground truth**. If a quota blocks a judge, I report which and how far it got and do not substitute a Claude model.
+
+### L5. The scale habit against the K3 rule
+
+S09 only, 3 runs, Sonnet, same call shape as K2, system prompt = the **current** `agents/critic.md` and `agents/orchestrator.md` (K3 in context) and no evidence note. **Good** (the K3 rule): REJECT, RETRY with a **seed** change and the scale kept (this is attempt 1, so no repeat yet; escalation is for a repeated reading). **The habit persists** iff at least one of the 3 runs changes `ip_adapter_scale`. Utilisation is checked and reported before the run.
