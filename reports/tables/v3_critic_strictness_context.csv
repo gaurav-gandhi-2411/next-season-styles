@@ -1,0 +1,5 @@
+style,candidates,integrity_fails,gate2_fails,gate3_fails,gate3_YN,smolvlm_fidelity_min,smolvlm_fidelity_max,all_gates_pass
+Dress,14,7,3,1,0,0.2833333333333333,0.85,6
+Bikini top,8,0,8,4,3,0.2833333333333333,0.2833333333333333,0
+Top,18,6,1,15,14,0.2833333333333333,0.85,2
+Sweater,14,0,13,1,1,0.0,0.5666666666666667,1

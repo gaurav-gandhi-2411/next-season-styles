@@ -1,0 +1,16 @@
+gate,stratum,truth_accept,n,catches,unique,sole_failing
+gate1,H1_wrong_attribute,false,4,0,0,0
+gate1,H2_change_absent,false,3,0,0,0
+gate1,H3_averaged_garment,false,3,0,0,0
+gate1b,H1_wrong_attribute,false,4,0,0,0
+gate1b,H2_change_absent,false,3,1,0,0
+gate1b,H3_averaged_garment,false,3,0,0,0
+integrity,H1_wrong_attribute,false,4,0,0,0
+integrity,H2_change_absent,false,3,0,0,0
+integrity,H3_averaged_garment,false,3,0,0,0
+gate2,H1_wrong_attribute,false,4,1,0,0
+gate2,H2_change_absent,false,3,2,0,0
+gate2,H3_averaged_garment,false,3,2,0,0
+gate3,H1_wrong_attribute,false,4,3,2,2
+gate3,H2_change_absent,false,3,3,1,1
+gate3,H3_averaged_garment,false,3,3,1,1

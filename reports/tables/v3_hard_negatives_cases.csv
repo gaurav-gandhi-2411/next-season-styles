@@ -1,0 +1,15 @@
+name,class,excluded,gate1,gate1b,integrity,gate2,gate3,verdict,failing
+m3_coral_dress_attempt1,H1_wrong_attribute,false,true,true,true,true,false,REJECT,gate3
+m3_coral_dress_attempt2,H1_wrong_attribute,false,true,true,true,true,false,REJECT,gate3
+H1_wrong_attribute_Sweater,H1_wrong_attribute,true,true,true,true,false,true,REJECT,gate2
+H2_change_absent_Sweater,H2_change_absent,false,true,true,true,false,false,REJECT,"gate2,gate3"
+H3_averaged_garment_Sweater,H3_averaged_garment,false,true,true,true,false,false,REJECT,"gate2,gate3"
+H1_wrong_attribute_Dress,H1_wrong_attribute,false,true,true,true,true,true,PASS_PENDING_HUMAN,""
+H2_change_absent_Dress,H2_change_absent,true,true,true,true,true,false,REJECT,gate3
+H3_averaged_garment_Dress,H3_averaged_garment,false,true,true,true,true,false,REJECT,gate3
+H1_wrong_attribute_Top,H1_wrong_attribute,true,true,true,true,true,true,PASS_PENDING_HUMAN,""
+H2_change_absent_Top,H2_change_absent,false,true,true,true,true,false,REJECT,gate3
+H3_averaged_garment_Top,H3_averaged_garment,true,true,true,true,true,false,REJECT,gate3
+H1_wrong_attribute_Bikini top,H1_wrong_attribute,false,true,true,true,false,false,REJECT,"gate2,gate3"
+H2_change_absent_Bikini top,H2_change_absent,false,true,false,true,false,false,REJECT,"gate1b,gate2,gate3"
+H3_averaged_garment_Bikini top,H3_averaged_garment,false,true,true,true,false,false,REJECT,"gate2,gate3"

@@ -1,0 +1,27 @@
+{
+  "_comment": "J6 label QA under the rule pre-registered in bcd1357: I looked at each generated image once (a model's look, NOT the human visual check) and exclude any case that visibly lacks its intended defect. The images are not in git (data/generated/hard_negatives/).",
+  "excluded": [
+    "H1_wrong_attribute_Sweater",
+    "H1_wrong_attribute_Top",
+    "H2_change_absent_Dress",
+    "H3_averaged_garment_Top"
+  ],
+  "reasons": {
+    "H1_wrong_attribute_Sweater": "prompt asked for navy blue; the image is still beige with a funnel neck and brown rib (the IP-Adapter references dominated the colour word), so it lacks the intended defect and looks like a valid concept",
+    "H1_wrong_attribute_Top": "prompt asked for black; the image is still white",
+    "H2_change_absent_Dress": "a belt at the waist, one of the two briefed changes, is visibly present (also stripes and 3/4 sleeves, so it is not a clean 'brief absent' case)",
+    "H3_averaged_garment_Top": "the mean of the white-top references is a near-coherent white long-sleeve top (faint henley buttons), not a ghost garment"
+  },
+  "kept_notes": {
+    "H1_wrong_attribute_Bikini top": "blue with white binding (colour and all-over pattern both wrong); a plant prop is also in frame",
+    "H1_wrong_attribute_Dress": "emerald green, square neck, puff sleeves, belt",
+    "m3_coral_dress_attempt1": "coral-pink 'red' dress, identified by me from the eight M3 dress images against the description; please confirm",
+    "m3_coral_dress_attempt2": "same, and the same file as H3 P2 m3_dress",
+    "H2_change_absent_Bikini top": "orange giraffe-pattern two-piece with crossed straps; no triangle halter and no white binding",
+    "H2_change_absent_Sweater": "beige crew neck with plain cuffs and hem",
+    "H2_change_absent_Top": "white long-sleeve round-neck top; no balloon sleeves, no square neckline",
+    "H3_averaged_garment_Bikini top": "translucent overlay of several bikini tops",
+    "H3_averaged_garment_Dress": "translucent overlay of several red dresses",
+    "H3_averaged_garment_Sweater": "translucent overlay of several beige sweaters"
+  }
+}
