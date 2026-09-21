@@ -1,8 +1,9 @@
 """J1: run the orchestrator as a real LLM through headless Claude Code (`claude -p`).
 
 The sub-agents are `agents/*.md` (Claude Code sub-agent format: name / description / tools
-frontmatter, role text unchanged). They are registered with `--agents` built from those files, so
-there is one source of truth and the same files also work dropped into `.claude/agents/`. Two MCP
+frontmatter, role text unchanged). They are copied byte-for-byte into a throwaway project
+directory's `.claude/agents/` for the run (the `--agents` JSON form exceeds Windows' 32,767-char
+command-line limit with these six role texts), so there is one source of truth. Two MCP
 servers are attached with `--strict-mcp-config`: `nss_gpu` (generation only) and `nss_cpu` (every
 other tool; the GPU is hidden so scoring never competes with SDXL for 8 GB). The LLM makes the
 routing, retry and escalation decisions; every tool stays deterministic.
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -44,6 +46,11 @@ def parse_frontmatter(text: str) -> tuple[dict[str, str], str]:
     return fields, body.lstrip("\n")
 
 
+def split_tools(value: str) -> list[str]:
+    """Comma-separated tool names, ignoring commas inside parentheses (`Agent(a, b)`)."""
+    return [t.strip() for t in re.split(r",\s*(?![^()]*\))", value) if t.strip()]
+
+
 def load_agents() -> dict[str, dict[str, Any]]:
     """`--agents` JSON: name -> description, prompt (the role text), tools, model."""
     out: dict[str, dict[str, Any]] = {}
@@ -54,7 +61,7 @@ def load_agents() -> dict[str, dict[str, Any]]:
         out[path.stem] = {
             "description": fields["description"],
             "prompt": body,
-            "tools": [t.strip() for t in fields["tools"].split(",")],
+            "tools": split_tools(fields["tools"]),
             "model": SUBAGENT_MODEL,
         }
     return out
@@ -62,7 +69,14 @@ def load_agents() -> dict[str, dict[str, Any]]:
 
 def mcp_config() -> dict[str, Any]:
     """The two MCP servers (same `nss.mcp_server`; only the visible GPU differs)."""
-    base = {"command": sys.executable, "args": ["-m", "nss.mcp_server"], "cwd": str(ROOT)}
+    # Claude Code starts the server in ITS OWN working directory (the throwaway project) and does
+    # not honour a `cwd` key, so the server chdirs to the repo root itself: the tools read
+    # `data/` and `reports/` by relative path (the first attempt failed every call on exactly this).
+    boot = (
+        f"import os, runpy; os.chdir({str(ROOT)!r}); "
+        "runpy.run_module('nss.mcp_server', run_name='__main__')"
+    )
+    base = {"command": sys.executable, "args": ["-c", boot]}
     return {
         "mcpServers": {
             "nss_gpu": {**base, "env": {"HF_HUB_OFFLINE": "1"}},
@@ -77,6 +91,16 @@ def allowed_tools() -> list[str]:
     return sorted(tools)
 
 
+def stage_project(tag: str) -> Path:
+    """A throwaway project directory whose `.claude/agents/` holds the six agent files verbatim."""
+    project = LOG_DIR / f"llm_project_{tag}"
+    dest = project / ".claude" / "agents"
+    dest.mkdir(parents=True, exist_ok=True)
+    for path in AGENTS_DIR.glob("*.md"):
+        (dest / path.name).write_bytes(path.read_bytes())
+    return project
+
+
 def build_command(prompt: str, model: str, max_turns: int, mcp_path: Path) -> list[str]:
     """The `claude -p` command line (no shell; JSON goes in as one argument)."""
     return [
@@ -85,13 +109,11 @@ def build_command(prompt: str, model: str, max_turns: int, mcp_path: Path) -> li
         prompt,
         "--agent",
         "orchestrator",
-        "--agents",
-        json.dumps(load_agents()),
         "--mcp-config",
         str(mcp_path),
         "--strict-mcp-config",
         "--setting-sources",
-        "",  # no user/project settings, CLAUDE.md or hooks: the agents get their own role text only
+        "project",  # only the throwaway project (its .claude/agents); no user CLAUDE.md or hooks
         "--tools",
         "Agent",  # built-in tools: only the sub-agent launcher; data tools come from MCP alone
         "--allowedTools",
@@ -181,6 +203,7 @@ def run_stream(prompt: str, model: str, max_turns: int, tag: str) -> list[dict[s
     mcp_path.write_text(json.dumps(mcp_config(), indent=1), encoding="utf-8")
     stream_path = LOG_DIR / f"agent_llm_stream_{tag}.jsonl"
     cmd = build_command(prompt, model, max_turns, mcp_path)
+    project = stage_project(tag)
     t0 = time.time()
     with stream_path.open("w", encoding="utf-8") as fh:
         proc = subprocess.run(  # noqa: S603 -- fixed argv, no shell
@@ -189,7 +212,7 @@ def run_stream(prompt: str, model: str, max_turns: int, tag: str) -> list[dict[s
             stderr=subprocess.PIPE,
             text=True,
             env=clean_env(),
-            cwd=ROOT,
+            cwd=project,
             check=False,
         )
     print(f"claude exited {proc.returncode} after {time.time() - t0:.0f} s", flush=True)
