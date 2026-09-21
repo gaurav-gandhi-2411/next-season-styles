@@ -1,0 +1,6 @@
+judge,graded,better,equivalent,worse,other
+claude,59,18,35,3,3
+gemini,0,0,0,0,0
+gemini25_partial,12,9,0,3,0
+gemini37_partial,6,3,3,0,0
+qwen,59,29,22,8,0
