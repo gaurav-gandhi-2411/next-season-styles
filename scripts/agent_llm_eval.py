@@ -13,7 +13,6 @@ runs per case. The reference is `critic_rule.decide` + `agent_eval.route` (the J
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 from collections import Counter
@@ -128,13 +127,16 @@ def call_model(system: str, user: str) -> dict[str, Any]:
         text = env.get("result", "")
     except json.JSONDecodeError:
         return {"error": f"envelope: {proc.stdout[:200]!r} {proc.stderr[:200]!r}"}
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        return {"error": f"no json: {text[:200]!r}"}
+    start = text.find("{")
+    if start < 0:
+        return {"error": f"no json: {text[:200]!r}", "raw": text}
     try:
-        return {"reply": json.loads(m.group(0))}
+        # strict=False: free-text fields may contain raw newlines or tabs; raw_decode stops at the
+        # end of the first object, so trailing prose or a code fence is harmless
+        reply, _end = json.JSONDecoder(strict=False).raw_decode(text[start:])
     except json.JSONDecodeError:
-        return {"error": f"bad json: {text[:200]!r}"}
+        return {"error": f"bad json: {text[:200]!r}", "raw": text}
+    return {"reply": reply}
 
 
 def tasks() -> list[tuple[str, int, int, ae.Case]]:

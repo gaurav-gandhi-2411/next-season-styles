@@ -1,0 +1,21 @@
+case,arm,runs_parsed,better,equivalent,worse,other,note
+S01,A,3,0,3,0,0,scale down 0.25-0.30 in all three even without the evidence note
+S01,B,3,0,3,0,0,scale down to 0.25-0.30
+S02,A,3,0,0,3,0,kept the scale at 0.55 and changed only the seed ("scale is not the lever")
+S02,B,3,0,3,0,0,scale down to 0.25 (past 0.45 to the floor); says 0.55 is near the range where changes vanish
+S03,A,3,0,3,0,0,seed change with the scale kept; one run also calls it a narrow miss
+S03,B,3,0,3,0,0,seed change with the scale kept
+S04,A,3,0,0,0,3,named the conflict in one run but raised the scale to 0.45 in all three: defensible without the evidence and worse than keeping the scale
+S04,B,2,0,2,0,0,seed change with the scale kept (one further reply was unparseable JSON; its text also said keep 0.35 and change the seed)
+S05,A,3,3,0,0,0,FAILED + escalate to a human; cites the identical reading and the Florence-2 pass
+S05,B,3,3,0,0,0,same
+S06,A,3,0,3,0,0,INCONCLUSIVE; retry the scoring call once; names a resource error and asks for the GPU to be freed
+S06,B,3,0,3,0,0,same
+S07,A,3,0,3,0,0,INCONCLUSIVE; retries scoring once as the spec says (the ideal was to escalate at once); flags a missing path
+S07,B,3,0,3,0,0,same
+S08,A,3,3,0,0,0,PASS_PENDING_HUMAN and names the Florence-2 disagreement for the reviewer
+S08,B,3,3,0,0,0,same
+S09,A,3,3,0,0,0,REJECT and retry; flags the judge disagreement; but raised the scale to 0.45 for a Gate 2 only miss (no evidence supports it)
+S09,B,3,3,0,0,0,same, and the run with the evidence note says a seed change is pointless yet still raises the scale
+S10,A,3,0,3,0,0,PASS_PENDING_HUMAN with an explicit request to check the collar and a note that Gate 3 already false-passed; suggests a lower scale next time but did not act on it
+S10,B,3,0,3,0,0,same; names 0.25-0.30 as the next scale
