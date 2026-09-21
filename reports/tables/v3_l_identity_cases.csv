@@ -1,0 +1,130 @@
+name,group,style,fidelity_pass,k4_gate2,l3_gate2,colour_pass,colour_de,colour_threshold,mask_fallback,product_pass,product_retrieved,product_top1_style,verdict_pre_k4,verdict_k4,verdict_l3
+wrong_00,N4_wrong_style,Dress,false,false,false,false,20.89,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_01,N4_wrong_style,Dress,false,false,false,false,19.73,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_02,N4_wrong_style,Dress,false,false,false,false,18.18,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_03,N4_wrong_style,Dress,false,false,false,false,19.94,4.5,false,false,Sweater,Divided || Sweater || Knitwear || Orange || Solid,REJECT,REJECT,REJECT
+wrong_04,N4_wrong_style,Dress,false,false,false,false,19.19,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Khaki green || Melange,REJECT,REJECT,REJECT
+wrong_05,N4_wrong_style,Dress,false,false,false,false,18.83,4.5,false,false,Sweater,Divided || Sweater || Knitwear || Orange || Solid,REJECT,REJECT,REJECT
+wrong_06,N4_wrong_style,Dress,false,false,false,false,20.24,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+wrong_07,N4_wrong_style,Dress,false,false,false,false,19.7,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_08,N4_wrong_style,Dress,false,false,false,false,20.42,4.5,false,false,Sweater,Divided || Sweater || Knitwear || Orange || Solid,REJECT,REJECT,REJECT
+wrong_09,N4_wrong_style,Dress,false,false,false,false,19.3,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_10,N4_wrong_style,Dress,false,false,false,false,21.35,4.5,true,false,Sweater,Menswear || Sweater || Knitwear || White || Other structure,REJECT,REJECT,REJECT
+wrong_11,N4_wrong_style,Dress,false,false,false,false,19.46,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_12,N4_wrong_style,Dress,false,false,false,false,19.59,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_13,N4_wrong_style,Dress,false,false,false,false,20.04,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_14,N4_wrong_style,Dress,false,false,false,false,21.27,4.5,false,false,Sweater,Divided || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+wrong_15,N4_wrong_style,Dress,false,false,false,false,19.66,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_16,N4_wrong_style,Dress,false,false,false,false,20.18,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_17,N4_wrong_style,Dress,false,false,false,false,21.14,4.5,true,false,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+wrong_18,N4_wrong_style,Dress,false,false,false,false,21.18,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_19,N4_wrong_style,Dress,false,false,false,false,18.8,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+wrong_20,N4_wrong_style,Dress,false,false,false,false,19.97,4.5,true,false,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+wrong_21,N4_wrong_style,Dress,false,false,false,false,18.88,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_22,N4_wrong_style,Dress,false,false,false,false,18.87,4.5,false,false,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+wrong_23,N4_wrong_style,Dress,false,false,false,false,18.67,4.5,false,false,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid,REJECT,REJECT,REJECT
+wrong_24,N4_wrong_style,Top,false,false,false,false,41.15,1.06,false,false,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe,REJECT,REJECT,REJECT
+wrong_25,N4_wrong_style,Top,false,false,false,false,47.78,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_26,N4_wrong_style,Top,false,false,false,false,46.28,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_27,N4_wrong_style,Top,false,false,false,false,27.01,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_28,N4_wrong_style,Top,false,false,false,false,44.26,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Blue || Solid,REJECT,REJECT,REJECT
+wrong_29,N4_wrong_style,Top,false,false,false,false,44.94,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Orange || Solid,REJECT,REJECT,REJECT
+wrong_30,N4_wrong_style,Top,false,false,false,false,47.74,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_31,N4_wrong_style,Top,true,false,false,false,20.16,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Lilac Purple || Solid,REJECT,REJECT,REJECT
+wrong_32,N4_wrong_style,Top,false,false,false,false,47.64,1.06,false,false,Dress,Divided || Dress || Unknown || Red || Solid,REJECT,REJECT,REJECT
+wrong_33,N4_wrong_style,Top,false,false,false,false,37.87,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Orange || Solid,REJECT,REJECT,REJECT
+wrong_34,N4_wrong_style,Top,false,false,false,false,49.37,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Orange || Solid,REJECT,REJECT,REJECT
+wrong_35,N4_wrong_style,Top,false,false,false,false,46.57,1.06,false,false,Dress,Ladieswear || Dress || Unknown || Blue || Solid,REJECT,REJECT,REJECT
+wrong_36,N4_wrong_style,Top,false,false,false,false,46.21,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_37,N4_wrong_style,Top,false,false,false,false,36.4,1.06,false,false,Dress,Ladieswear || Dress || Jersey Fancy || Red || All over pattern,REJECT,REJECT,REJECT
+wrong_38,N4_wrong_style,Top,false,false,false,false,41.53,1.06,false,false,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe,REJECT,REJECT,REJECT
+wrong_39,N4_wrong_style,Top,false,false,false,false,50.47,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_40,N4_wrong_style,Top,false,false,false,false,52.01,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_41,N4_wrong_style,Top,false,false,false,false,21.94,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,REJECT,REJECT,REJECT
+wrong_42,N4_wrong_style,Top,false,false,false,false,49.86,1.06,false,false,Dress,Ladieswear || Dress || Unknown || Blue || Solid,REJECT,REJECT,REJECT
+wrong_43,N4_wrong_style,Top,false,false,false,false,47.23,1.06,false,false,Dress,Ladieswear || Dress || Dresses Ladies || Blue || Solid,REJECT,REJECT,REJECT
+wrong_44,N4_wrong_style,Top,false,false,false,false,48.49,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Red || Solid,REJECT,REJECT,REJECT
+wrong_45,N4_wrong_style,Top,false,false,false,false,35.94,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Blue || Stripe,REJECT,REJECT,REJECT
+wrong_46,N4_wrong_style,Top,false,false,false,false,44.44,1.06,false,false,Dress,Ladieswear || Dress || Blouses || Orange || Solid,REJECT,REJECT,REJECT
+wrong_47,N4_wrong_style,Top,false,false,false,false,44.22,1.06,false,false,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe,REJECT,REJECT,REJECT
+wrong_48,N4_wrong_style,Bikini top,false,false,false,true,3.62,16.44,true,false,Top,Divided || Top || Jersey Fancy || White || Solid,REJECT,REJECT,REJECT
+wrong_49,N4_wrong_style,Bikini top,false,false,false,true,2.75,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_50,N4_wrong_style,Bikini top,false,false,false,true,3.17,16.44,true,false,Top,Baby/Children || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+wrong_51,N4_wrong_style,Bikini top,false,false,false,true,3.2,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_52,N4_wrong_style,Bikini top,false,false,false,true,3.01,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_53,N4_wrong_style,Bikini top,false,false,false,true,2.63,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_54,N4_wrong_style,Bikini top,false,false,false,true,3.17,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_55,N4_wrong_style,Bikini top,false,false,false,true,3.08,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_56,N4_wrong_style,Bikini top,false,false,false,true,2.67,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_57,N4_wrong_style,Bikini top,false,false,false,true,3.19,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_58,N4_wrong_style,Bikini top,false,false,false,true,3.78,16.44,true,false,Top,Ladieswear || Top || Blouses || White || Solid,REJECT,REJECT,REJECT
+wrong_59,N4_wrong_style,Bikini top,false,false,false,true,2.54,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_60,N4_wrong_style,Bikini top,false,false,false,true,2.8,16.44,true,false,Top,Baby/Children || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+wrong_61,N4_wrong_style,Bikini top,false,false,false,true,3.18,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_62,N4_wrong_style,Bikini top,false,false,false,true,2.39,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_63,N4_wrong_style,Bikini top,false,false,false,true,3.47,16.44,true,false,Top,Baby/Children || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+wrong_64,N4_wrong_style,Bikini top,false,false,false,true,2.87,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_65,N4_wrong_style,Bikini top,false,false,false,true,3.18,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_66,N4_wrong_style,Bikini top,false,false,false,true,3.55,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_67,N4_wrong_style,Bikini top,false,false,false,true,3.14,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_68,N4_wrong_style,Bikini top,false,false,false,true,3.01,16.44,true,false,Top,Baby/Children || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+wrong_69,N4_wrong_style,Bikini top,false,false,false,true,2.69,16.44,true,false,Top,Ladieswear || Top || Blouses || White || Solid,REJECT,REJECT,REJECT
+wrong_70,N4_wrong_style,Bikini top,false,false,false,true,1.87,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_71,N4_wrong_style,Bikini top,false,false,false,true,2.63,16.44,true,false,Top,Ladieswear || Top || Unknown || White || Solid,REJECT,REJECT,REJECT
+wrong_72,N4_wrong_style,Sweater,false,false,false,false,3.73,3.44,true,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_73,N4_wrong_style,Sweater,false,false,false,false,6.02,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Red || All over pattern,REJECT,REJECT,REJECT
+wrong_74,N4_wrong_style,Sweater,false,false,false,false,4.06,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_75,N4_wrong_style,Sweater,false,false,false,false,6.17,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Red || Lace,REJECT,REJECT,REJECT
+wrong_76,N4_wrong_style,Sweater,false,false,false,false,4.43,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern,REJECT,REJECT,REJECT
+wrong_77,N4_wrong_style,Sweater,false,false,false,false,10.75,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern,REJECT,REJECT,REJECT
+wrong_78,N4_wrong_style,Sweater,false,false,false,false,7.75,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_79,N4_wrong_style,Sweater,false,false,false,false,6.54,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_80,N4_wrong_style,Sweater,false,false,false,false,6.63,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_81,N4_wrong_style,Sweater,false,false,false,false,19.42,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Green || All over pattern,REJECT,REJECT,REJECT
+wrong_82,N4_wrong_style,Sweater,false,false,false,false,5.96,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || White || All over pattern,REJECT,REJECT,REJECT
+wrong_83,N4_wrong_style,Sweater,false,false,false,false,14.35,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Blue || Stripe,REJECT,REJECT,REJECT
+wrong_84,N4_wrong_style,Sweater,false,false,false,false,15.5,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Red || All over pattern,REJECT,REJECT,REJECT
+wrong_85,N4_wrong_style,Sweater,false,false,false,true,3.1,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern,REJECT,REJECT,REJECT
+wrong_86,N4_wrong_style,Sweater,false,false,false,true,3.19,3.44,true,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_87,N4_wrong_style,Sweater,false,false,false,false,3.77,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || White || All over pattern,REJECT,REJECT,REJECT
+wrong_88,N4_wrong_style,Sweater,false,false,false,false,6.59,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || White || All over pattern,REJECT,REJECT,REJECT
+wrong_89,N4_wrong_style,Sweater,false,false,false,false,5.27,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_90,N4_wrong_style,Sweater,false,false,false,false,3.92,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_91,N4_wrong_style,Sweater,false,false,false,false,7.42,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern,REJECT,REJECT,REJECT
+wrong_92,N4_wrong_style,Sweater,false,false,false,false,6.31,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_93,N4_wrong_style,Sweater,false,false,false,false,4.69,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+wrong_94,N4_wrong_style,Sweater,false,false,false,false,5.48,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Green || All over pattern,REJECT,REJECT,REJECT
+wrong_95,N4_wrong_style,Sweater,false,false,false,false,5.75,3.44,false,false,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+underwear_seed42,N1_malformed,Underwear bottom,true,false,false,true,4.42,23.72,false,false,Swimwear bottom,Ladieswear || Swimwear bottom || Swimwear || Black || Solid,REJECT,REJECT,REJECT
+underwear_seed44,N1_malformed,Underwear bottom,false,false,false,true,3.33,23.72,false,false,Swimwear bottom,Ladieswear || Swimwear bottom || Swimwear || Khaki green || Solid,REJECT,REJECT,REJECT
+underwear_seed45,N1_malformed,Underwear bottom,true,false,false,true,3.84,23.72,false,false,Swimwear bottom,Ladieswear || Swimwear bottom || Swimwear || Red || Solid,REJECT,REJECT,REJECT
+swatch_concat-0.15_s43,N2_swatch,Sweater,false,false,false,false,4.25,3.44,true,true,Sweater,Divided || Sweater || Knitwear || Pink || Melange,REJECT,REJECT,REJECT
+swatch_concat-style-only-1.0_s42,N2_swatch,Sweater,false,false,false,true,3.21,3.44,true,false,Skirt,Ladieswear || Skirt || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+clone_Sweater,N3_clone,Sweater,true,true,true,true,0.0,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+clone_Dress,N3_clone,Dress,true,true,true,true,0.0,4.5,false,true,Dress,Ladieswear || Dress || Blouses || Orange || Solid,REJECT,REJECT,REJECT
+clone_Top,N3_clone,Top,true,false,true,true,0.0,1.06,true,true,Top,Ladieswear || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+clone_Bikini top,N3_clone,Bikini top,false,false,false,true,0.0,16.44,false,true,Bikini top,Divided || Bikini top || Swimwear || Black || Solid,REJECT,REJECT,REJECT
+submitted_Sweater,P1_approved,Sweater,true,true,true,true,2.75,3.44,false,true,Sweater,Divided || Sweater || Knitwear || Orange || Solid,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+submitted_Dress,P1_approved,Dress,true,true,true,true,1.8,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+submitted_Top,P1_approved,Top,true,false,true,true,0.91,1.06,true,true,Top,Divided || Top || Jersey Fancy || White || Solid,REJECT,REJECT,REJECT
+submitted_Bikini top,P1_approved,Bikini top,false,false,false,true,7.19,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,REJECT,REJECT,REJECT
+h3_underwear_seed43,P2_coherent,Underwear bottom,true,false,false,true,3.57,23.72,false,false,Swimwear bottom,Ladieswear || Swimwear bottom || Swimwear || Black || Solid,INCONCLUSIVE,REJECT,REJECT
+clean_sweater_concat-0.25-nat_s43,P2_coherent,Sweater,false,false,false,false,5.7,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Khaki green || Melange,REJECT,REJECT,REJECT
+clean_sweater_concat-0.35-nat_s43,P2_coherent,Sweater,false,false,false,true,3.0,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange,REJECT,REJECT,REJECT
+clean_sweater_single-0.35-nat_s43,P2_coherent,Sweater,false,false,false,false,3.79,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+m3_sweater,P2_coherent,Sweater,false,false,false,true,3.38,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+m3_dress,P2_coherent,Dress,true,false,false,false,5.38,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Pink || Solid,REJECT,REJECT,REJECT
+m3_coral_dress_attempt1,H1_wrong_attribute,Dress,true,false,false,false,5.52,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Pink || Solid,REJECT,REJECT,REJECT
+m3_coral_dress_attempt2,H1_wrong_attribute,Dress,true,false,false,false,5.38,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Pink || Solid,REJECT,REJECT,REJECT
+H1_wrong_attribute_Sweater,H1_wrong_attribute,Sweater,false,false,false,false,4.8,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+H2_change_absent_Sweater,H2_change_absent,Sweater,false,false,false,false,3.45,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid,REJECT,REJECT,REJECT
+H3_averaged_garment_Sweater,H3_averaged_garment,Sweater,false,false,false,true,0.46,3.44,false,true,Sweater,"Ladieswear || Sweater || Under-, Nightwear || Orange || Solid",REJECT,REJECT,REJECT
+H1_wrong_attribute_Dress,H1_wrong_attribute,Dress,true,false,false,false,54.18,4.5,false,true,Dress,Ladieswear || Dress || Blouses || Orange || Solid,PASS_PENDING_HUMAN,REJECT,REJECT
+H2_change_absent_Dress,H2_change_absent,Dress,true,true,false,false,5.95,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe,REJECT,REJECT,REJECT
+H3_averaged_garment_Dress,H3_averaged_garment,Dress,true,true,true,true,2.59,4.5,false,true,Dress,Ladieswear || Dress || Special Offers || Red || Solid,REJECT,REJECT,REJECT
+H1_wrong_attribute_Top,H1_wrong_attribute,Top,true,true,true,true,0.87,1.06,true,true,Top,Divided || Top || Jersey Fancy || White || Solid,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+H2_change_absent_Top,H2_change_absent,Top,true,true,true,true,0.56,1.06,true,true,Top,Menswear || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+H3_averaged_garment_Top,H3_averaged_garment,Top,true,true,true,true,0.64,1.06,true,true,Top,Ladieswear || Top || Jersey Basic || White || Solid,REJECT,REJECT,REJECT
+H1_wrong_attribute_Bikini top,H1_wrong_attribute,Bikini top,false,false,false,true,4.12,16.44,true,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || Solid,REJECT,REJECT,REJECT
+H2_change_absent_Bikini top,H2_change_absent,Bikini top,false,false,false,true,2.68,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Green || All over pattern,REJECT,REJECT,REJECT
+H3_averaged_garment_Bikini top,H3_averaged_garment,Bikini top,false,false,false,true,9.92,16.44,false,false,Bra,"Ladieswear || Bra || Under-, Nightwear || Grey || Contrast",REJECT,REJECT,REJECT

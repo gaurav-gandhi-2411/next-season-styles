@@ -169,8 +169,11 @@ def _local_panel(
             "threshold": thresholds[b],
             "pass": row[f"{b}_gate2_pass"],
             "role": "gating" if b in concept_scoring.GATING_JUDGES else "advisory",
-            "product_type_ok": row[f"{b}_product_ok"],
             "colour_ok": row[f"{b}_colour_ok"],
+            "colour_delta_e": row[f"{b}_colour_delta_e"],
+            "colour_threshold_p90": row[f"{b}_colour_threshold"],
+            "product_type_ok": row[f"{b}_product_ok"],
+            "product_type_retrieved": row[f"{b}_product_retrieved"],
             "extraction": row[f"{b}_extraction"],
         }
         for b in backends

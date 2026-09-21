@@ -135,7 +135,7 @@ def candidates() -> pl.DataFrame:
 
 
 def extras() -> pl.DataFrame:
-    """The four extra named cases (the K4 false rejects and the two submitted concepts, n9 files)."""
+    """Four extra named cases: the two K4 false rejects and the submitted dress and sweater (n9)."""
     rows = []
     for name, (style, path) in EXTRA_REQUIRED.items():
         rows.append({"name": name, "style": style.split(" || ")[1], **_measure(style, path)})

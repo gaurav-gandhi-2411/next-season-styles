@@ -843,12 +843,25 @@ copy and coherence questions. No verdict in those 129 cases changes. `qc_gates.s
 `role: advisory`, `verdict_from_gates` names a failed Gate 1 without acting on it, and
 `agents/critic.md` says the same.
 
-## CURRENT (K4): Gate 2 has hard identity constraints
+## CURRENT (L3): Gate 2 has measured identity constraints (supersedes K4)
 
-Gate 2 now passes iff the gating judge's averaged fidelity clears its calibrated threshold (scorer
-and threshold unchanged) **and** its product-type reading and colour reading each match the style's
-value under `nss.generate.identity_match` (a justified synonym list; pre-registered in
-`reports/v3/PREREGISTRATION.md`, section K4). It is an AND on the old rule, so it can only turn a
-pass into a fail. Reason, measured: an emerald-green dress passed every gate because two of three
-attributes right cleared 0.384. Pattern stays in the average only. Effect on the recorded cases is
-in `reports/tables/v3_gate2_identity_rescore*.csv`.
+Gate 2 passes iff (a) the gating judge's averaged fidelity clears its calibrated threshold (scorer and
+threshold unchanged), **and** (b) the garment colour, MEASURED from pixels, is within the style's real
+spread, **and** (c) the retrieval product type equals the style's. It is an AND on the old rule, so it can
+only tighten it.
+
+- **Colour (`nss.generate.colour_check`).** Border-sampled background subtraction (no `rembg`), dominant
+  Lab colour (k-means, k=3, seed 42), minimum CIEDE2000 to the dominant colours of the style's real
+  reference articles, threshold = the p90 of the real nearest-sibling distances (calibrated like Gate 1b).
+  A white garment on a near-white background falls back to the central 40% of the image (reported).
+  Nested leave-one-out on the real references: 0.884 pass rate over the four final styles.
+- **Product type (`nss.generate.product_retrieval`).** Top-1 style of CLIP+DINOv2 retrieval over 3,003
+  styles; exact H&M string match, no synonym list. Retrieval read product type at 82.5% on the 40 real
+  photos against 65% for free-text SmolVLM.
+- **Why not K4.** K4 required the VLM's own product and colour readings to match; the judge read two red
+  dresses as orange and the constraint rejected them. A hard constraint amplifies its input's errors, so
+  the inputs are now measured or retrieved, not read. Pattern stays averaged; Gate 3 is the only VLM
+  yes/no question. `identity_match` (K4) is kept only for its evidence.
+
+Effect on the recorded cases: `reports/tables/v3_l_identity_*.csv`.
+

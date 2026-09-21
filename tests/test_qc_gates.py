@@ -88,6 +88,16 @@ def test_judge_rows_uses_row_changes_without_a_sidecar(tmp_path: Path) -> None:
             return_value={"answers": [True, False], "pass": False},
         ) as g3,
         patch.object(concept_scoring.gate3, "integrity_local", return_value=(True, "yes")),
+        patch.object(
+            concept_scoring.colour_check,
+            "check",
+            return_value={"pass": True, "nearest_delta_e": 1.0, "threshold": 4.5},
+        ),
+        patch.object(
+            concept_scoring.product_retrieval,
+            "check",
+            return_value={"pass": True, "retrieved": "Dress"},
+        ),
     ):
         concept_scoring.judge_rows("smolvlm", [row], {"smolvlm": 0.384})
     g3.assert_called_once_with(image, ["a bow", "puff sleeves"])
@@ -132,3 +142,49 @@ def test_failed_advisory_gate1_is_named_but_does_not_reject() -> None:
     assert automated is True and "advisory gate1 failed" in verdict
     verdict, automated = qc_gates.verdict_from_gates(_gates(gate1=False, gate3=False))
     assert automated is False and verdict.startswith("REJECT: failed gate3")
+
+
+def _judge_with(colour_ok: bool, product_ok: bool, tmp_path: Path) -> dict[str, Any]:
+    image = tmp_path / "c.png"
+    image.write_bytes(b"x")
+    row: dict[str, Any] = {
+        "image_path": str(image),
+        "style_id": final_registry.DRESS,
+        "changes": ["a bow"],
+    }
+    with (
+        patch.object(concept_scoring.local_vlm, "load"),
+        patch.object(concept_scoring.local_vlm, "unload"),
+        patch.object(
+            concept_scoring.local_vlm,
+            "extract_attributes_local",
+            return_value={
+                "product_type": "Dress.",
+                "colour_family": "Red.",
+                "graphical_treatment": "Solid.",
+            },
+        ),
+        patch.object(
+            concept_scoring.gate3, "gate3_local", return_value={"answers": [True], "pass": True}
+        ),
+        patch.object(concept_scoring.gate3, "integrity_local", return_value=(True, "yes")),
+        patch.object(
+            concept_scoring.colour_check,
+            "check",
+            return_value={"pass": colour_ok, "nearest_delta_e": 9.0, "threshold": 4.5},
+        ),
+        patch.object(
+            concept_scoring.product_retrieval,
+            "check",
+            return_value={"pass": product_ok, "retrieved": "Top"},
+        ),
+    ):
+        concept_scoring.judge_rows("smolvlm", [row], {"smolvlm": 0.384})
+    return row
+
+
+def test_gate2_needs_fidelity_and_measured_colour_and_retrieved_product(tmp_path: Path) -> None:
+    """L3: a fidelity pass alone is not enough; either identity check failing fails Gate 2."""
+    assert _judge_with(True, True, tmp_path)["smolvlm_gate2_pass"] is True
+    assert _judge_with(False, True, tmp_path)["smolvlm_gate2_pass"] is False
+    assert _judge_with(True, False, tmp_path)["smolvlm_gate2_pass"] is False

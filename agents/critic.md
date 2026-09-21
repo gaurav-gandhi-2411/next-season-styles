@@ -29,12 +29,15 @@ check. Every gate below except the human check runs inside one `score_concept` c
    Florence-2 is ADVISORY** (reported, never gating; its agreement with the API judges was too low
    to carry a verdict). Local decoding is greedy, so one reading per judge IS the reading; there is
    no median-of-3 (that was the retired Groq path, whose single reading varied by +/-0.21).
-   **Identity constraints (K4):** the gating judge's product-type reading and colour reading must
-   each match the style's value (synonyms allowed, `nss.generate.identity_match`) IN ADDITION to
-   the averaged fidelity clearing its threshold: a wrong colour or a different garment is a
-   different product, not a one-third penalty. Pattern is not constrained (judges misread melange
-   and "All over pattern"; it stays in the average). The result carries `product_type_ok` and
-   `colour_ok` per judge.
+   **Identity constraints (L3, replacing K4):** Gate 2 also requires, IN ADDITION to the averaged
+   fidelity clearing its threshold, (a) a MEASURED garment colour: the dominant colour of the masked
+   garment, in CIELAB, within the p90 of the real nearest-sibling colour distances of that style
+   (`nss.generate.colour_check`; the VLM's colour reading is no longer a constraint, it misread red
+   as orange), and (b) the product type of the image's top-1 retrieval match (`product_retrieval`)
+   equal to the style's, as an exact catalogue string. Pattern is not constrained (judges misread
+   melange and "All over pattern"; it stays in the average). Gate 3 stays the only yes/no question
+   put to the VLM. The result carries `colour_ok`, `colour_delta_e`, `product_type_ok` and
+   `product_type_retrieved` for the gating judge.
 5. **Gate 3, briefed changes visible**: one yes/no question per briefed change to the gating local
    judge ("does this garment have X?"); a strict majority must be present. Gate 3 supports the
    human check and does not replace it (its specificity against human labels was 0.58).

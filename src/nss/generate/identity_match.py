@@ -1,4 +1,9 @@
-"""K4: product type and colour are HARD identity constraints for Gate 2.
+"""K4 (SUPERSEDED by L3, kept for its evidence): VLM-reading identity constraints, Gate 2.
+
+No longer used by the gates: `colour_check` (measured colour) and `product_retrieval` (retrieval
+product type) replaced it, because reading red as orange made a hard constraint reject red dresses.
+
+Original K4 text: product type and colour are HARD identity constraints for Gate 2.
 
 For a style keyed on colour and product type, a wrong colour or a different garment is a different
 product, not a one-third penalty in an average. Gate 2 keeps its averaged fidelity and per-judge

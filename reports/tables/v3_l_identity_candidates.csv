@@ -1,0 +1,55 @@
+style,image,scale,seed,others_pass,fidelity_pass,all_pre_k4,all_k4,all_l3,colour_pass,colour_de,colour_threshold,mask_fallback,product_pass,product_retrieved,product_top1_style
+Dress,s0.15_seed42.png,0.15,42,true,true,true,false,false,false,12.33,4.5,false,true,Dress,Ladieswear || Dress || Blouses || Orange || Solid
+Dress,s0.15_seed43.png,0.15,43,false,true,false,false,false,true,2.37,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Dress,s0.25_seed42.png,0.25,42,false,false,false,false,false,false,4.92,4.5,false,true,Dress,Ladieswear || Dress || Blouses || Blue || Stripe
+Dress,s0.25_seed43.png,0.25,43,false,true,false,false,false,true,3.0,4.5,false,true,Dress,Divided || Dress || Unknown || Red || Solid
+Dress,s0.35_seed42.png,0.35,42,false,false,false,false,false,true,1.81,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe
+Dress,s0.35_seed43.png,0.35,43,true,true,true,true,true,true,1.93,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Dress,s0.35_seed44.png,0.35,44,true,true,true,true,true,true,1.8,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Dress,s0.35_seed45.png,0.35,45,true,true,true,false,false,false,5.13,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Dress,s0.35_seed46.png,0.35,46,false,true,false,false,false,true,2.14,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Blue || Solid
+Dress,s0.35_seed47.png,0.35,47,true,true,true,false,true,true,3.44,4.5,false,true,Dress,Ladieswear || Dress || Blouses || Orange || Solid
+Dress,s0.35_seed48.png,0.35,48,false,true,false,false,false,true,1.62,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Dress,s0.35_seed49.png,0.35,49,false,true,false,false,false,false,23.49,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Lilac Purple || Solid
+Dress,s0.45_seed42.png,0.45,42,false,false,false,false,false,false,4.91,4.5,false,true,Dress,Baby/Children || Dress || Dresses/Skirts girls || Blue || Stripe
+Dress,s0.45_seed43.png,0.45,43,true,true,true,false,true,true,1.67,4.5,false,true,Dress,Ladieswear || Dress || Dresses Ladies || Red || Solid
+Bikini top,s0.35_seed42.png,0.35,42,false,false,false,false,false,true,4.55,16.44,true,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern
+Bikini top,s0.35_seed43.png,0.35,43,false,false,false,false,false,true,7.56,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Red || All over pattern
+Bikini top,s0.35_seed44.png,0.35,44,true,false,false,false,false,true,5.35,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern
+Bikini top,s0.35_seed45.png,0.35,45,false,false,false,false,false,true,9.52,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Red || Lace
+Bikini top,s0.35_seed46.png,0.35,46,true,false,false,false,false,true,8.44,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern
+Bikini top,s0.35_seed47.png,0.35,47,true,false,false,false,false,true,6.35,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Black || All over pattern
+Bikini top,s0.35_seed48.png,0.35,48,true,false,false,false,false,true,7.19,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern
+Bikini top,s0.35_seed49.png,0.35,49,false,false,false,false,false,true,11.21,16.44,false,true,Bikini top,Ladieswear || Bikini top || Swimwear || Orange || All over pattern
+Top,s0.15_seed42.png,0.15,42,false,true,false,false,false,false,1.29,1.06,false,false,Blouse,Baby/Children || Blouse || Dresses/Skirts girls || White || Solid
+Top,s0.15_seed43.png,0.15,43,false,true,false,false,false,false,22.09,1.06,false,false,Trousers,Ladieswear || Trousers || Trousers || Orange || Solid
+Top,s0.25_seed42.png,0.25,42,false,true,false,false,false,true,1.01,1.06,false,false,Blouse,Baby/Children || Blouse || Dresses/Skirts girls || White || Solid
+Top,s0.25_seed43.png,0.25,43,false,true,false,false,false,false,3.53,1.06,false,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed42.png,0.35,42,false,true,false,false,false,true,0.91,1.06,true,true,Top,Divided || Top || Jersey Fancy || White || Solid
+Top,s0.35_seed43.png,0.35,43,false,true,false,false,false,true,0.75,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed44.png,0.35,44,false,true,false,false,false,true,0.69,1.06,true,true,Top,Baby/Children || Top || Jersey Basic || White || Solid
+Top,s0.35_seed45.png,0.35,45,false,true,false,false,false,true,0.89,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed46.png,0.35,46,false,true,false,false,false,true,0.77,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed47.png,0.35,47,true,true,true,true,true,true,0.98,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed48.png,0.35,48,true,true,true,true,true,true,0.57,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.35_seed49.png,0.35,49,false,true,false,false,false,true,0.69,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.45_seed42.png,0.45,42,false,false,false,false,false,true,0.95,1.06,true,true,Top,Baby/Children || Top || Jersey Basic || White || Solid
+Top,s0.45_seed43.png,0.45,43,false,true,false,false,false,true,0.78,1.06,true,true,Top,Ladieswear || Top || Unknown || White || Solid
+Top,s0.60_seed42.png,0.6,42,false,true,false,false,false,true,0.72,1.06,true,true,Top,Ladieswear || Top || Jersey Basic || White || Solid
+Top,s0.60_seed43.png,0.6,43,false,true,false,false,false,true,0.88,1.06,true,true,Top,Baby/Children || Top || Jersey Basic || White || Solid
+Top,s0.70_seed42.png,0.7,42,false,true,false,false,false,true,0.73,1.06,true,true,Top,Ladieswear || Top || Jersey Basic || White || Solid
+Top,s0.70_seed43.png,0.7,43,false,true,false,false,false,true,0.53,1.06,true,true,Top,Baby/Children || Top || Jersey Basic || White || Solid
+Sweater,s0.15_seed42.png,0.15,42,true,false,false,false,false,false,40.28,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Khaki green || Melange
+Sweater,s0.15_seed43.png,0.15,43,true,false,false,false,false,false,36.76,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid
+Sweater,s0.25_seed42.png,0.25,42,true,false,false,false,false,false,3.54,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Khaki green || Melange
+Sweater,s0.25_seed43.png,0.25,43,true,false,false,false,false,false,3.58,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid
+Sweater,s0.35_seed42.png,0.35,42,true,false,false,false,false,true,1.16,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid
+Sweater,s0.35_seed43.png,0.35,43,true,false,false,false,false,true,2.51,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid
+Sweater,s0.35_seed44.png,0.35,44,true,false,false,false,false,true,3.01,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Brown || Solid
+Sweater,s0.35_seed45.png,0.35,45,true,true,true,true,true,true,2.75,3.44,false,true,Sweater,Divided || Sweater || Knitwear || Orange || Solid
+Sweater,s0.35_seed46.png,0.35,46,true,false,false,false,false,false,4.06,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Khaki green || Melange
+Sweater,s0.35_seed47.png,0.35,47,true,false,false,false,false,true,3.11,3.44,false,true,Sweater,Divided || Sweater || Knitwear || Orange || Solid
+Sweater,s0.35_seed48.png,0.35,48,true,false,false,false,false,true,2.71,3.44,false,true,Sweater,Ladieswear || Sweater || Knitwear || Beige || Melange
+Sweater,s0.35_seed49.png,0.35,49,true,false,false,false,false,true,3.03,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid
+Sweater,s0.45_seed42.png,0.45,42,false,false,false,false,false,false,4.68,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid
+Sweater,s0.45_seed43.png,0.45,43,true,false,false,false,false,false,4.45,3.44,false,true,Sweater,Menswear || Sweater || Knitwear || Beige || Solid

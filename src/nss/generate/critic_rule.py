@@ -6,7 +6,10 @@ Before J3 three places answered "a gate failed and another gate was not run" thr
 
 The rule, in order:
 
-0. Gate 1 is advisory (K5) and never enters the decision; everything below is about the
+0. Gate 2 (L3) is the unchanged averaged SmolVLM fidelity AND a measured garment colour within
+   the style's real p90 (`colour_check`) AND the retrieval product type equal to the style's
+   (`product_retrieval`); to this rule it is one gate. Gate 1 is advisory (K5) and never enters the
+   decision; everything below is about the
    gating gates (Gate 1b, integrity, Gate 2, Gate 3).
 1. A gate is *unmeasured* if its `pass` is `None` / missing, or it is Gate 1b and its exact-clone
    control did not fail as required (the gate is UNVALIDATED and "cannot pass anything", so its own

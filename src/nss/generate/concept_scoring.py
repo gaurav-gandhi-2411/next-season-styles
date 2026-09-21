@@ -33,15 +33,16 @@ import polars as pl
 
 from nss.generate import (
     clip_scoring,
+    colour_check,
     concept_generation,
     dino_scoring,
     final_concepts,
     final_registry,
     gate3,
-    identity_match,
     integrity_global,
     local_judge_calibration,
     local_vlm,
+    product_retrieval,
 )
 from nss.generate.concept_qc_pipeline import parse_style_attributes
 from nss.generate.fidelity import applicable_dimensions
@@ -136,26 +137,24 @@ def judge_rows(backend: str, rows: list[dict[str, Any]], thresholds: dict[str, f
         # control could not be run (Kaggle 429). See reports/v3/TRACK1e_pattern.md.
         fid = SKILL.mean_score(scores)
         row[f"{backend}_fidelity"] = fid
-        # K4: for the GATING judge, product type and colour are hard identity constraints on top of
-        # the unchanged averaged fidelity (an AND: it can only tighten Gate 2). Advisory judges keep
-        # the plain threshold.
+        # L3: for the GATING judge, Gate 2 = the unchanged averaged fidelity AND a MEASURED colour
+        # (`colour_check`) AND the retrieval product type (`product_retrieval`). The VLM's own
+        # colour and product readings stay in the average but no longer decide anything alone
+        # (K4's VLM-reading constraints misread red as orange). An AND: it can only tighten Gate 2.
         gating = backend in GATING_JUDGES
-        row[f"{backend}_product_ok"] = (
-            identity_match.product_type_ok(
-                extraction.get("product_type", ""), truth["product_type"]
-            )
-            if gating
-            else True
-        )
-        row[f"{backend}_colour_ok"] = (
-            identity_match.colour_ok(extraction.get("colour_family", ""), truth["colour_family"])
-            if gating
-            else True
-        )
+        if gating:
+            colour = colour_check.check(path, row["style_id"])
+            product = product_retrieval.check(path, row["style_id"])
+        else:
+            colour = {"pass": True, "nearest_delta_e": None, "threshold": None}
+            product = {"pass": True, "retrieved": None}
+        row[f"{backend}_colour_ok"] = colour["pass"]
+        row[f"{backend}_colour_delta_e"] = colour["nearest_delta_e"]
+        row[f"{backend}_colour_threshold"] = colour["threshold"]
+        row[f"{backend}_product_ok"] = product["pass"]
+        row[f"{backend}_product_retrieved"] = product["retrieved"]
         row[f"{backend}_gate2_pass"] = bool(
-            fid >= thresholds[backend]
-            and row[f"{backend}_product_ok"]
-            and row[f"{backend}_colour_ok"]
+            fid >= thresholds[backend] and colour["pass"] and product["pass"]
         )
         row[f"{backend}_extraction"] = json.dumps(extraction)
         if backend != "florence2" and changes:  # a captioner cannot answer yes/no questions
