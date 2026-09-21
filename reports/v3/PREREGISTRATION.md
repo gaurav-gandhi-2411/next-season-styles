@@ -110,3 +110,23 @@ If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging h
 - **Effective sample size, two estimators, both reported.** `ESS_ac = n / (1 + 2 * sum_{k=1..L} (1 - k/(L+1)) * rho_k)` with `L = 12` (Bartlett-weighted autocorrelation of the paired difference series; floored at 1, capped at n) and `ESS_boot = n * Var_iid(mean) / Var_block(mean)`, the iid variance of the mean over the block-bootstrap variance of the mean. The raw origin count is never presented as the sample size.
 - **Floor and comparators:** the random-permutation floor and all four baselines are in the same table; the question concerns seasonal naive only.
 - **Reporting rule:** the result is stated as "the interval does / does not exclude zero at weekly spacing". If it does, it is presented as "the same model with more power", never as an improved model.
+
+### 2c. Selective prediction: does the model's own uncertainty identify its reliable picks?
+
+**Uncertainty measure (fixed).** Two extra LightGBM models per training set, identical to the point model (same features, locked `FINAL_MODEL_CONFIG`, deterministic settings, seed 42, same embargoed training origins) except for the objective: `quantile` with alpha 0.1 and 0.9. A style's uncertainty is the **spread** `w = pred_q90 - pred_q10` on the log1p scale. The point model is unchanged, so the picks are exactly the reported ones.
+
+**Picks and hits.** At each origin the picks are the point model's top 3 among the evaluated styles (the same 3 that Hit@3-in-top20 counts). A pick is a hit iff it is in the realised top 20 of that origin's full evaluation set.
+
+**Confident subset (threshold fixed before any spread was computed).** A pick is *confident* iff its spread `w` is at or below the **median spread of all evaluated styles at that origin**. The model abstains on the other picks. No other threshold enters the decision.
+
+**Reported.** Hit rate of confident picks versus all picks (pooled over origins), and the coverage fraction (confident picks / all picks).
+
+**Evaluation sets.** Primary: the 12 shared embargoed test origins, block bootstrap block length 4. Secondary: the 48 weekly origins of 2b (same 12 models), block length 13, with the effective sample size reported. The primary is the decision.
+
+**Interval.** Moving-block bootstrap over origins (2,000 resamples, seed 42) of the statistic `hit_rate(confident) - hit_rate(all)`, resampling whole origins so that all 3 picks of an origin stay together.
+
+**Random floor (selective).** Within each origin, the confidence labels are permuted across its 3 picks, keeping the number of confident picks per origin fixed (2,000 permutations, seed 42), and the same statistic is computed. This is what abstaining at random would give. The observed statistic is reported against this null (its mean and 95% range, and a one-sided permutation p).
+
+**Decision (fixed).** Selective prediction is reported as **HELPS** iff the block-bootstrap 95% interval of `hit_rate(confident) - hit_rate(all)` has a lower bound above 0 (with the 1e-9 tolerance) **and** coverage is at least 0.30. Otherwise it is reported as **NOT DEMONSTRATED**, with the reason (interval, coverage, or both). No threshold sweep can change that verdict.
+
+**Descriptive, labelled exploratory and not decision-bearing:** (i) the same statistic at spread quantiles 0.25 and 0.75; (ii) the Spearman correlation, per origin then averaged, between spread and the absolute error of the point prediction, which says whether the spread carries any information about error.
