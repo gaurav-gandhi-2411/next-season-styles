@@ -178,3 +178,61 @@ If the result is PARTIAL or NOT VALIDATED it is reported as such: the emerging h
 - Season is confounded with calendar time (each season's model was trained on a different training set) and with COVID (windows overlapping March-June 2020 fall in spring and summer cells).
 - No between-season comparison is tested; the table lets the reader see the numbers, nothing more.
 - Seasonal naive is undefined before 2019-09-16 (52-week lag), which thins the autumn cell.
+
+---
+
+## H3. The agent layer: live run (4a), critic decisions and routing (4b), gate ablation (4c)
+
+Committed before any H3 harness or result. **What the "agent layer" is, stated plainly:** `agents/*.md` are role definitions and `scripts/agent_demo.py` is a scripted driver; no LLM makes any agent decision. So "the critic's accept/reject decision" is the deterministic rule in `agents/critic.md` (REJECT if any gating gate fails; PASS_PENDING_HUMAN if all five gating gates pass; INCONCLUSIVE on a tool error or a `not_run`/null/malformed result after one scoring retry), and "the orchestrator routes" is `agents/orchestrator.md`'s delegation flow, implemented for this evaluation as an executable `route()` function and checked against an expectation table written below, before it is coded. What is evaluated is that rule plus the gates behind it, against human-derived labels. A finding about it says nothing about an LLM agent.
+
+**Disclosure of what was already known.** The stored gate columns of the 96 wrong-style rows (`v3_yield_floor_scored.csv`) are Track 1 results and were seen before this rule was written: integrity fails 96, Gate 2 fails 95, Gate 3 fails 94, Gate 1 and Gate 1b fail 0, and 0 of 96 pass every gate. Nothing else in this section has been run.
+
+### 4b. Decision eval (critic) and routing
+
+**Unit and scoring.** One case = (image, target style, briefed changes), scored once through the MCP `score_concept` tool with `include_fidelity=true` and the brief's changes (`concept_generation.CHANGES[style]`, or the image's sidecar for H3), over the same stdio protocol the demo uses, CPU only. The critic decision is taken on the first attempt of each case.
+
+**Cases and labels (fixed).**
+
+| Stratum | Cases | Truth | Label source |
+|---|---|---|---|
+| N1 malformed | the three malformed underwear images: `final_concepts_h3/..._seed42, _seed44, _seed45` | REJECT | `integrity_labels.json` (`coherent: false`), `underwear_scored.csv` `visual_qc` |
+| N2 swatch | `n1_levers/..beige_melange/concat-0.15_s43.png`, `concat-style-only-1.0_s42.png` (sweater style) | REJECT | `integrity_labels.json` ("fabric swatch, no garment") |
+| N3 exact clone | for each of the four styles in `ALL_SELECTED`, a byte copy of that style's first screened reference photo (`load_refs()[style][0]`), placed under `data/generated/agent_eval/` | REJECT (a copy of a real product is not a new concept, by construction) | positive-control design, `clone_positive_control.csv` |
+| N4 wrong style | the 96 rows of `v3_yield_floor_scored.csv` (24 images of each source style scored against each of the other target styles) | REJECT | the image depicts a different style; Track 1 |
+| P1 approved (primary) | the four submitted concepts, `final_selection_figures.ALL_SELECTED` | ACCEPT | recorded human check `HUMAN_CHECK` with `HUMAN_BRIEF_MET` all `True` |
+| P2 coherent (secondary) | generated images labelled `coherent: true` in `integrity_labels.json`, not in P1: H3 seed 43, the three `n1_levers` clean sweaters, the M3 sweater and the M3 dress | ACCEPT | `integrity_labels.json`. **Coherent is not "brief met":** the human label does not cover Gate 3's question, so P2 is reported separately and never pooled into the primary recall |
+
+Real catalogue photos labelled coherent in `integrity_labels.json` are excluded: they are members of the reference set, so a Gate 1b reject is correct by construction and they are not concepts.
+
+N4 uses the stored gate columns; a **live parity sample** of 6 of the 96 rows (`random.Random(42).sample(range(96), 6)`, indices into the CSV order) is re-scored live, and any disagreement between live and stored gate values is reported and the live value used for that case.
+
+**Metrics (fixed).** Positive class = ACCEPT (the critic returns PASS_PENDING_HUMAN). INCONCLUSIVE counts as not-accept and is listed separately. Recall = accepted / all truth-ACCEPT cases; precision = truth-ACCEPT among all accepted. **Primary:** positives = P1 (n=4). **Two negative sets, both reported, neither chosen after seeing results:** *hard* negatives = N1+N2+N3 (n=9); *all* negatives = N1..N4 (n=105). Wilson 95% intervals on every proportion. Secondary: the same with P1 + P2 as positives (n=10). **Floors:** the accept-everything rule (precision = prevalence, recall = 1) and a random accept rule at that prevalence (precision = prevalence, recall = prevalence); the prevalence is stated for each negative set. The false-accept and false-reject cases are listed by name. Known limits stated now: n=4 positives cannot support a recall interval narrower than about [0.51, 1.00] even at 4/4; most negatives are the easy wrong-style set, so *all-negative* precision is inflated and *hard-negative* precision is the informative one; and the human check is outside this measurement (a PASS_PENDING_HUMAN on a known-bad case is a case the human must catch, not a shipped one).
+
+**Routing expectations (written from `orchestrator.md` and `critic.md` now; `route()` is coded after).**
+
+| Situation | Expected next hop |
+|---|---|
+| REJECT at attempt 1 or 2 | `concept-designer` (via the orchestrator) with one adjusted parameter: `seed` if integrity is the only failing gate, else `ip_adapter_scale` (`critic.md`); prompt, references and backend unchanged |
+| REJECT at attempt 3 (cap: 1 original + 2 retries) | none; the orchestrator reports `FAILED` with the full history; no `concept-designer` call |
+| PASS_PENDING_HUMAN | `forecaster` (`forecast_concept`), then the human visual check is recorded; never final without it |
+| INCONCLUSIVE after one scoring retry | escalate to the orchestrator as "QC inconclusive"; no `forecaster`, no `concept-designer` |
+
+Checks, all fixed: (a) for every case `route(verdict, attempt=1)` equals the table's hop for its actual verdict (this tests the function against the spec, not the verdict against the truth); (b) the retry cap on a three-attempt scenario built from the three N1 images in seed order 42, 44, 45: attempts 1 and 2 that REJECT route to `concept-designer`, a REJECT at attempt 3 routes to FAILED, and there is no fourth call; (c) five fail-closed unit cases with a stubbed `score_concept`: it raises twice (expect INCONCLUSIVE after exactly one retry), it raises once then succeeds (expect the normal verdict after exactly one retry), a result with Gate 2 `not_run` (INCONCLUSIVE), a result with Gate 3 `pass: null` (INCONCLUSIVE), and a result with `clone_control_failed_as_required: false` and Gate 1b `pass: false` (INCONCLUSIVE, per `critic.md`'s malformed-data rule); (d) tool allowlists parsed from `agents/*.md`: the hop's target agent must list the tool that hop needs (`concept-designer`: `generate_concept`; `forecaster`: `forecast_concept`), and the critic must not list `generate_concept`, `forecast_concept` or `forecast_styles`. A failed check is reported as a defect in the spec or the router; I do not edit an agent definition to make a check pass.
+
+### 4c. Gate ablation
+
+**Design.** Over every case scored in 4b (N1..N4, P1, P2), one score per image (the N4 rows use the stored columns). Remove each of the five gating gates in turn from the decision rule and recompute every decision. This is valid at the decision layer because each gate's `pass` is computed independently of the others in `qc_gates.score_gates` and `concept_scoring.apply_panel_rule` (read before writing this rule: no gate's pass reads another's result; the per-judge rows carry the integrity flag only as a column). Per gate, per stratum, report: **catches** (the gate is among the failing gates), **unique catches** (the gate is the only failing gate, i.e. the case newly becomes PASS_PENDING_HUMAN if the gate is removed), and **unique false rejects** (truth-ACCEPT cases for which the gate is the only failing gate). Also report the recomputed precision and recall with each gate removed, and the set of known-bad cases that pass every automatic gate (only the human check stops them).
+
+**Interpretation rule (fixed).** A gate with zero unique catches over N1..N4 is reported as a finding, **not removed** and not proposed for removal here: unique-catch is defined against this case set only (a control's surface is the cases it was tried on), overlap between gates is what defence in depth looks like, and the removal decision is the user's. The report states each such gate's other roles (for example Gate 1b's clone validation) and the size of the case set, without a claim of "redundant".
+
+### 4a. Fully live run
+
+**Scope.** The three autumn/winter styles at forecast origin 2020-09-21 (`SWEATER`, `DRESS`, `TOP`). The summer concept is excluded: `forecast_styles` serves only the 2020-09-21 tables, so a summer step would have to be replayed, and nothing may be.
+
+**Labels allowed in the transcript.** `LIVE` = a real MCP tool call over stdio through the allowlist-checked driver; `INPUT` = a fixed human-authored input (the brief `CHANGES`, the seeds, the starting scale); `LOCAL` = an in-process pure function (prompt builder, critic decision, router); `NOT PERFORMED` = the human visual check. **The word REPLAY must not appear as a step label anywhere**; the transcript ends with a count of steps by label, and the driver fails its own lint if a step is unlabelled. The existing `reports/agent_run_transcript.md` is not modified; the new file is `reports/agent_run_transcript_live.md`.
+
+**Chain per style:** forecaster `forecast_styles` (live) -> style-profiler `get_style_profile` (live) -> concept-designer `generate_concept` (live, GPU; a separate server subprocess from the CPU scoring server) -> critic `score_concept` (live, `include_fidelity=true`, changes from the brief) -> on REJECT, the critic's adjusted parameter to concept-designer, cap 1 + 2 retries -> on PASS_PENDING_HUMAN forecaster `forecast_concept` (live, default origin) -> the human check recorded as NOT PERFORMED with the image path for a person to open.
+
+**Generation call, fixed to what the MCP tool exposes:** `backend=local_sdxl`, prompt = `natural_prompt(style, changes, None)`, `reference_images` = the first 8 screened references (`N_REFS`), `ip_adapter_scale=0.35` on attempt 1, `seed=42`, `n=1`. **Retry rule (from `critic.md`, fixed now):** if integrity is the only failing gate, the next attempt changes only the seed (+1); otherwise it changes only `ip_adapter_scale` (-0.10, floor 0.15). No other parameter is changed.
+
+**Reported regardless of outcome:** which gates each live attempt failed; the finding that the MCP `generate_concept` path is **not** the configuration that made the deliverables (the deliverables used `levers.generate_variant`, `mode="concat"`, a weighted compel prompt and a negative prompt; the MCP tool exposes neither a negative prompt nor concat mode), so its gate outcomes are not evidence about the deliverables; the wall time per step; $0 cost (local). No image from the live run is a candidate for the submission, and I do not look at the images to fill the human-check step: that step is the user's.
