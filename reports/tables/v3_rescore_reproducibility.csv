@@ -1,0 +1,9 @@
+column,n_compared,n_identical
+gate1_pass,32,32
+gate1b_pass,32,32
+integrity_floor_pass,32,32
+gate2_pass,32,32
+gate3_pass,32,32
+smolvlm_fidelity,32,32
+florence2_fidelity,32,32
+smolvlm_gate3_answers,32,32

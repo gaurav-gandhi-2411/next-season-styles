@@ -1,0 +1,13 @@
+style_id,seed_group,n,n_pass,pass_rate,wilson_lo,wilson_hi
+Ladieswear || Sweater || Knitwear || Beige || Melange,prior_8,8,1,0.125,0.022417491199971912,0.47088818505608376
+Ladieswear || Sweater || Knitwear || Beige || Melange,new_16,16,1,0.0625,0.011119344641247308,0.283287377981482
+Ladieswear || Sweater || Knitwear || Beige || Melange,all_24,24,2,0.08333333333333333,0.023158815087796644,0.2584880237049766
+Ladieswear || Dress || Dresses Ladies || Red || Solid,prior_8,8,4,0.5,0.21521606069626764,0.7847839393037324
+Ladieswear || Dress || Dresses Ladies || Red || Solid,new_16,16,6,0.375,0.18481232451546453,0.6135895962338866
+Ladieswear || Dress || Dresses Ladies || Red || Solid,all_24,24,10,0.4166666666666667,0.24467602500194355,0.6116533427566112
+Ladieswear || Top || Jersey Basic || White || Solid,prior_8,8,2,0.25,0.07147921209795555,0.5907245720727483
+Ladieswear || Top || Jersey Basic || White || Solid,new_16,16,2,0.125,0.03497748742626902,0.36022827482178466
+Ladieswear || Top || Jersey Basic || White || Solid,all_24,24,4,0.16666666666666666,0.06678676282131818,0.3585307082129004
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,prior_8,8,0,0.0,0.0,0.3244075683414076
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,new_16,16,0,0.0,0.0,0.1936076829974049
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,all_24,24,0,0.0,0.0,0.13797620655132792

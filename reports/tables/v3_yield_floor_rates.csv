@@ -1,0 +1,5 @@
+source_style_id,scored_as,n,n_false_pass,rate,wilson_lo,wilson_hi
+Ladieswear || Sweater || Knitwear || Beige || Melange,Ladieswear || Dress || Dresses Ladies || Red || Solid,24,0,0.0,0.0,0.13797620655132792
+Ladieswear || Dress || Dresses Ladies || Red || Solid,Ladieswear || Top || Jersey Basic || White || Solid,24,0,0.0,0.0,0.13797620655132792
+Ladieswear || Top || Jersey Basic || White || Solid,Ladieswear || Bikini top || Swimwear || Orange || All over pattern,24,0,0.0,0.0,0.13797620655132792
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,Ladieswear || Sweater || Knitwear || Beige || Melange,24,0,0.0,0.0,0.13797620655132792

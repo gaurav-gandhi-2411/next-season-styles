@@ -1,0 +1,5 @@
+style_id,n_pool,n_pass,pick_seed_24,pick_seed_prior_8,pick_image,pick_changes_visible,pick_smolvlm_fidelity,pick_closest_reference
+Ladieswear || Sweater || Knitwear || Beige || Melange,24,2,45,45,data\generated\n9\ladieswear_sweater_knitwear_beige_melange\s0.35_seed45.png,YY,0.5666666666666667,0.90105801820755
+Ladieswear || Dress || Dresses Ladies || Red || Solid,24,10,43,43,data\generated\n9\ladieswear_dress_dresses-ladies_red_solid\s0.35_seed43.png,YY,0.85,0.8365831971168518
+Ladieswear || Top || Jersey Basic || White || Solid,24,4,47,47,data\generated\n9\ladieswear_top_jersey-basic_white_solid\s0.35_seed47.png,YY,0.85,0.8281733989715576
+Ladieswear || Bikini top || Swimwear || Orange || All over pattern,24,0,,,,,,
