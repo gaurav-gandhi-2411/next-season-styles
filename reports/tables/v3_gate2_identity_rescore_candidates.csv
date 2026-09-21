@@ -1,0 +1,55 @@
+style,image,scale,product_reading,colour_reading,old_gate2,product_ok,colour_ok,new_gate2
+Dress,s0.15_seed42.png,0.15,Dress.,Orange.,true,true,false,false
+Dress,s0.15_seed43.png,0.15,Dress.,Red.,true,true,true,true
+Dress,s0.25_seed42.png,0.25,Dress.,Orange.,false,true,false,false
+Dress,s0.25_seed43.png,0.25,Dress.,Red.,true,true,true,true
+Dress,s0.35_seed42.png,0.35,Dress.,Orange.,false,true,false,false
+Dress,s0.35_seed43.png,0.35,Dress.,Red.,true,true,true,true
+Dress,s0.35_seed44.png,0.35,Dress.,Red.,true,true,true,true
+Dress,s0.35_seed45.png,0.35,Dress.,Orange.,true,true,false,false
+Dress,s0.35_seed46.png,0.35,Dress.,Red.,true,true,true,true
+Dress,s0.35_seed47.png,0.35,Dress.,Orange.,true,true,false,false
+Dress,s0.35_seed48.png,0.35,Dress.,Red.,true,true,true,true
+Dress,s0.35_seed49.png,0.35,Dress.,White.,true,true,false,false
+Dress,s0.45_seed42.png,0.45,Dress.,Orange.,false,true,false,false
+Dress,s0.45_seed43.png,0.45,Dress.,Orange.,true,true,false,false
+Bikini top,s0.35_seed42.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed43.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed44.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed45.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed46.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed47.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed48.png,0.35,Bikini.,Orange.,false,true,true,false
+Bikini top,s0.35_seed49.png,0.35,Brimbelt.,Orange.,false,false,true,false
+Top,s0.15_seed42.png,0.15,Sweater.,White.,true,false,true,false
+Top,s0.15_seed43.png,0.15,Sweater.,White.,true,false,true,false
+Top,s0.25_seed42.png,0.25,Top.,White.,true,true,true,true
+Top,s0.25_seed43.png,0.25,Long sleeve shirt.,White.,true,true,true,true
+Top,s0.35_seed42.png,0.35,Sweater.,White.,true,false,true,false
+Top,s0.35_seed43.png,0.35,Blanket.,White.,true,false,true,false
+Top,s0.35_seed44.png,0.35,Long-sleeved top.,White.,true,true,true,true
+Top,s0.35_seed45.png,0.35,Shirt.,White.,true,true,true,true
+Top,s0.35_seed46.png,0.35,Blouse.,White.,true,true,true,true
+Top,s0.35_seed47.png,0.35,Long sleeve top.,White.,true,true,true,true
+Top,s0.35_seed48.png,0.35,Shirt.,White.,true,true,true,true
+Top,s0.35_seed49.png,0.35,Blouse.,White.,true,true,true,true
+Top,s0.45_seed42.png,0.45,Shirt.,White.,false,true,true,false
+Top,s0.45_seed43.png,0.45,Blouse.,White.,true,true,true,true
+Top,s0.60_seed42.png,0.6,Long shirt.,White.,true,true,true,true
+Top,s0.60_seed43.png,0.6,Shirt.,White.,true,true,true,true
+Top,s0.70_seed42.png,0.7,Long sleeve shirt.,White.,true,true,true,true
+Top,s0.70_seed43.png,0.7,Shirt.,White.,true,true,true,true
+Sweater,s0.15_seed42.png,0.15,Turtleneck.,White.,false,true,false,false
+Sweater,s0.15_seed43.png,0.15,Turtleneck.,Brown.,false,true,false,false
+Sweater,s0.25_seed42.png,0.25,Turtleneck.,Beige.,false,true,true,false
+Sweater,s0.25_seed43.png,0.25,Sweater.,Brown.,false,true,false,false
+Sweater,s0.35_seed42.png,0.35,Turtleneck.,Beige.,false,true,true,false
+Sweater,s0.35_seed43.png,0.35,Turtleneck.,Beige.,false,true,true,false
+Sweater,s0.35_seed44.png,0.35,Turtleneck.,Brown.,false,true,false,false
+Sweater,s0.35_seed45.png,0.35,Sweater.,Beige.,true,true,true,true
+Sweater,s0.35_seed46.png,0.35,Turtleneck.,Brown.,false,true,false,false
+Sweater,s0.35_seed47.png,0.35,Turtleneck.,Brown.,false,true,false,false
+Sweater,s0.35_seed48.png,0.35,Turtleneck.,Brown.,false,true,false,false
+Sweater,s0.35_seed49.png,0.35,T-shirt.,Brown.,false,false,false,false
+Sweater,s0.45_seed42.png,0.45,T-shirt.,Brown.,false,false,false,false
+Sweater,s0.45_seed43.png,0.45,T-shirt.,Brown.,false,false,false,false

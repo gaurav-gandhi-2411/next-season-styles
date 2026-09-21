@@ -1,0 +1,130 @@
+name,group,style,product_reading,colour_reading,old_gate2,product_ok,colour_ok,new_gate2,gate2_changed,changed_by,verdict_old,verdict_new
+wrong_00,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_01,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_02,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_03,N4_wrong_style,Dress,Sweater.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_04,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_05,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_06,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_07,N4_wrong_style,Dress,T-shirt.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_08,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_09,N4_wrong_style,Dress,Sweater.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_10,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_11,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_12,N4_wrong_style,Dress,T-shirt.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_13,N4_wrong_style,Dress,T-shirt.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_14,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_15,N4_wrong_style,Dress,T-shirt.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_16,N4_wrong_style,Dress,T-shirt.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_17,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_18,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_19,N4_wrong_style,Dress,Turtleneck.,Brown.,false,false,false,false,false,"",REJECT,REJECT
+wrong_20,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_21,N4_wrong_style,Dress,Sweater.,BEAN.,false,false,false,false,false,"",REJECT,REJECT
+wrong_22,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_23,N4_wrong_style,Dress,Turtleneck.,Beige.,false,false,false,false,false,"",REJECT,REJECT
+wrong_24,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_25,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_26,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_27,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_28,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_29,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_30,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_31,N4_wrong_style,Top,Dress.,White.,true,false,true,false,true,product_type,REJECT,REJECT
+wrong_32,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_33,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_34,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_35,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_36,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_37,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_38,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_39,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_40,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_41,N4_wrong_style,Top,Dress.,Pink.,false,false,false,false,false,"",REJECT,REJECT
+wrong_42,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_43,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_44,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_45,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_46,N4_wrong_style,Top,Dress.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_47,N4_wrong_style,Top,Dress.,Red.,false,false,false,false,false,"",REJECT,REJECT
+wrong_48,N4_wrong_style,Bikini top,Sweater.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_49,N4_wrong_style,Bikini top,Blanket.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_50,N4_wrong_style,Bikini top,Long-sleeved top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_51,N4_wrong_style,Bikini top,Shirt.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_52,N4_wrong_style,Bikini top,Blouse.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_53,N4_wrong_style,Bikini top,Long sleeve top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_54,N4_wrong_style,Bikini top,Shirt.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_55,N4_wrong_style,Bikini top,Blouse.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_56,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_57,N4_wrong_style,Bikini top,Blouse.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_58,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_59,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_60,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_61,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_62,N4_wrong_style,Bikini top,Sweater.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_63,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_64,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_65,N4_wrong_style,Bikini top,Shirt.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_66,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_67,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_68,N4_wrong_style,Bikini top,Clothes.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_69,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_70,N4_wrong_style,Bikini top,Top.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_71,N4_wrong_style,Bikini top,Shirt.,White.,false,false,false,false,false,"",REJECT,REJECT
+wrong_72,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_73,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_74,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_75,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_76,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_77,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_78,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_79,N4_wrong_style,Sweater,Brimbelt.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_80,N4_wrong_style,Sweater,Bra.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_81,N4_wrong_style,Sweater,Bra.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_82,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_83,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_84,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_85,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_86,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_87,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_88,N4_wrong_style,Sweater,Brig.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_89,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_90,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_91,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_92,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_93,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_94,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+wrong_95,N4_wrong_style,Sweater,Bikini.,Orange.,false,false,false,false,false,"",REJECT,REJECT
+underwear_seed42,N1_malformed,Underwear bottom,Shirt.,Red.,true,false,true,false,true,product_type,REJECT,REJECT
+underwear_seed44,N1_malformed,Underwear bottom,Sleeve.,Red.,false,false,true,false,false,"",REJECT,REJECT
+underwear_seed45,N1_malformed,Underwear bottom,Sleeves.,Red.,true,false,true,false,true,product_type,REJECT,REJECT
+swatch_concat-0.15_s43,N2_swatch,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+swatch_concat-style-only-1.0_s42,N2_swatch,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+clone_Sweater,N3_clone,Sweater,V-neck sweater.,Beige.,true,true,true,true,false,"",REJECT,REJECT
+clone_Dress,N3_clone,Dress,Dress.,Red.,true,true,true,true,false,"",REJECT,REJECT
+clone_Top,N3_clone,Top,V neck.,White.,true,false,true,false,true,product_type,REJECT,REJECT
+clone_Bikini top,N3_clone,Bikini top,Bib.,Orange.,false,false,true,false,false,"",REJECT,REJECT
+submitted_Sweater,P1_approved,Sweater,Sweater.,Beige.,true,true,true,true,false,"",PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+submitted_Dress,P1_approved,Dress,Dress.,Red.,true,true,true,true,false,"",PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+submitted_Top,P1_approved,Top,Sweater.,White.,true,false,true,false,true,product_type,REJECT,REJECT
+submitted_Bikini top,P1_approved,Bikini top,Bikini.,Orange.,false,true,true,false,false,"",REJECT,REJECT
+h3_underwear_seed43,P2_coherent,Underwear bottom,Bikini.,Red.,true,false,true,false,true,product_type,INCONCLUSIVE,REJECT
+clean_sweater_concat-0.25-nat_s43,P2_coherent,Sweater,Turtleneck.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+clean_sweater_concat-0.35-nat_s43,P2_coherent,Sweater,Turtleneck.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+clean_sweater_single-0.35-nat_s43,P2_coherent,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+m3_sweater,P2_coherent,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+m3_dress,P2_coherent,Dress,Dress.,Orange.,true,true,false,false,true,colour,REJECT,REJECT
+m3_coral_dress_attempt1,H1_wrong_attribute,Dress,Dress.,Orange.,true,true,false,false,true,colour,REJECT,REJECT
+m3_coral_dress_attempt2,H1_wrong_attribute,Dress,Dress.,Orange.,true,true,false,false,true,colour,REJECT,REJECT
+H1_wrong_attribute_Sweater,H1_wrong_attribute,Sweater,Turtleneck.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+H2_change_absent_Sweater,H2_change_absent,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+H3_averaged_garment_Sweater,H3_averaged_garment,Sweater,Sweater.,Brown.,false,true,false,false,false,"",REJECT,REJECT
+H1_wrong_attribute_Dress,H1_wrong_attribute,Dress,Dress.,Green.,true,true,false,false,true,colour,PASS_PENDING_HUMAN,REJECT
+H2_change_absent_Dress,H2_change_absent,Dress,Dress.,Red.,true,true,true,true,false,"",REJECT,REJECT
+H3_averaged_garment_Dress,H3_averaged_garment,Dress,Dress.,Red.,true,true,true,true,false,"",REJECT,REJECT
+H1_wrong_attribute_Top,H1_wrong_attribute,Top,Long sleeve top.,White.,true,true,true,true,false,"",PASS_PENDING_HUMAN,PASS_PENDING_HUMAN
+H2_change_absent_Top,H2_change_absent,Top,T-shirt.,White.,true,true,true,true,false,"",REJECT,REJECT
+H3_averaged_garment_Top,H3_averaged_garment,Top,Shirt.,White.,true,true,true,true,false,"",REJECT,REJECT
+H1_wrong_attribute_Bikini top,H1_wrong_attribute,Bikini top,Bikini.,Blue.,false,true,false,false,false,"",REJECT,REJECT
+H2_change_absent_Bikini top,H2_change_absent,Bikini top,Braclet.,Orange.,false,false,true,false,false,"",REJECT,REJECT
+H3_averaged_garment_Bikini top,H3_averaged_garment,Bikini top,Bra.,Orange.,false,false,true,false,false,"",REJECT,REJECT
