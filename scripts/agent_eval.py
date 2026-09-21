@@ -230,11 +230,13 @@ def routing_checks(cases: list[ae.Case]) -> list[dict[str, Any]]:
     bad = []
     for c in cases:
         v = ae.decide(c.passes, c.clone_ok)
-        r = ae.route(v, 1, ae.failing(c.passes))
+        r = ae.route(v, 1, ae.failing(c.passes, clone_ok=c.clone_ok))
         if v == ae.REJECT:
             ok = (r.next_agent, r.tool) == ("concept-designer", "generate_concept")
             ok = ok and r.adjust == (
-                "seed" if ae.failing(c.passes) == ["integrity"] else "ip_adapter_scale"
+                "seed"
+                if ae.failing(c.passes, clone_ok=c.clone_ok) == ["integrity"]
+                else "ip_adapter_scale"
             )
         else:
             ok = (r.next_agent, r.tool) == EXPECTED_HOP[v]
@@ -248,30 +250,32 @@ def routing_checks(cases: list[ae.Case]) -> list[dict[str, Any]]:
             "detail": ";".join(bad),
         }
     )
-    # (b) the retry cap on the three N1 images in seed order, read literally (INCONCLUSIVE when a
-    # gate is null) and with a definite failure deciding (`reject_first`)
+    # (b) the retry cap on the three N1 images in seed order
     n1 = [c for c in cases if c.stratum == "N1_malformed"]
-    for reject_first in (False, True):
-        hops, rows, wrong = [], [], 0
-        for attempt, c in enumerate(n1, start=1):
-            v = ae.decide(c.passes, c.clone_ok, reject_first=reject_first)
-            r = ae.route(v, attempt, ae.failing(c.passes))
-            hops.append(f"{attempt}:{v}->{r.outcome}")
-            rows.append({col: c.passes[g] for g, col in ae._ROW_COLUMNS.items()})
-            if v == ae.REJECT:
-                wrong += r.outcome != ("RETRY" if attempt <= ae.RETRY_CAP else "FAILED")
-            if v != ae.REJECT or r.outcome == "FAILED":
-                break
-        replay = critic_replay(rows)[1]
-        out.append(
+    hops, rows, wrong = [], [], 0
+    for attempt, c in enumerate(n1, start=1):
+        v = ae.decide(c.passes, c.clone_ok)
+        r = ae.route(v, attempt, ae.failing(c.passes, clone_ok=c.clone_ok))
+        hops.append(f"{attempt}:{v}->{r.outcome}")
+        rows.append(
             {
-                "check": "b: retry cap over N1 seeds 42,44,45 "
-                + ("(reject_first)" if reject_first else "(literal critic.md)"),
-                "n": len(n1),
-                "failures": wrong,
-                "detail": f"{' | '.join(hops)}; driver critic_replay: {replay}",
+                **{col: c.passes[g] for g, col in ae._ROW_COLUMNS.items()},
+                "clone_fails_gate1b": c.clone_ok,
             }
         )
+        if v == ae.REJECT:
+            wrong += r.outcome != ("RETRY" if attempt <= ae.RETRY_CAP else "FAILED")
+        if v != ae.REJECT or r.outcome == "FAILED":
+            break
+    replay = critic_replay(rows)[1]
+    out.append(
+        {
+            "check": "b: retry cap over N1 seeds 42,44,45",
+            "n": len(n1),
+            "failures": wrong + (not replay.startswith("FAILED")),
+            "detail": f"{' | '.join(hops)}; driver critic_replay: {replay}",
+        }
+    )
 
     # (c) fail-closed unit cases with a stubbed score_concept
     def stub_ok(**over: Any) -> dict[str, Any]:
@@ -301,6 +305,19 @@ def routing_checks(cases: list[ae.Case]) -> list[dict[str, Any]]:
         "gate3 pass null": (
             ae.critic_verdict(lambda: stub_ok(gate3={"pass": None})),
             (ae.INCONCLUSIVE, [], 1),
+        ),
+        "gate failed and gate3 not run (J3: REJECT)": (
+            ae.critic_verdict(lambda: stub_ok(integrity={"pass": False}, gate3={"pass": None})),
+            (ae.REJECT, ["integrity"], 1),
+        ),
+        "clone control not validated and another gate failed (REJECT)": (
+            ae.critic_verdict(
+                lambda: stub_ok(
+                    gate1b={"pass": False, "clone_control_failed_as_required": False},
+                    gate2={"pass": False},
+                )
+            ),
+            (ae.REJECT, ["gate2"], 1),
         ),
         "clone control not validated": (
             ae.critic_verdict(
@@ -383,7 +400,7 @@ def main(mode: str) -> None:
     case_rows = []
     for c, d in zip(cases, detail, strict=True):
         v = ae.decide(c.passes, c.clone_ok)
-        r = ae.route(v, 1, ae.failing(c.passes))
+        r = ae.route(v, 1, ae.failing(c.passes, clone_ok=c.clone_ok))
         case_rows.append(
             {
                 "name": c.name,
@@ -393,11 +410,10 @@ def main(mode: str) -> None:
                 **{g: c.passes[g] for g in ae.GATES},
                 "clone_control_ok": c.clone_ok,
                 "verdict": v,
-                "failing": ",".join(ae.failing(c.passes)),
+                "failing": ",".join(ae.failing(c.passes, clone_ok=c.clone_ok)),
                 "next_agent": r.next_agent,
                 "adjust": r.adjust,
                 "outcome": r.outcome,
-                "verdict_reject_first": ae.decide(c.passes, c.clone_ok, reject_first=True),
             }
         )
     for name, rows in (

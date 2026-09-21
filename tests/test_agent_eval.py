@@ -22,16 +22,20 @@ def test_decide_pass_reject_and_null() -> None:
     assert ae.decide({**ALL_PASS, "gate2": None}) == ae.INCONCLUSIVE  # never a pass, never a reject
 
 
-def test_reject_first_lets_a_definite_failure_decide() -> None:
+def test_a_definite_failure_rejects_even_if_another_gate_was_not_run() -> None:
+    """J3: failed + unmeasured -> REJECT (a retry can fix it); unmeasured alone -> escalate."""
     p = {**ALL_PASS, "gate3": None, "integrity": False}
-    assert ae.decide(p) == ae.INCONCLUSIVE
-    assert ae.decide(p, reject_first=True) == ae.REJECT
-    assert ae.decide({**ALL_PASS, "gate3": None}, reject_first=True) == ae.INCONCLUSIVE
+    assert ae.decide(p) == ae.REJECT
+    assert ae.decide({**ALL_PASS, "gate3": None}) == ae.INCONCLUSIVE  # nothing failed: escalate
 
 
 def test_unvalidated_clone_control_is_inconclusive_not_pass() -> None:
     assert ae.decide(ALL_PASS, clone_ok=False) == ae.INCONCLUSIVE
     assert ae.decide(ALL_PASS, clone_ok=None) == ae.INCONCLUSIVE
+    # an unvalidated gate1b is unmeasured, so its own False is not a definite failure either ...
+    assert ae.decide({**ALL_PASS, "gate1b": False}, clone_ok=False) == ae.INCONCLUSIVE
+    # ... but another definite failure still rejects
+    assert ae.decide({**ALL_PASS, "gate1b": False, "gate2": False}, clone_ok=False) == ae.REJECT
     # once gate1b is masked out of the decision, its clone control no longer matters
     assert ae.decide(ALL_PASS, clone_ok=False, mask=frozenset({"gate1b"})) == ae.PASS
 

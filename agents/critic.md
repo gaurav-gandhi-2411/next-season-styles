@@ -1,3 +1,9 @@
+---
+name: critic
+description: Quality-checks a concept against the shipped gates via score_concept, owns the accept / reject / retry / escalate decision and the retry count, and never ships without the human visual check.
+tools: mcp__nss_cpu__score_concept, mcp__nss_cpu__get_style_profile
+---
+
 # Agent: critic
 
 ## Role
@@ -93,10 +99,18 @@ only requests, via the orchestrator, that `concept-designer` generate the next a
   inconclusive for this concept" and stop; the critic never silently passes a concept it could not
   actually score, and never silently discards a concept whose QC call merely errored (fail-closed:
   an unverifiable result is treated as a denial to ship, not as ambient permission to ship).
-- **`score_concept` returns malformed/empty data** (e.g. Gates 1/1b run but Gate 2 or Gate 3
-  comes back `not_run`, or `gate1b.clone_control_failed_as_required` is false): same treatment as
-  above — inconclusive,
-  one retry of the scoring call, then escalate rather than treating a partial score as a pass.
+- **`score_concept` returns an unmeasured gate** (a gate's `pass` is `null` / `not_run`, e.g. Gate 3
+  with no brief, or `gate1b.clone_control_failed_as_required` is false, which makes Gate 1b
+  unvalidated and so unmeasured; its own `pass: false` then says nothing about the concept). One
+  rule, `nss.generate.critic_rule.decide`, shared with `qc_gates.verdict_from_gates` and the
+  scripted driver:
+  - **some other gate definitely failed (`pass: false`)**: `REJECT` as usual, naming the
+    unmeasured gate beside the failure. A concept that has failed a gate cannot pass whatever the
+    unmeasured gate says, and a retry can fix the failure. If the retries then produce a concept
+    with no failure and the gate is still unmeasured, the next bullet applies.
+  - **nothing failed**: `INCONCLUSIVE`: one retry of the scoring call, then escalate to the
+    orchestrator. Never a pass, and never a new generation: a new image would face the same
+    unmeasured gate, and the cause (a missing brief, a broken control) needs a person.
 - **Concept fails QC (REJECT) with retries remaining**: send the adjusted parameter back to
   `concept-designer` via the orchestrator; do not escalate yet.
 - **Concept fails QC after the 2-retry cap is exhausted**: escalate to the orchestrator as

@@ -45,7 +45,7 @@ import polars as pl
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from nss.generate import concept_generation, final_registry
+from nss.generate import agent_eval, concept_generation, critic_rule, final_registry
 from nss.generate.final_selection_figures import ALL_SELECTED, HUMAN_BRIEF_MET, HUMAN_CHECK
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -185,11 +185,15 @@ def project_closed_loop(fc: dict[str, Any], style_id: str) -> dict[str, Any]:
 
 
 def failed_gates(row: dict[str, Any]) -> list[str]:
-    """Names of the GATING gates a recorded `candidates_scored.csv` row fails, in gate order.
+    """Names of the GATING gates a recorded `candidates_scored.csv` row definitely fails.
 
-    A missing or null gate result counts as failed: an unmeasured gate is never a pass.
+    A missing or null gate is *unmeasured*, not failed (`critic_rule`): with no definite failure
+    it makes the verdict INCONCLUSIVE rather than a pass; with one, the row is still a REJECT.
     """
-    return [name for name, col in GATING_COLUMNS if row.get(col) is not True]
+    passes, clone_ok = agent_eval.passes_from_row(
+        {col: row.get(col) for _, col in GATING_COLUMNS} | {"clone_fails_gate1b": True}
+    )
+    return critic_rule.failing(passes, clone_ok)
 
 
 def critic_replay(
@@ -199,8 +203,12 @@ def critic_replay(
 
     Attempt 1 is `rows[0]`; each REJECT is followed by the next recorded candidate as the retry
     (the candidates differ only in seed at a fixed, swept scale). The loop stops at the first
-    candidate that clears every gating gate (`PASS_PENDING_HUMAN`) or after 1 + `cap` attempts
-    (`FAILED`, cap exhausted), exactly as the critic would.
+    candidate that clears every gating gate (`PASS_PENDING_HUMAN`), at an INCONCLUSIVE candidate
+    (no definite failure but an unmeasured gate: escalate, do not retry) or after 1 + `cap`
+    attempts (`FAILED`, cap exhausted), exactly as `critic_rule` and `route` do.
+
+    A recorded row carries its clone-control flag in `clone_fails_gate1b` (missing = validated,
+    as in the recorded candidate tables).
 
     Returns:
         `(attempts, outcome, unexamined)`: one dict per attempt (`row`, `failed`, `verdict`), the
@@ -209,12 +217,18 @@ def critic_replay(
     attempts: list[dict[str, Any]] = []
     outcome = "FAILED (retry cap exhausted)"
     for i, row in enumerate(rows):
-        failed = failed_gates(row)
-        attempts.append(
-            {"row": row, "failed": failed, "verdict": "REJECT" if failed else "PASS_PENDING_HUMAN"}
+        passes, clone_ok = agent_eval.passes_from_row(
+            {col: row.get(col) for _, col in GATING_COLUMNS}
+            | {"clone_fails_gate1b": row.get("clone_fails_gate1b", True)}
         )
-        if not failed:
+        verdict = critic_rule.decide(passes, clone_ok)
+        failed = critic_rule.failing(passes, clone_ok)
+        attempts.append({"row": row, "failed": failed, "verdict": verdict})
+        if verdict == critic_rule.PASS:
             outcome = "PASS_PENDING_HUMAN"
+            break
+        if verdict == critic_rule.INCONCLUSIVE:
+            outcome = "INCONCLUSIVE (escalate: a gate is unmeasured and nothing failed)"
             break
         if i == cap:
             break

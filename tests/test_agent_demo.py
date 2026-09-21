@@ -85,8 +85,8 @@ def test_shipped_agent_allowlists_cover_the_demo_calls() -> None:
     assert allow["orchestrator"] == frozenset()
 
 
-def test_failed_gates_treats_missing_and_null_as_failed() -> None:
-    """An unmeasured gate is never a pass (fail-closed)."""
+def test_failed_gates_lists_definite_failures_only() -> None:
+    """J3: an unmeasured gate is not a failure (see `critic_rule`); it is never a pass either."""
     assert failed_gates(_row(1)) == []
     assert failed_gates(_row(1, integrity_floor_pass=False, gate3_pass=False)) == [
         "integrity",
@@ -95,7 +95,24 @@ def test_failed_gates_treats_missing_and_null_as_failed() -> None:
     row = _row(1)
     row["gate3_pass"] = None
     del row["gate2_pass"]
-    assert failed_gates(row) == ["gate2", "gate3"]
+    assert failed_gates(row) == []
+
+
+def test_critic_replay_escalates_when_nothing_failed_but_a_gate_is_unmeasured() -> None:
+    """Null Gate 3 and no definite failure: INCONCLUSIVE, stop, do not burn the retry budget."""
+    row = _row(42)
+    row["gate3_pass"] = None
+    attempts, outcome, unexamined = critic_replay([row, _row(43)])
+    assert [a["verdict"] for a in attempts] == ["INCONCLUSIVE"]
+    assert outcome.startswith("INCONCLUSIVE") and [r["seed"] for r in unexamined] == [43]
+
+
+def test_critic_replay_rejects_a_failed_gate_even_with_gate3_not_run() -> None:
+    """J3: a definite failure rejects and retries; an unrun Gate 3 does not make it escalate."""
+    bad = _row(42, integrity_floor_pass=False)
+    bad["gate3_pass"] = None
+    attempts, _outcome, _rest = critic_replay([bad, _row(43)])
+    assert [a["verdict"] for a in attempts] == ["REJECT", "PASS_PENDING_HUMAN"]
 
 
 def test_critic_replay_reject_then_retry_passes() -> None:

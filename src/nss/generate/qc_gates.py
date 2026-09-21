@@ -33,7 +33,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-from nss.generate import clip_scoring, concept_generation, dino_scoring, gate3, integrity_global
+from nss.generate import (
+    clip_scoring,
+    concept_generation,
+    critic_rule,
+    dino_scoring,
+    gate3,
+    integrity_global,
+)
 from nss.generate.gate1b_nearest_reference import gate1b_pass, gate1b_threshold
 from nss.generate.vlm_judges import SKILL
 from nss.generate.within_style_benchmark import concept_similarity, style_benchmark
@@ -105,13 +112,18 @@ def briefed_changes(style_key: str, concept: Path) -> list[str]:
 def verdict_from_gates(gates: dict[str, dict[str, Any]]) -> tuple[str, bool | None]:
     """Combine the per-gate results into `(verdict text, automated_gates_pass)`.
 
-    A gate whose `pass` is `False` rejects; a gate whose `pass` is `None` was not run, so the
-    verdict is never a pass until every gate in `GATE_NAMES` has run and passed (fail-closed).
+    The rule is `critic_rule.decide` (the same one `agents/critic.md` and the drivers use): a gate
+    that definitely failed rejects even if another gate was not run; with no failure, an
+    unmeasured gate (`pass` is `None`, or Gate 1b's clone control did not fail as required) means
+    the verdict is never a pass (fail-closed) and `automated_gates_pass` is `None`.
     """
-    failed = [name for name in GATE_NAMES if gates[name].get("pass") is False]
-    not_run = [name for name in GATE_NAMES if gates[name].get("pass") is None]
+    passes = {name: gates[name].get("pass") for name in GATE_NAMES}
+    clone_ok = critic_rule.clone_ok_from_gates(gates)
+    failed = critic_rule.failing(passes, clone_ok)
+    not_run = critic_rule.unmeasured(passes, clone_ok)
     if failed:
-        return "REJECT: failed " + ", ".join(failed), False
+        note = f"; {', '.join(not_run)} not run" if not_run else ""
+        return "REJECT: failed " + ", ".join(failed) + note, False
     if not_run:
         passed = [n for n in GATE_NAMES if n not in not_run]
         return (

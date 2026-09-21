@@ -5,9 +5,9 @@ driver: no LLM makes a decision. This module is the executable form of the two r
 for evaluation, written from `agents/critic.md` and `agents/orchestrator.md` and checked against
 the expectation table pre-registered in `reports/v3/PREREGISTRATION.md` (H3, commit 14a0ae7):
 
-- `decide`: REJECT if any gating gate fails, PASS_PENDING_HUMAN if all pass, INCONCLUSIVE if a gate
-  is null / missing or the Gate 1b clone control did not fail as required (checked first: an
-  unverifiable result is never a pass and never silently a reject).
+- `decide` (from `critic_rule`, the single rule shared with `qc_gates` and the drivers): REJECT if
+  any gating gate definitely failed, else INCONCLUSIVE if a gate is unmeasured, else
+  PASS_PENDING_HUMAN.
 - `route`: the next hop for a verdict at a given attempt (1 original + `RETRY_CAP` retries).
 - `ablate`: recompute decisions with each gate removed in turn, and count catches per gate.
 """
@@ -20,9 +20,10 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
-GATES = ("gate1", "gate1b", "integrity", "gate2", "gate3")
+from nss.generate.critic_rule import GATES, INCONCLUSIVE, PASS, REJECT, Passes, decide
+from nss.generate.critic_rule import failing as _failing
+
 RETRY_CAP = 2  # `critic.md`: at most 2 retries, i.e. 3 attempts in total
-REJECT, PASS, INCONCLUSIVE = "REJECT", "PASS_PENDING_HUMAN", "INCONCLUSIVE"
 MIN_SCALE, SCALE_STEP = 0.15, 0.10  # the pre-registered retry rule for ip_adapter_scale
 _ROW_COLUMNS = {
     "gate1": "gate1_pass",
@@ -31,8 +32,6 @@ _ROW_COLUMNS = {
     "gate2": "gate2_pass",
     "gate3": "gate3_pass",
 }
-
-Passes = dict[str, bool | None]
 
 
 def passes_from_score(score: dict[str, Any]) -> tuple[Passes, bool | None]:
@@ -50,32 +49,11 @@ def passes_from_row(row: dict[str, Any]) -> tuple[Passes, bool | None]:
     return {g: row.get(col) for g, col in _ROW_COLUMNS.items()}, row.get("clone_fails_gate1b")
 
 
-def failing(passes: Passes, mask: frozenset[str] = frozenset()) -> list[str]:
-    """Gates (in gate order, minus `mask`) whose result is exactly `False`."""
-    return [g for g in GATES if g not in mask and passes.get(g) is False]
-
-
-def decide(
-    passes: Passes,
-    clone_ok: bool | None = True,
-    mask: frozenset[str] = frozenset(),
-    reject_first: bool = False,
-) -> str:
-    """The critic's verdict. `mask` removes gates from the decision (used by the ablation only).
-
-    `critic.md` calls a null / `not_run` gate or an unvalidated clone control malformed data, hence
-    INCONCLUSIVE, and does not say what a run with one failed gate AND one null gate is. The default
-    reads it literally (malformed first); `reject_first=True` lets a definite failure decide, as
-    `qc_gates.verdict_from_gates` does. The eval reports both; the choice never changes an accept.
-    """
-    live = [g for g in GATES if g not in mask]
-    if reject_first and failing(passes, mask):
-        return REJECT
-    if any(passes.get(g) is None for g in live):
-        return INCONCLUSIVE
-    if "gate1b" in live and clone_ok is not True:
-        return INCONCLUSIVE
-    return REJECT if failing(passes, mask) else PASS
+def failing(
+    passes: Passes, mask: frozenset[str] = frozenset(), clone_ok: bool | None = True
+) -> list[str]:
+    """Gates (in gate order, minus `mask`) that definitely failed (see `critic_rule`)."""
+    return _failing(passes, clone_ok, mask)
 
 
 @dataclass(frozen=True)
@@ -137,7 +115,7 @@ def critic_verdict(score_fn: Callable[[], dict[str, Any]]) -> tuple[str, list[st
     if score is None:
         return INCONCLUSIVE, [], n_calls
     passes, clone_ok = passes_from_score(score)
-    return decide(passes, clone_ok), failing(passes), n_calls
+    return decide(passes, clone_ok), failing(passes, clone_ok=clone_ok), n_calls
 
 
 def wilson(k: int, n: int, z: float = 1.959964) -> tuple[float, float]:
@@ -204,7 +182,7 @@ def ablate(cases: list[Case]) -> list[dict[str, Any]]:
             sub = [c for c in cases if c.stratum == stratum]
             caught = unique = sole = 0
             for c in sub:
-                f = failing(c.passes)
+                f = failing(c.passes, clone_ok=c.clone_ok)
                 caught += gate in f
                 sole += f == [gate]
                 unique += (

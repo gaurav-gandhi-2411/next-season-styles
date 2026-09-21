@@ -107,3 +107,20 @@ def test_apply_panel_rule_smolvlm_gates_florence_advises() -> None:
     concept_scoring.apply_panel_rule(row)
     assert row["gate2_pass"] is True and row["gate2_advisory_pass"] is False
     assert row["gate3_pass"] is True
+
+
+def test_verdict_names_the_unrun_gate_beside_a_failure() -> None:
+    """J3: failure beats not-run, and the REJECT still says which gate was not run."""
+    verdict, automated = qc_gates.verdict_from_gates(_gates(integrity=False, gate3=None))
+    assert (verdict, automated) == ("REJECT: failed integrity; gate3 not run", False)
+
+
+def test_unvalidated_clone_control_is_not_a_definite_failure() -> None:
+    """Gate 1b's `False` from a failed clone control says nothing about the concept: escalate."""
+    gates = _gates(gate1b=False)
+    gates["gate1b"]["clone_control_failed_as_required"] = False
+    _verdict, automated = qc_gates.verdict_from_gates(gates)
+    assert automated is None
+    gates["gate2"]["pass"] = False
+    verdict, automated = qc_gates.verdict_from_gates(gates)
+    assert automated is False and verdict.startswith("REJECT: failed gate2")
