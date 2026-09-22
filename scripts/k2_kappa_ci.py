@@ -114,7 +114,8 @@ def _pair_ci(a: str, b: str, labels: dict[str, dict[str, str]]) -> dict[str, obj
 
 def main() -> None:
     labels, reasons = _labels_and_reasons()
-    rows = [_pair_ci(a, b, labels) for a, b in (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen"))]
+    pairs = (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen"))
+    rows = [_pair_ci(a, b, labels) for a, b in pairs]
     ci_df = pl.DataFrame(rows)
     ci_df.write_csv(f"{TABLES}/v3_k2_kappa_ci.csv")
     with pl.Config(tbl_cols=-1, fmt_str_lengths=120):

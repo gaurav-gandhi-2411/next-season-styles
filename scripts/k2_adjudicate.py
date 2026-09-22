@@ -65,7 +65,8 @@ def main() -> None:
     print("\nRevised counts (post-adjudication):")
     print(counts_df)
 
-    rows = [_pair_ci(a, b, labels) for a, b in (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen"))]
+    pairs = (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen"))
+    rows = [_pair_ci(a, b, labels) for a, b in pairs]
     kappa_df = pl.DataFrame(rows)
     kappa_df.write_csv(f"{TABLES}/v3_k2_adjudicated_kappa.csv")
     print("\nRevised pairwise kappa/CI (post-adjudication):")

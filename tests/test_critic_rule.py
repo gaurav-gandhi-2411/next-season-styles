@@ -10,7 +10,7 @@ def _all_pass() -> dict[str, bool | None]:
 
 
 def test_prior_human_reject_is_terminal_even_when_every_gate_passes() -> None:
-    """S10's shape: every automatic gate passes, but a person already rejected an earlier attempt."""
+    """S10's shape: every gate passes, but a person already rejected an earlier attempt."""
     assert cr.decide(_all_pass(), prior_human_reject=True) == cr.REJECT
 
 

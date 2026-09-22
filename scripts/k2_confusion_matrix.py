@@ -80,7 +80,9 @@ def main() -> None:
                         "n": len(common),
                         f"{a}": a_val,
                         f"{b}": b_val,
-                        "count": sum(x == a_val and y == b_val for x, y in zip(la, lb, strict=True)),
+                        "count": sum(
+                            x == a_val and y == b_val for x, y in zip(la, lb, strict=True)
+                        ),
                     }
                 )
     confusion = pl.DataFrame(conf_rows)

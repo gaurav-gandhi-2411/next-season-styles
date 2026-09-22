@@ -41,6 +41,7 @@ flushed checkpoint.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import multiprocessing as mp
 import os
@@ -101,7 +102,9 @@ def _worker(
         try:
             proc.cpu_affinity(affinity_cpus)
         except Exception as exc:
-            print(f"[shard {shard_id}] could not set CPU affinity {affinity_cpus}: {exc}", flush=True)
+            print(
+                f"[shard {shard_id}] could not set CPU affinity {affinity_cpus}: {exc}", flush=True
+            )
 
     from nss.generate import colour_check as cc
 
@@ -186,7 +189,9 @@ def _resource_plan(args: argparse.Namespace) -> tuple[int, int, list[list[int]] 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=None, help="cap total photos processed (pilot/test runs)")
+    ap.add_argument(
+        "--limit", type=int, default=None, help="cap total photos processed (pilot/test runs)"
+    )
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--checkpoint-every", type=int, default=500)
     ap.add_argument("--mem-guard-gb", type=float, default=4.0)
@@ -208,7 +213,10 @@ def main() -> None:
         f"R2/R3 plan: {workers} worker(s) x {threads_per_worker} intra-op thread(s) "
         f"= {workers * threads_per_worker} of {physical} physical cores; affinity={affinities}"
     )
-    print(f"R3: expected peak RSS well under {MEM_CEILING_GB:.0f} GB (2 model copies x ~1.1 GB + buffers)")
+    print(
+        f"R3: expected peak RSS well under {MEM_CEILING_GB:.0f} GB "
+        "(2 model copies x ~1.1 GB + buffers)"
+    )
 
     if args.fresh:
         for w in range(workers):
@@ -218,7 +226,9 @@ def main() -> None:
 
     styles_df = pl.read_csv(FORECAST).select("style_key", "graphical_appearance_name")
     style_class = {
-        r["style_key"]: ("solid" if r["graphical_appearance_name"] in ("Solid", "Melange") else "patterned")
+        r["style_key"]: (
+            "solid" if r["graphical_appearance_name"] in ("Solid", "Melange") else "patterned"
+        )
         for r in styles_df.to_dicts()
     }
     print(f"universe: {len(style_class)} styles")
@@ -241,7 +251,15 @@ def main() -> None:
         aff = affinities[i] if affinities else None
         proc = mp.Process(
             target=_worker,
-            args=(i, workers, shard_paths, threads_per_worker, aff, args.checkpoint_every, args.mem_guard_gb),
+            args=(
+                i,
+                workers,
+                shard_paths,
+                threads_per_worker,
+                aff,
+                args.checkpoint_every,
+                args.mem_guard_gb,
+            ),
         )
         proc.start()
         procs.append(proc)
@@ -252,10 +270,8 @@ def main() -> None:
         for p in procs:
             if p.pid is None:
                 continue
-            try:
+            with contextlib.suppress(psutil.NoSuchProcess):
                 rss += psutil.Process(p.pid).memory_info().rss
-            except psutil.NoSuchProcess:
-                pass
         peak_rss_gb = max(peak_rss_gb, rss / 1024**3)
         time.sleep(15)
     for proc in procs:

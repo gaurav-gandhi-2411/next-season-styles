@@ -98,15 +98,23 @@ def test_pattern_class_from_graphical_appearance() -> None:
         cc.pattern_class("Ladieswear || Bikini top || Swimwear || Orange || All over pattern")
         == "patterned"
     )
-    assert cc.pattern_class("Sport || Leggings/Tights || Jersey Fancy || Black || Stripe") == "patterned"
+    assert (
+        cc.pattern_class("Sport || Leggings/Tights || Jersey Fancy || Black || Stripe")
+        == "patterned"
+    )
 
 
-def test_histogram_distance_is_zero_for_identical_and_positive_for_different(tmp_path: Path) -> None:
+def test_histogram_distance_is_zero_for_identical_and_positive_for_different(
+    tmp_path: Path,
+) -> None:
     def hist(name: str, rgb: tuple[int, int, int]) -> cc.ColourHistogram:
-        return cc.colour_histogram(_flat_lay(tmp_path / name, rgb, (210, 210, 210)), masker="border")
+        img = _flat_lay(tmp_path / name, rgb, (210, 210, 210))
+        return cc.colour_histogram(img, masker="border")
 
-    red_a, red_b, green = hist("a.png", (200, 30, 30)), hist("b.png", (198, 32, 28)), hist(
-        "c.png", (20, 150, 70)
+    red_a, red_b, green = (
+        hist("a.png", (200, 30, 30)),
+        hist("b.png", (198, 32, 28)),
+        hist("c.png", (20, 150, 70)),
     )
     assert cc.histogram_distance(red_a, red_a) == pytest.approx(0.0, abs=1e-9)
     assert cc.histogram_distance(red_a, green) > cc.histogram_distance(red_a, red_b)
@@ -129,7 +137,9 @@ def test_check_dispatches_by_pattern_class(monkeypatch: pytest.MonkeyPatch) -> N
         cc, "_check_dominant", lambda p, s: calls.append(("dominant", s)) or {"method": "dominant"}
     )
     monkeypatch.setattr(
-        cc, "_check_histogram", lambda p, s: calls.append(("histogram", s)) or {"method": "histogram"}
+        cc,
+        "_check_histogram",
+        lambda p, s: calls.append(("histogram", s)) or {"method": "histogram"},
     )
     solid, patterned = (
         "Ladieswear || Dress || Dresses Ladies || Red || Solid",

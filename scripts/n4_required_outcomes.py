@@ -43,18 +43,40 @@ def main() -> None:
         r = cc.check(path, style)
         ok = r["pass"] is False
         all_ok &= ok
-        rows.append({"name": name, "required": "FAIL", "got_pass": r["pass"], "met": ok,
-                      "method": r["method"], "distance": r["nearest_delta_e"], "threshold": r["threshold"]})
-        print(f"{'OK ' if ok else 'FAIL'} {name}: expected FAIL, got pass={r['pass']} "
-              f"method={r['method']} d={r['nearest_delta_e']:.3f} T={r['threshold']:.3f}")
+        rows.append(
+            {
+                "name": name,
+                "required": "FAIL",
+                "got_pass": r["pass"],
+                "met": ok,
+                "method": r["method"],
+                "distance": r["nearest_delta_e"],
+                "threshold": r["threshold"],
+            }
+        )
+        print(
+            f"{'OK ' if ok else 'FAIL'} {name}: expected FAIL, got pass={r['pass']} "
+            f"method={r['method']} d={r['nearest_delta_e']:.3f} T={r['threshold']:.3f}"
+        )
     for name, (style, path) in EXTRA_REQUIRED.items():
         r = cc.check(path, style)
         ok = r["pass"] is True
         all_ok &= ok
-        rows.append({"name": name, "required": "PASS", "got_pass": r["pass"], "met": ok,
-                      "method": r["method"], "distance": r["nearest_delta_e"], "threshold": r["threshold"]})
-        print(f"{'OK ' if ok else 'FAIL'} {name}: expected PASS, got pass={r['pass']} "
-              f"method={r['method']} d={r['nearest_delta_e']:.3f} T={r['threshold']:.3f}")
+        rows.append(
+            {
+                "name": name,
+                "required": "PASS",
+                "got_pass": r["pass"],
+                "met": ok,
+                "method": r["method"],
+                "distance": r["nearest_delta_e"],
+                "threshold": r["threshold"],
+            }
+        )
+        print(
+            f"{'OK ' if ok else 'FAIL'} {name}: expected PASS, got pass={r['pass']} "
+            f"method={r['method']} d={r['nearest_delta_e']:.3f} T={r['threshold']:.3f}"
+        )
     print(f"\nAll M1 required outcomes hold: {bool(all_ok)}")
     pl.DataFrame(rows).write_csv(f"{TABLES}/v3_n4_m1_regression_check.csv")
 

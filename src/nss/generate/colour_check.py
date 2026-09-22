@@ -206,7 +206,9 @@ def colour_histogram_from_image(
     )
 
 
-def colour_histogram(path: Path | str, masker: str = "rembg", bins: int = HIST_BINS) -> ColourHistogram:
+def colour_histogram(
+    path: Path | str, masker: str = "rembg", bins: int = HIST_BINS
+) -> ColourHistogram:
     """N4: the garment's colour histogram of one image file."""
     return colour_histogram_from_image(Image.open(path), masker, bins)
 
