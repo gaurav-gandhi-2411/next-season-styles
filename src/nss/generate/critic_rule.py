@@ -6,6 +6,14 @@ Before J3 three places answered "a gate failed and another gate was not run" thr
 
 The rule, in order:
 
+-1. **(A3) A prior human REJECT on this exact concept request (same style_key + brief, an earlier
+    attempt in the same retry chain) is terminal: REJECT, whatever the gates say.** No FORWARD, no
+    PASS_PENDING_HUMAN, no re-escalating the same already-decided question to a person. Checked
+    before any gate: found via K2's silent-rule agent eval (S10), where nothing written told the
+    orchestrator this, and it improvised PASS_PENDING_HUMAN + forward to the forecaster + a second
+    human escalation on a concept a person had already rejected once (graded `worse` under the
+    action-over-reasoning principle -- the reasoning said "stays unshippable", the action forwarded
+    it anyway). `skills/concept-qc/SKILL.md` CURRENT (A3), `agents/critic.md` Failure/escalation.
 0. Gate 2 (L3) is the unchanged averaged SmolVLM fidelity AND a measured garment colour within
    the style's real p90 (`colour_check`) AND the retrieval product type equal to the style's
    (`product_retrieval`); to this rule it is one gate. Gate 1 is advisory (K5) and never enters the
@@ -68,8 +76,19 @@ def unmeasured(
     return [g for g, v in measured(passes, clone_ok, mask).items() if v is None]
 
 
-def decide(passes: Passes, clone_ok: bool | None = True, mask: frozenset[str] = frozenset()) -> str:
-    """REJECT, INCONCLUSIVE or PASS_PENDING_HUMAN under the rule above."""
+def decide(
+    passes: Passes,
+    clone_ok: bool | None = True,
+    mask: frozenset[str] = frozenset(),
+    prior_human_reject: bool = False,
+) -> str:
+    """REJECT, INCONCLUSIVE or PASS_PENDING_HUMAN under the rule above.
+
+    `prior_human_reject`: a person already REJECTed an earlier attempt of this exact concept
+    request (A3). Checked before any gate -- terminal REJECT whatever the gates say.
+    """
+    if prior_human_reject:
+        return REJECT
     if failing(passes, clone_ok, mask):
         return REJECT
     if unmeasured(passes, clone_ok, mask):

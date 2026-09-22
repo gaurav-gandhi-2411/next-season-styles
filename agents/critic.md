@@ -59,6 +59,9 @@ escalated as failed.
   `style-profiler` to compare against.
 - Its own retry count for this specific concept request (0 on the first attempt), which the critic
   tracks and increments itself across the retry loop — this state does not live anywhere else.
+- Whether a human has already REJECTed an earlier attempt of this exact concept request (A3) —
+  the critic tracks this itself across the retry loop, the same way it tracks the retry count;
+  `score_concept` has no notion of it (it only sees the current image's gate results).
 
 ## Outputs
 
@@ -119,6 +122,19 @@ only requests, via the orchestrator, that `concept-designer` generate the next a
 
 ## Failure/escalation behaviour
 
+- **A human has already REJECTed an earlier attempt of this exact concept request (A3): the
+  verdict is REJECT, whatever `score_concept` returns on the current attempt.** Never
+  `PASS_PENDING_HUMAN`, never `FORWARD` to the next agent, never re-escalate the same
+  already-decided question to a person again — a person already answered it. This is checked
+  BEFORE the gate rule below, not instead of it: with retries remaining, REJECT and send the
+  usual adjusted parameter (treat the automatic gates as having disagreed with the human, not as
+  overriding them — e.g. if Gate 3 said the briefed change is present but the human said it is
+  not, flag Gate 3 as unreliable for this brief rather than trusting it over the person); with the
+  retry cap exhausted, `FAILED` with the full history, same as any other exhausted cap. Found via
+  the K2 silent-rule eval (S10): nothing written told the orchestrator this, and it improvised
+  `PASS_PENDING_HUMAN` + forward to the forecaster + a second human escalation on a concept a
+  person had already rejected once — graded `worse` under the action-over-reasoning grading
+  principle (the reasoning said the concept "stays unshippable," the action forwarded it anyway).
 - **`score_concept` tool call raises an exception** (transient error): treated as **inconclusive**,
   not as an automatic pass or an automatic fail — retry the tool call once (the scoring call
   itself, not a new image generation). If it fails again, escalate to the orchestrator as "QC

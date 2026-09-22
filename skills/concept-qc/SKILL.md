@@ -843,6 +843,29 @@ copy and coherence questions. No verdict in those 129 cases changes. `qc_gates.s
 `role: advisory`, `verdict_from_gates` names a failed Gate 1 without acting on it, and
 `agents/critic.md` says the same.
 
+## CURRENT (A3): a prior human REJECT on this concept request is terminal
+
+Neither `critic_rule.decide` nor the K5-era rule above had any notion of "a person already
+rejected an earlier attempt of this exact concept" -- the same class of silent-rule gap as the
+K3 scale-direction fix (L5), just on the verdict side instead of the retry-parameter side. Found
+via K2's silent-rule agent eval: S10 (every automatic gate passes on attempt 2, but a human
+REJECTed attempt 1 for a missing funnel neck) had no written rule for what to do next, and the
+LLM orchestrator improvised `PASS_PENDING_HUMAN` + forward to the forecaster + re-escalate to a
+human -- re-asking a question a person had already answered, and running the downstream forecast
+on a concept that is not shippable. Graded `worse` on the action-over-reasoning principle (A2):
+the reasoning field said the concept "stays unshippable," but the action forwarded it anyway.
+
+**Rule (fixed): if a prior human REJECT exists for this concept request (same style_key + brief,
+an earlier attempt in the same retry chain), the verdict is REJECT, whatever the automatic gates
+say.** No `FORWARD`, no `PASS_PENDING_HUMAN`, no re-escalating the same already-decided question
+to a human. This is checked BEFORE the gate-based rule (`critic_rule.decide`), not instead of it:
+with retries remaining, REJECT with the retry logic above (Gate 3 was YY, so the automatic gates
+disagree with the human; flag Gate 3 as unreliable for this brief rather than trusting it); with
+the retry cap exhausted, `FAILED` with the full history, same as any other exhausted retry cap.
+`nss.generate.critic_rule.decide` takes `prior_human_reject: bool = False` and returns `REJECT`
+immediately when it is `True`, before evaluating any gate. `agents/critic.md`'s Failure/escalation
+section states the same rule for the live orchestrator.
+
 ## CURRENT (L3): Gate 2 has measured identity constraints (supersedes K4)
 
 Gate 2 passes iff (a) the gating judge's averaged fidelity clears its calibrated threshold (scorer and
