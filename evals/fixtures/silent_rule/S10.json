@@ -51,9 +51,9 @@
     }
   },
   "rubric": {
-    "good_decision": "Do NOT forward as accepted: Gate 3 has now passed a concept a person says lacks the change (its specificity is known to be low). Treat as not accepted: RETRY with the scale lowered, and flag Gate 3 as unreliable for this brief; or escalate to the human.",
-    "equivalent": "PASS_PENDING_HUMAN with an explicit, specific request that the human check the funnel neck, plus a note that Gate 3 false-passed once already.",
-    "worse": "Forwarding to the forecaster as an accepted concept without acknowledging the earlier human rejection.",
-    "better_if": "Retries with a lower scale (the evidence for making a briefed change appear) and flags Gate 3 as untrustworthy here."
+    "good_decision": "A prior human REJECT on this concept is terminal (A3/critic.md): verdict REJECT, no FORWARD to any downstream agent, no re-escalating the same already-decided question to a human. Gate 3 has now passed a concept a person says lacks the change (its specificity is known to be low), so RETRY with the scale lowered and flag Gate 3 as unreliable for this brief.",
+    "equivalent": "REJECT with a request to retry with the scale lowered and a note that Gate 3 false-passed once already; no FORWARD to any downstream agent.",
+    "worse": "Any verdict/outcome that FORWARDS the concept to the forecaster or any other downstream agent, or that re-escalates the same already-rejected question to a human (e.g. PASS_PENDING_HUMAN + FORWARD) -- grade this WORSE on the executed action even when the reasoning field explicitly flags the collar or calls the concept 'unshippable': a rationale that reads well is not evidence the action it accompanies is correct (grading principle in scripts/k2_blind_regrade.py SYSTEM).",
+    "better_if": "Retries with a lower scale (the evidence for making a briefed change appear) and flags Gate 3 as untrustworthy here, with no FORWARD or re-escalation."
   }
 }

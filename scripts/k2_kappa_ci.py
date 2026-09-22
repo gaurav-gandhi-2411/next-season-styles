@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import polars as pl
+from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from k2_blind_regrade import GRADES, JUDGES, RUNS, TABLES, cc_grade, kappa  # noqa: E402
@@ -55,7 +56,7 @@ def _labels_and_reasons() -> tuple[dict[str, dict[str, str]], dict[str, dict[str
     return labels, reasons
 
 
-def _bootstrap_ci(la: list[str], lb: list[str]) -> tuple[float, float, float]:
+def _bootstrap_kappa_ci(la: list[str], lb: list[str]) -> tuple[float, float, float]:
     """Point kappa and a percentile bootstrap 95% CI, resampling matched (la[i], lb[i]) pairs."""
     n = len(la)
     point = kappa(la, lb)
@@ -70,20 +71,53 @@ def _bootstrap_ci(la: list[str], lb: list[str]) -> tuple[float, float, float]:
     return point, lo, hi
 
 
+def _clopper_pearson(x: int, n: int) -> tuple[float, float]:
+    """Exact 95% CI on a raw proportion `x / n` (Clopper-Pearson, inverting the binomial)."""
+    lo = float(stats.beta.ppf(0.025, x, n - x + 1)) if x > 0 else 0.0
+    hi = float(stats.beta.ppf(0.975, x + 1, n - x)) if x < n else 1.0
+    return lo, hi
+
+
+def _pair_ci(a: str, b: str, labels: dict[str, dict[str, str]]) -> dict[str, object]:
+    """A1: kappa's percentile bootstrap CI collapses to a point when raw agreement is 100% (no
+    disagreement in the sample to resample), which reports certainty the estimate does not have.
+    For a 100%-agreement pair, report the exact Clopper-Pearson CI on raw agreement instead; the
+    bootstrap kappa CI is kept where kappa is not degenerate (agreement < 100%)."""
+    common = sorted(set(labels[a]) & set(labels[b]))
+    la = [_acc(labels[a][k]) for k in common]
+    lb = [_acc(labels[b][k]) for k in common]
+    n = len(common)
+    n_agree = sum(x == y for x, y in zip(la, lb, strict=True))
+    if n_agree == n:
+        lo, hi = _clopper_pearson(n_agree, n)
+        return {
+            "pair": f"{a}-{b}",
+            "n": n,
+            "method": "clopper_pearson_raw_agreement",
+            "point": n_agree / n,
+            "ci_lo": lo,
+            "ci_hi": hi,
+            "note": "kappa=1.0 (59/59 raw agreement); bootstrap kappa CI is degenerate here "
+            "(no disagreement to resample), so this is an exact CI on raw agreement, not on kappa",
+        }
+    point, lo, hi = _bootstrap_kappa_ci(la, lb)
+    return {
+        "pair": f"{a}-{b}",
+        "n": n,
+        "method": "bootstrap_kappa",
+        "point": point,
+        "ci_lo": lo,
+        "ci_hi": hi,
+        "note": f"{N_BOOT}-resample percentile bootstrap of Cohen's kappa, seed {SEED}",
+    }
+
+
 def main() -> None:
     labels, reasons = _labels_and_reasons()
-    rows = []
-    for a, b in (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen")):
-        common = sorted(set(labels[a]) & set(labels[b]))
-        la = [_acc(labels[a][k]) for k in common]
-        lb = [_acc(labels[b][k]) for k in common]
-        point, lo, hi = _bootstrap_ci(la, lb)
-        rows.append(
-            {"pair": f"{a}-{b}", "n": len(common), "kappa": point, "ci_lo": lo, "ci_hi": hi}
-        )
+    rows = [_pair_ci(a, b, labels) for a, b in (("claude", "gemini"), ("claude", "qwen"), ("gemini", "qwen"))]
     ci_df = pl.DataFrame(rows)
     ci_df.write_csv(f"{TABLES}/v3_k2_kappa_ci.csv")
-    with pl.Config(tbl_cols=-1):
+    with pl.Config(tbl_cols=-1, fmt_str_lengths=120):
         print(ci_df)
 
     # Qwen's dissenting cases: acc(qwen) != acc(claude) AND acc(qwen) != acc(gemini)

@@ -1,0 +1,4 @@
+pair,n,method,point,ci_lo,ci_hi,note
+claude-gemini,59,clopper_pearson_raw_agreement,1.0,0.9393910990496601,1.0,"kappa=1.0 (59/59 raw agreement); bootstrap kappa CI is degenerate here (no disagreement to resample), so this is an exact CI on raw agreement, not on kappa"
+claude-qwen,59,clopper_pearson_raw_agreement,1.0,0.9393910990496601,1.0,"kappa=1.0 (59/59 raw agreement); bootstrap kappa CI is degenerate here (no disagreement to resample), so this is an exact CI on raw agreement, not on kappa"
+gemini-qwen,59,clopper_pearson_raw_agreement,1.0,0.9393910990496601,1.0,"kappa=1.0 (59/59 raw agreement); bootstrap kappa CI is degenerate here (no disagreement to resample), so this is an exact CI on raw agreement, not on kappa"

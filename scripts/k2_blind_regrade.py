@@ -46,6 +46,13 @@ exactly one grade:
 - "equivalent": it is the good decision or matches the listed equivalent;
 - "worse": it matches the listed worse behaviour, or violates the good decision without justification;
 - "other": a defensible call the rubric did not anticipate (say why).
+GRADE THE EXECUTED ACTION FIELDS (verdict, outcome, next_agent, adjust, escalate_to_human), NOT
+the prose in "reason" or "flags_for_human". A decision whose action contradicts its own stated
+reasoning (e.g. the reasoning says a concept is unshippable, but the action forwards it anyway) is
+graded on what it DOES, not on what it SAYS -- a rationale that reads well is not evidence the
+action it accompanies is correct; being persuaded by well-written reasoning over a contradictory
+action is a known judge failure mode. If the action matches "worse" in the rubric, grade "worse"
+even if the reasoning field explains, qualifies or partially disclaims that action.
 Judge each decision on its own against the rubric. Reply with ONE JSON object and nothing else:
 {"grades": {"<id>": {"grade": "better|equivalent|worse|other", "why": "<one sentence>"}}}"""
 

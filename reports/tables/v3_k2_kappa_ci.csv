@@ -1,4 +1,4 @@
-pair,n,kappa,ci_lo,ci_hi
-claude-gemini,59,1.0,1.0,1.0
-claude-qwen,59,0.8383561643835614,0.549618320610687,1.0
-gemini-qwen,59,0.8383561643835614,0.549618320610687,1.0
+pair,n,method,point,ci_lo,ci_hi,note
+claude-gemini,59,clopper_pearson_raw_agreement,1.0,0.9393910990496601,1.0,"kappa=1.0 (59/59 raw agreement); bootstrap kappa CI is degenerate here (no disagreement to resample), so this is an exact CI on raw agreement, not on kappa"
+claude-qwen,59,bootstrap_kappa,0.8383561643835614,0.549618320610687,1.0,"2000-resample percentile bootstrap of Cohen's kappa, seed 42"
+gemini-qwen,59,bootstrap_kappa,0.8383561643835614,0.549618320610687,1.0,"2000-resample percentile bootstrap of Cohen's kappa, seed 42"
