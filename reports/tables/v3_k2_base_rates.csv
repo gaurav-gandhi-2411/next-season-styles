@@ -1,0 +1,4 @@
+judge,n,n_not_acceptable,base_rate_not_acceptable
+claude,59,6,0.1016949152542373
+gemini,59,6,0.1016949152542373
+qwen,59,8,0.13559322033898305
