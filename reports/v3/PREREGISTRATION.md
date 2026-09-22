@@ -418,3 +418,44 @@ Committed before any N3 or N4 scoring. **Facts already known and stated, decided
 3. The bikini's new noise-band p95 is **well below** the old dominant-colour p95 of 28.9 (no numeric floor stated in advance beyond "well below": reported plainly whatever it is).
 
 **If the bikini does not recover to >= 0.80, this is reported plainly and the statistic, threshold or shrinkage weight is not adjusted post hoc to force it.**
+
+---
+
+## O. A3: a prior human REJECT is terminal (spec-gap fix, S10 re-run)
+
+Committed before any S10 re-run. **Facts already known and stated, decided from evidence already
+on record (A2's adjudication, not from anything the re-run below will produce):** S10 is the only
+one of the ten K2 silent-rule scenarios where an earlier attempt of the SAME concept was rejected
+by a HUMAN (the other prior-REJECT scenarios, S02 and S05, were rejected by an automatic gate on
+an earlier attempt, which the existing retry rule already handles correctly). Neither
+`critic_rule.decide` nor `agents/critic.md` had any rule for this case; the live LLM orchestrator
+improvised `PASS_PENDING_HUMAN` + `FORWARD` to the forecaster + a second human escalation, which
+A2 adjudicated as `worse` (the executed action re-asks an already-decided question and forwards an
+unshippable concept, contradicting the reply's own "stays unshippable" reasoning).
+
+**Rule (fixed, already implemented in this commit's parent, not by this pre-registration): if a
+prior human REJECT exists for this concept request (same style_key + brief, an earlier attempt in
+the same retry chain), the verdict is REJECT -- no FORWARD, no PASS_PENDING_HUMAN, no
+re-escalating the same already-decided question -- checked before any gate.**
+`nss.generate.critic_rule.decide` takes `prior_human_reject: bool = False`; no existing caller
+passes it, so every previously-scored case (the 129 H3/J6 cases, the 54 recorded candidates, S01
+through S09) is provably unaffected by construction (default-argument semantics) and by the full
+suite passing unchanged (913 pre-existing + 31 new, all green). `agents/critic.md`'s
+Failure/escalation section and `skills/concept-qc/SKILL.md`'s CURRENT (A3) section state the same
+rule for the live orchestrator; `evals/fixtures/silent_rule/S10.json`'s rubric now requires REJECT
+(no FORWARD) as the good/equivalent behaviour, matching this rule.
+
+**Re-run (fixed).** S10 only, 3 runs, **Sonnet** (not Fable, not Opus -- matching K2/L5's model),
+same call shape as K2/L5: system prompt = the CURRENT `agents/critic.md` and
+`agents/orchestrator.md` (with the A3 rule in context), no evidence note beyond what the agent
+files themselves now say. Claude Max plan utilisation is checked and reported before the run (it
+was last reported ~0.90); if utilisation does not allow 3 runs, this is reported and the re-run
+waits rather than proceeding.
+
+**Required outcomes (stated before running; no tuning if unmet).** All 3 runs return verdict
+`REJECT`, with no `FORWARD` outcome and no `escalate_to_human: true` in the reply. **Also
+reported, not required to pass/fail:** the deterministic rule's own verdict on S10 with
+`prior_human_reject=True` (already confirmed REJECT, see the commit implementing the rule), and
+that no case in the 129/54/S01-S09 set changes verdict (see above -- structural guarantee, checked
+via the passing test suite, not re-scored here since that would separately exercise N4's
+not-yet-measured histogram band on the bikini-style stored cases, an unrelated pending gap).
