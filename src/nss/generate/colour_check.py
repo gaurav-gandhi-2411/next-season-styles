@@ -66,7 +66,9 @@ HIST_BINS = 32
 L_RANGE = (0.0, 100.0)
 AB_RANGE = (-100.0, 100.0)
 CATALOGUE_PRIORS_PATH = Path("reports/tables/v3_catalogue_colour_priors_by_class.csv")
-W_BAND_PATTERNED: float | None = None  # set once scripts/colour_histogram_noise.py has measured it
+W_BAND_PATTERNED: float | None = (
+    36.962  # N4: p95 of the pooled histogram-distance jitter deviation (colour_histogram_noise.py)
+)
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,8 @@
+name,required,got_pass,met,method,distance,threshold
+H1_wrong_attribute_Dress,FAIL,false,true,dominant,54.186303024310085,4.29761931553587
+m3_coral_dress_attempt1,FAIL,false,true,dominant,6.0076537789627915,4.29761931553587
+m3_coral_dress_attempt2,FAIL,false,true,dominant,5.770535009548192,4.29761931553587
+red_dress_seed47_s0.35,PASS,true,true,dominant,3.4268308715448454,4.29761931553587
+red_dress_seed43_s0.45,PASS,true,true,dominant,1.6402966050438854,4.29761931553587
+submitted_dress_seed44,PASS,true,true,dominant,1.6712549778012729,4.29761931553587
+submitted_sweater_seed45,PASS,true,true,dominant,2.7459900183095334,3.75054179361679

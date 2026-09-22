@@ -1,0 +1,4 @@
+outcome,required,met,value
+M1 regression (7 cases),all hold,true,
+bikini LOO (histogram statistic),>= 0.8,false,0.5
+bikini noise band p95 (histogram statistic),well below 28.931445,false,36.962
