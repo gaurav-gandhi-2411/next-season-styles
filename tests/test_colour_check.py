@@ -86,3 +86,73 @@ def test_band_gives_pass_fail_or_escalate() -> None:
     assert cc.verdict_for(4.6, 4.5, band=0.0) == cc.FAIL  # zero band: the binary rule
     assert cc.verdict_for(4.5, 4.5, band=0.0) == cc.PASS
     assert cc.verdict_for(4.6, 4.5) == cc.ESCALATE  # default band is the measured W_BAND
+
+
+# N4: colour-histogram distance for the patterned class
+
+
+def test_pattern_class_from_graphical_appearance() -> None:
+    assert cc.pattern_class("Ladieswear || Dress || Dresses Ladies || Red || Solid") == "solid"
+    assert cc.pattern_class("Ladieswear || Sweater || Knitwear || Beige || Melange") == "solid"
+    assert (
+        cc.pattern_class("Ladieswear || Bikini top || Swimwear || Orange || All over pattern")
+        == "patterned"
+    )
+    assert cc.pattern_class("Sport || Leggings/Tights || Jersey Fancy || Black || Stripe") == "patterned"
+
+
+def test_histogram_distance_is_zero_for_identical_and_positive_for_different(tmp_path: Path) -> None:
+    def hist(name: str, rgb: tuple[int, int, int]) -> cc.ColourHistogram:
+        return cc.colour_histogram(_flat_lay(tmp_path / name, rgb, (210, 210, 210)), masker="border")
+
+    red_a, red_b, green = hist("a.png", (200, 30, 30)), hist("b.png", (198, 32, 28)), hist(
+        "c.png", (20, 150, 70)
+    )
+    assert cc.histogram_distance(red_a, red_a) == pytest.approx(0.0, abs=1e-9)
+    assert cc.histogram_distance(red_a, green) > cc.histogram_distance(red_a, red_b)
+
+
+def test_threshold_from_hist_is_the_p90_of_nearest_sibling_histogram_distances() -> None:
+    def onehot(bin_l: int, bin_a: int, bin_b: int) -> cc.ColourHistogram:
+        l_hist, a_hist, b_hist = (np.zeros(cc.HIST_BINS) for _ in range(3))
+        l_hist[bin_l], a_hist[bin_a], b_hist[bin_b] = 1.0, 1.0, 1.0
+        return cc.ColourHistogram(l_hist, a_hist, b_hist, False, 1.0)
+
+    hists = [onehot(16, 16, 16 + i) for i in range(6)]
+    dists = cc.nearest_sibling_distances_hist(hists)
+    assert cc.threshold_from_hist(hists) == pytest.approx(float(np.percentile(dists, 90)))
+
+
+def test_check_dispatches_by_pattern_class(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        cc, "_check_dominant", lambda p, s: calls.append(("dominant", s)) or {"method": "dominant"}
+    )
+    monkeypatch.setattr(
+        cc, "_check_histogram", lambda p, s: calls.append(("histogram", s)) or {"method": "histogram"}
+    )
+    solid, patterned = (
+        "Ladieswear || Dress || Dresses Ladies || Red || Solid",
+        "Ladieswear || Bikini top || Swimwear || Orange || All over pattern",
+    )
+    assert cc.check("x.png", solid)["method"] == "dominant"
+    assert cc.check("x.png", patterned)["method"] == "histogram"
+    assert calls == [("dominant", solid), ("histogram", patterned)]
+
+
+def test_check_histogram_fails_loudly_if_the_band_is_not_yet_measured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cc, "W_BAND_PATTERNED", None)
+    with pytest.raises(ValueError, match="W_BAND_PATTERNED"):
+        cc._check_histogram("irrelevant.png", "any || style || key || here || All over pattern")
+
+
+def test_catalogue_class_prior_fails_loudly_when_not_yet_computed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cc.catalogue_class_prior.cache_clear()
+    monkeypatch.setattr(cc, "CATALOGUE_PRIORS_PATH", tmp_path / "missing.csv")
+    with pytest.raises(ValueError, match="colour_catalogue_priors"):
+        cc.catalogue_class_prior("patterned")
+    cc.catalogue_class_prior.cache_clear()
