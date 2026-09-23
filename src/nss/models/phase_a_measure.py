@@ -1,10 +1,11 @@
 """Phase A (SPEC.md Section 7): demand capture@k, tolerance hit@3, power table, full re-score.
 
 Rules are pre-registered in `reports/v3/PREREGISTRATION.md` (Phase A), committed before any new
-metric was computed on any model. Two entry points, run in this order:
+metric was computed on any model. Entry points, run in this order:
 
     uv run python -m nss.models.phase_a_measure --near-tie   # labels only, feeds the pre-reg
     uv run python -m nss.models.phase_a_measure              # model + baselines + floor
+    uv run python -m nss.models.phase_a_measure --matched    # POST-HOC sensitivity, see below
 
 `--near-tie` reads only realised targets (no predictions of any method) and writes the per-origin
 gap between the true #3 and #4 styles in raw intensity, from which the tolerance margin is derived.
@@ -44,7 +45,12 @@ from nss.models.backtest import (
 )
 from nss.models.eval_power import LAST_WEEKLY_ORIGIN, ess_ac, ess_boot, model_rows
 from nss.models.lightgbm_model import INITIAL_POOL_SIZE
-from nss.models.metrics import METRIC_KEYS, demand_capture_at_k, tolerance_hit_at_k
+from nss.models.metrics import (
+    METRIC_KEYS,
+    demand_capture_at_k,
+    hit_at_k_in_top_n,
+    tolerance_hit_at_k,
+)
 from nss.models.random_floor import RANDOM_FLOOR_METHOD, RANDOM_FLOOR_SEEDS, permute_predictions
 
 MODEL = growth_backtest.MODEL
@@ -362,6 +368,51 @@ def main() -> None:
         print(primary)
 
 
+def run_matched() -> None:
+    """POST-HOC sensitivity, not pre-registered and not part of the A.4 verdict.
+
+    The pre-registered convention scores seasonal-naive on the styles with 52 weeks of history and
+    the model on its full eval set. This re-scores the model on seasonal-naive's own population at
+    each origin, from the saved prediction frame (no retraining), so the paired difference compares
+    like with like. Writes `phase_a_sensitivity_matched.csv`.
+    """
+    panel = pl.read_parquet("data/processed/style_week_panel.parquet")
+    _, weekly = weekly_origins(panel)
+    weeks = [o.origin_week for o in weekly]
+    model_frame = pl.read_parquet(
+        f"data/generated/phase_a_model_predictions_{_stamp(weeks)}.parquet"
+    )
+    preds = build_predictions_frame(panel, weeks).filter(
+        pl.col(f"y_pred_{COMPARATOR}").is_not_null()
+    )
+    matched = model_frame.join(
+        preds.select("style_key", "origin_week"), on=["style_key", "origin_week"], how="semi"
+    )
+    rows = []
+    for o in weekly:
+        m = matched.filter(pl.col("origin_week") == o.origin_week)
+        if m.height == 0:
+            continue
+        y, p = m["y_true"].to_numpy(), m[f"y_pred_{MODEL}"].to_numpy()
+        rows.append(
+            {
+                "origin_week": o.origin_week,
+                "method": MODEL,
+                "hit_at_3_in_top20": hit_at_k_in_top_n(y, p, 3, 20),
+                **new_metric_values(y, p, MARGIN_PREREGISTERED or 0.0),
+            }
+        )
+    metrics = ("hit_at_3_in_top20", *NEW_METRICS)
+    sn = pl.read_csv(f"{OUT}/phase_a_per_origin.csv", try_parse_dates=True).filter(
+        pl.col("method") == COMPARATOR
+    )
+    combined = pl.concat([pl.DataFrame(rows), sn.select("origin_week", "method", *metrics)])
+    out = paired_rows(combined, metrics).filter(pl.col("comparator") == COMPARATOR)
+    out.write_csv(f"{OUT}/phase_a_sensitivity_matched.csv")
+    with pl.Config(tbl_rows=20, tbl_width_chars=220, float_precision=4):
+        print(out.select("metric", "n_paired", "mean_diff", "ci_lo", "ci_hi", "excludes_zero"))
+
+
 def _stamp(weeks: Sequence[date]) -> str:
     """Filename tag: origin span and count, e.g. `w48_2019-07-29_2020-06-22`."""
     return f"w{len(weeks)}_{weeks[0]}_{weeks[-1]}"
@@ -369,4 +420,9 @@ def _stamp(weeks: Sequence[date]) -> str:
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode tables
-    run_near_tie() if "--near-tie" in sys.argv else main()
+    if "--near-tie" in sys.argv:
+        run_near_tie()
+    elif "--matched" in sys.argv:
+        run_matched()
+    else:
+        main()
