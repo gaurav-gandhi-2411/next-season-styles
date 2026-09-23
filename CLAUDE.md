@@ -44,19 +44,28 @@ See the recovery session's report for the full incident writeup, the reparse-poi
 
 The master dataset (4 CSVs + `images/`, 105,104 files, 34,558,584,597 bytes as copied on
 2026-09-23, plus one `ACL_TEST_SENTINEL.txt`) lives outside every git repository, under an NTFS
-ACL that denies delete to the current user. This project reads images from it via
+ACL that makes it read-only for the current user: delete, write and create are all denied. This project reads images from it via
 `NSS_HM_IMAGE_TREE=C:\Users\gaura\hm-data\images` (set as a User environment variable; also the
 first entry of `TREE_CANDIDATES` in `nss.generate.concept_forecast_index`). The copy in
 `multimodal-fashion-recommender` stays untouched as a redundant backup.
 
-- **Apply** (inherits to every file and folder beneath):
-  `icacls C:\Users\gaura\hm-data /deny "LEGION\gaura:(OI)(CI)(DE,DC)"`
+- **Apply** (read-only; inherits to every file and folder beneath):
+  `icacls C:\Users\gaura\hm-data /deny "LEGION\gaura:(OI)(CI)(WD,AD,WEA,WA,DE,DC)"`
+  (WD write data / add file, AD append data / add subfolder, WEA write extended attributes,
+  WA write attributes, DE delete, DC delete child. Read, execute and read-permissions stay allowed,
+  and so does changing the ACL, which is what lets the undo work.)
 - **Undo** (removes every deny ACE for that user, including the inherited ones):
   `icacls C:\Users\gaura\hm-data /remove:d "LEGION\gaura"`
-- **Check:** `icacls C:\Users\gaura\hm-data` must show `LEGION\gaura:(OI)(CI)(DENY)(DE,DC)`.
+- **Check:** `icacls C:\Users\gaura\hm-data` must show
+  `LEGION\gaura:(OI)(CI)(DENY)(DE,WD,AD,WEA,DC,WA)`. A second, redundant
+  `(OI)(CI)(DENY)(DE,DC)` ACE from the first, delete-only version is also present; the undo removes
+  both.
 
-Tested on 2026-09-23 on a scratch folder first: under the deny, reads succeeded, and file delete,
-recursive folder delete and rename all failed with "Access ... is denied"; after the undo, the same
-deletes succeeded. On `hm-data`: reads succeed, and deleting `ACL_TEST_SENTINEL.txt` fails. The ACL
-does **not** block creating or overwriting files — it protects against deletion only. Only remove it
-with the user's explicit instruction, and re-apply it immediately after.
+Tested on 2026-09-23, on a scratch folder first each time. Delete-only version: file delete,
+recursive delete and rename failed; after the undo they succeeded. Read-only version: overwriting a
+file, appending, creating a file, creating a subfolder, deleting, recursive delete and rename all
+failed with the files left byte-identical; after the undo, overwrite, create and delete all
+succeeded. On `hm-data`: an image reads; opening it for write fails and its SHA-256 is unchanged;
+overwriting `ACL_TEST_SENTINEL.txt` fails; creating a new file fails; deleting fails; the file count
+stays 105,105. Only remove the ACL with the user's explicit instruction, and re-apply it immediately
+after.
