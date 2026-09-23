@@ -83,7 +83,6 @@ from pathlib import Path
 import lightgbm as lgb
 import numpy as np
 import polars as pl
-import shap
 
 from nss.features.model_features import build_features
 from nss.features.style_panel import STYLE_KEY_COLS
@@ -296,6 +295,8 @@ def compute_local_shap_drivers(
     """
     order_df = pl.DataFrame({"style_key": style_keys_in_order}).with_row_index("_order")
     rows = forecast_frame.join(order_df, on="style_key", how="inner").sort("_order").drop("_order")
+    import shap  # local: keeps this module importable without the explanation stack (nss.prod)
+
     X = _to_lgb_matrix(rows, columns)
     explainer = shap.TreeExplainer(model)
     shap_values = np.asarray(explainer.shap_values(X))

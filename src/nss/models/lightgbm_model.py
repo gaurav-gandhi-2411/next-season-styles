@@ -141,13 +141,8 @@ from datetime import date
 from pathlib import Path
 
 import lightgbm as lgb
-import matplotlib
-
-matplotlib.use("Agg")  # noqa: E402 -- must precede pyplot import; headless (CI/CLI) rendering only.
-import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np
 import polars as pl
-import shap
 
 from nss.features.model_features import build_features
 from nss.features.targets import HORIZON_WEEKS, compute_forward_target
@@ -158,6 +153,10 @@ from nss.models.backtest import (
     generate_origin_schedule,
 )
 from nss.models.metrics import METRIC_KEYS, score_predictions
+
+# shap and matplotlib are imported inside the two SHAP functions below, not at module level: the
+# training path (`build_model_frame`, `train_lightgbm`, `predict_lightgbm`) is also the production
+# path (`nss.prod`), which must import without the plotting and explanation stack.
 
 METHOD_NAME = "lightgbm"
 
@@ -522,6 +521,8 @@ def compute_global_shap_importance(
     Returns:
         `feature`, `mean_abs_shap`, sorted descending by `mean_abs_shap`.
     """
+    import shap
+
     X = _to_lgb_matrix(frame, columns)
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
@@ -535,6 +536,12 @@ def save_shap_summary_plot(
     model: lgb.LGBMRegressor, frame: pl.DataFrame, columns: list[str], out_path: Path
 ) -> None:
     """Save a standard SHAP beeswarm summary plot to `out_path` (parents created as needed)."""
+    import matplotlib
+
+    matplotlib.use("Agg")  # must precede the pyplot import; headless (CI/CLI) rendering only
+    import matplotlib.pyplot as plt
+    import shap
+
     X = _to_lgb_matrix(frame, columns)
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
