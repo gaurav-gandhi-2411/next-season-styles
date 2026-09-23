@@ -77,10 +77,23 @@ prior_human_reject=True)` returns REJECT before any gate; `agents/critic.md` and
 `skills/concept-qc/SKILL.md` state the same rule). No existing caller passes the new parameter, so
 every previously-scored verdict (129 H3/J6 cases, 54 candidates, S01-S09) is unaffected by
 construction, and the deterministic rule now gives REJECT on S10 (was PASS_PENDING_HUMAN).
-**A live Sonnet re-run of S10 (3 runs, required: REJECT with no FORWARD and no escalation in all
-three) has NOT been run yet** -- it needs a live model call, Max plan utilisation was last known
-at ~0.90 seven-day, and this session has no tool to check the current figure directly, so it is
-paused for explicit confirmation before spending that quota rather than guessed at.
+
+**The live Sonnet re-run of S10 has now been run** (`scripts/agent_llm_s10_rerun.py`,
+`reports/tables/v3_s10_rerun_runs.jsonl`), same call shape as K2/L5 (headless `claude -p`, Max
+login, `ANTHROPIC_API_KEY` removed, `--model sonnet`, no tools, no MCP, no settings/hooks, no
+session persistence), system prompt = the CURRENT `agents/critic.md` and `agents/orchestrator.md`
+(the A3 rule in context). **All three runs returned REJECT, with no FORWARD and no escalation to
+human, meeting the pre-registered requirement.** Each run's `outcome` was `RETRY` routed to
+`concept-designer` rather than a hard stop -- this is attempt 2 in the fixture (attempt 1 was the
+human REJECT), so a REJECT verdict at attempt 2 still falls under the ordinary retry-cap routing
+(cap: 1 original + 2 retries) rather than being forced to `FAILED`; the A3 rule changes the
+*verdict* on a prior human REJECT, not the retry-cap arithmetic, and nothing in the pre-registered
+requirement asked for `FAILED` specifically. Confirmed separately: the deterministic rule,
+`critic_rule.decide(passes, clone_ok, prior_human_reject=True)` on S10's actual gate values, also
+returns REJECT (it returned `PASS_PENDING_HUMAN` without the flag) -- the live model and the
+deterministic rule now agree. No other verdict changes: `prior_human_reject` is not passed by any
+caller anywhere else in the codebase (grepped `src/`, `scripts/`, `tests/`); every other
+previously-scored case is unaffected by construction, now re-confirmed rather than only asserted.
 
 A catalogue-wide colour-threshold prior was computed to replace M1's single global median (built
 from only three solid-colour calibrated styles, which is why shrinkage hurt the bikini): for each
@@ -121,9 +134,8 @@ not fix it, and the method is not tuned further to force a pass.
 
 The white top's human check is still open. The solid-bikini control and the Gemini reading of the white-top alternates were blocked by rate limits. The bikini can still not pass Gate 2: its score is exactly 0.283 on all 24 seeds because the judge cannot name its pattern and reads "Bikini." for "Bikini top", and a fix to that scoring would move the calibration, so I left it and reported it.
 
-The live Sonnet re-run of S10 under the new terminal-REJECT rule has not been run (paused for
-explicit confirmation to spend Max plan quota; utilisation was last known at ~0.90 and this
-session has no way to check the current figure directly). The bikini's Gate 2 colour check still
+The live Sonnet re-run of S10 under the new terminal-REJECT rule is now done (see above): all
+three runs REJECT, no FORWARD, no escalation, matching the deterministic rule. The bikini's Gate 2 colour check still
 does not meet its own bar under either statistic: neither the dominant-colour version (M1, 0.50
 shrunk leave-one-out) nor the histogram version (N4, also 0.50) reaches 0.80, and the mechanism
 in both cases is the shrinkage step pulling the threshold toward an external prior the bikini's
