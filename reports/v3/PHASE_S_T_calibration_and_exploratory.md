@@ -17,7 +17,14 @@ from the same embargoed serving rule.
 |---|---|---|---|---|---|---|---|---|
 | raw q10-q90 | 0.623 | 0.685 | 0.525 | 0.626 [0.545, 0.692] | 0.395 / 0.784 | 6 (42 below) | 1.293 | 11.6 |
 | CQR symmetric | 0.805 | 0.841 | 0.749 | 0.807 [0.727, 0.890] | 0.583 / 0.988 | 8 (18 below, 22 above) | 1.825 | 16.9 |
-| **CQR asymmetric (chosen)** | **0.803** | 0.837 | 0.748 | 0.804 [0.726, 0.887] | 0.583 / 0.984 | 8 (18 below, 22 above) | **1.808** | 16.0 |
+| **CQR asymmetric (chosen)** | **0.803** | 0.837 | 0.748 | 0.804 [0.726, 0.886] | 0.583 / 0.984 | 8 (18 below, 22 above) | **1.808** | 16.0 |
+
+**Correction disclosed.** The first run (`5bdcf58`) computed the conformal quantile as
+`np.quantile(scores, k/n, method="higher")`, which the pre-registration also named. Numpy indexes
+over `n - 1`, so that returns the (k+1)-th smallest score, one order statistic above the S1 formula
+`k = ceil(0.8 (n + 1))`. A unit test caught it. With about 12,000 scores per window the effect is
+at most 0.0005 on any figure above (asymmetric pooled 0.80274 → 0.80261, width 1.80807 →
+1.80763), and the choice and band counts are unchanged. The table shows the corrected run.
 
 **Verdict: the pre-registered target is met.** Both CQR variants land pooled coverage inside
 [0.75, 0.85], and the asymmetric one is narrower (log1p width 1.808 vs 1.825), so it is chosen, as

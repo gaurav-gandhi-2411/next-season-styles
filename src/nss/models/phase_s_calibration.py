@@ -75,9 +75,16 @@ def run() -> None:
 
 
 def conformal_q(scores: np.ndarray, level: float) -> float:
-    """The ceil(level * (n + 1)) / n empirical quantile (numpy "higher"), capped at 1."""
+    """The k-th smallest score, k = ceil(level * (n + 1)), capped at the maximum (k > n).
+
+    This is the Section S1 formula. The first run used `np.quantile(scores, k / n,
+    method="higher")`, which the pre-registration also named, but numpy indexes over `n - 1`, so
+    that call returns the (k+1)-th smallest score: one order statistic too high. Corrected here;
+    the old and new results are both reported in `PHASE_S_T_calibration_and_exploratory.md`.
+    """
     n = scores.size
-    return float(np.quantile(scores, min(1.0, np.ceil(level * (n + 1)) / n), method="higher"))
+    k = min(n, int(np.ceil(level * (n + 1))))
+    return float(np.sort(scores)[k - 1])
 
 
 def window_for(t: date, history: Sequence[date]) -> list[date]:
