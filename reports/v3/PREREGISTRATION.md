@@ -459,3 +459,94 @@ reported, not required to pass/fail:** the deterministic rule's own verdict on S
 that no case in the 129/54/S01-S09 set changes verdict (see above -- structural guarantee, checked
 via the passing test suite, not re-scored here since that would separately exercise N4's
 not-yet-measured histogram band on the bikini-style stored cases, an unrelated pending gap).
+
+---
+
+## P. Phase A: demand capture@k, tolerance hit@3, power, and the Phase B primary metric
+
+SPEC.md Sections 5 and 7. Committed before any of the metrics below has been computed on any
+model, baseline or floor. The only numbers computed before this commit are label-only: the realised
+#3-vs-#4 gaps in `reports/tables/phase_a_near_tie.csv` (`python -m nss.models.phase_a_measure
+--near-tie`), which read realised targets and no predictions. Code: `nss.models.metrics`
+(`demand_capture_at_k`, `tolerance_hit_at_k`) and `nss.models.phase_a_measure`, committed together
+with this section.
+
+**Why these metrics, and why now.** The near-tie finding (the true #3 and #4 styles differ by
+0.61% of the #3 value, `ranking_diagnostics_summary.csv`) predates both metrics; it is the reason
+for them, not a result they were tuned to. A buyer commits inventory to a handful of styles and is
+paid by the demand those styles realise. Demand capture scores exactly that: how much of the best
+achievable demand the picks deliver, with partial credit for a near-miss. Hit@3 is binary per pick:
+a pick one place outside the true top-N scores 0, however close it was.
+
+**Correction to the premise, measured before this commit.** The 0.61% was computed on the
+`log1p` target (about 4.7 at #3) over the 12 grid origins, not on raw intensity. On the 48 weekly
+origins used here, the log1p gap averages 0.82%. In raw intensity (units per active article per
+week, `expm1` of the target), the #3-vs-#4 gap has median 3.78%, 90th percentile 5.79%, maximum
+17.9%. Both new metrics use raw intensity, so the margin is derived on that scale.
+
+### P1. Metrics (all per origin, then averaged over origins)
+
+- **Demand capture@k, k = 3, 10, 20:** the summed realised intensity of the method's top-k picks
+  divided by the summed realised intensity of the true top-k, in raw intensity. In [0, 1]; 1 for a
+  perfect pick. Oracle = 1.
+- **Tolerance hit@3:** the fraction of the method's top-3 picks whose realised intensity is at
+  least `(1 - m)` times the true #3's intensity. Oracle = 1.
+- **The margin `m`, derived:** the 90th percentile, over the 48 weekly origins, of
+  `(I3 - I4) / I3` in raw intensity (numpy's default linear interpolation): **m = 0.057911**.
+  Reasoning: the SPEC treats the true #4 as indistinguishable from #3; the margin is the smallest
+  that counts the true #4 as a hit at 90% of origins. It is a quantile of the measured gap, not a
+  round number, and the code recomputes it at run time and stops if it differs.
+- **Population convention**, unchanged from the existing metrics: each baseline is scored on the
+  styles where its prediction is non-null (seasonal-naive drops styles without 52 weeks of
+  history), the true top-k taken within that population; the model is scored on its full eval set;
+  the random floor permutes realised targets over the full eval set, averaged over the 20 existing
+  floor seeds.
+- **Nothing is replaced.** Hit@3-in-top20 and every existing metric (Hit@3-in-top10,
+  Precision@3/10, NDCG@10, Spearman, WMAPE) are reported alongside, on the same origins.
+
+### P2. Protocol (A.2, A.3)
+
+The model and all four baselines (seasonal-naive, EWMA persistence, parent-category mean, global
+mean) and the random floor, at the 48 embargoed weekly origins of 2b (`eval_power`). The model's
+predictions are regenerated with the locked `FINAL_MODEL_CONFIG` (no cached frame survived the
+data loss); the run stops unless every existing metric, for every method at every origin, equals
+`v3_power_per_origin_weekly.csv` to 1e-9. No retraining beyond that reproduction; no tuning.
+
+For each metric, paired model-minus-comparator differences per origin, moving-block bootstrap,
+block length 13, 2,000 resamples, seed 42. Reported against seasonal-naive (the power table) and
+every other comparator: n paired origins, mean difference, 95% percentile CI, CI half-width,
+bootstrap SE, effective sample size (`ess_ac` and `ess_boot`, as in 2b), and the **minimum
+detectable effect at 80% power**, `MDE = (z_0.975 + z_0.80) * SE_block = 2.8016 * SE_block`
+(two-sided alpha 0.05).
+
+### P3. Rule for choosing the Phase B primary metric (A.4)
+
+**Candidates:** tolerance hit@3, demand capture@3, Hit@3-in-top20, demand capture@10, demand
+capture@20. The other existing metrics stay guardrails (SPEC Section 6) and are not candidates.
+
+**Relevance check, stated in advance.** A candidate is eligible only if all three hold:
+
+- **R1 decision alignment:** it depends only on the method's top-k picks, k <= 20, scored by
+  their realised demand. True of every candidate by construction; excludes Spearman, WMAPE and
+  NDCG@10 (log-scale relevance).
+- **R2 separation from chance:** the random floor's mean is at most 0.5, halfway between an
+  uninformed pick and the oracle's 1.0.
+- **R3 estimable:** at least 8 origins with a paired model-minus-seasonal-naive difference, and a
+  nonzero bootstrap SE.
+
+**Selection.** Among eligible candidates, the one with the smallest **normalised MDE**,
+`MDE / (1 - floor mean)`: the MDE as a fraction of that metric's achievable range above chance.
+Raw MDEs are not comparable across metrics on different scales, which is why the rule normalises;
+with oracle = 1 for every candidate, `1 - floor` is that range. Ties at 3 decimals go to the
+earlier candidate in the list above (smaller k). **Only dispersion enters the choice.** The sign
+and size of the model's lead play no part in it.
+
+**Verdict.** The model's lead over seasonal-naive counts as demonstrable under the chosen primary
+metric if and only if its 95% paired block-bootstrap CI (block 13) excludes zero in the model's
+favour. Either answer is reported plainly. No metric, margin, candidate, block length or threshold
+in this section is changed after results are seen.
+
+**Caveat, stated now.** The MDE is computed for model versus seasonal-naive. In Phase B the
+comparison is challenger versus champion, two correlated models, and the variance of that paired
+difference will generally be smaller. The Phase A MDE is therefore a conservative guide for Phase
+B, not an exact one.

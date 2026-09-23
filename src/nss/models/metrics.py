@@ -203,6 +203,58 @@ def wmape(y_true: Sequence[float], y_pred: Sequence[float], weight: Sequence[flo
     return float(np.sum(weight_arr * np.abs(y_true_arr - y_pred_arr)) / denom)
 
 
+def _intensity(y_log1p: np.ndarray) -> np.ndarray:
+    """Units per active article per week, from the project's `log1p` target scale."""
+    return np.expm1(y_log1p)
+
+
+def demand_capture_at_k(y_true: Sequence[float], y_pred: Sequence[float], k: int) -> float:
+    """Demand capture@k: realised intensity of the predicted top-k over that of the true top-k.
+
+    Pre-registered in `reports/v3/PREREGISTRATION.md` (Phase A). Both targets are on the `log1p`
+    scale and are converted back to raw intensity (`expm1`) first, so the ratio is in demand units,
+    not log units. `k_eff = min(k, n)`, as in the other top-k metrics.
+
+    Returns:
+        `nan` if the eval set is empty or the true top-k intensity sums to 0, else a ratio in [0, 1]
+        (1 exactly when the predicted top-k has the same realised intensity as the true top-k).
+    """
+    true_int = _intensity(np.asarray(y_true, dtype=float))
+    y_pred_arr = np.asarray(y_pred, dtype=float)
+    n = true_int.shape[0]
+    if n == 0:
+        return float("nan")
+    k_eff = min(k, n)
+    picked = float(true_int[np.argsort(-y_pred_arr, kind="stable")[:k_eff]].sum())
+    best = float(np.sort(true_int)[::-1][:k_eff].sum())
+    return picked / best if best > 0.0 else float("nan")
+
+
+def tolerance_hit_at_k(
+    y_true: Sequence[float], y_pred: Sequence[float], k: int, margin: float
+) -> float:
+    """Tolerance hit@k: fraction of the predicted top-k whose realised intensity is at least
+    `(1 - margin)` times the true #k style's intensity.
+
+    Pre-registered in `reports/v3/PREREGISTRATION.md` (Phase A), with `margin` derived there from
+    the measured near-tie distribution. With `margin = 0` it reduces to Precision@k up to ties.
+
+    Returns:
+        `nan` if the eval set is empty, else the hit fraction over `k_eff = min(k, n)` picks.
+    """
+    if not 0.0 <= margin < 1.0:
+        raise ValueError("margin must be in [0, 1)")
+    true_int = _intensity(np.asarray(y_true, dtype=float))
+    y_pred_arr = np.asarray(y_pred, dtype=float)
+    n = true_int.shape[0]
+    if n == 0:
+        return float("nan")
+    k_eff = min(k, n)
+    threshold = (1.0 - margin) * float(np.sort(true_int)[::-1][k_eff - 1])
+    picks = true_int[np.argsort(-y_pred_arr, kind="stable")[:k_eff]]
+    return float(np.mean(picks >= threshold))
+
+
 def score_predictions(
     y_true: Sequence[float],
     y_pred: Sequence[float],
