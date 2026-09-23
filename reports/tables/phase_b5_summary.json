@@ -1,0 +1,19 @@
+{
+  "pooled_coverage": 0.6231996392232024,
+  "per_origin_mean": 0.6255958957370789,
+  "per_origin_ci": [
+    0.5450484338250957,
+    0.6916893264393394
+  ],
+  "per_origin_min": 0.39533355241537954,
+  "per_origin_max": 0.7844370860927152,
+  "crossing_rate": 6.341779644296626e-05,
+  "coverage_in_band": false,
+  "q50_capture20_diff": [
+    -0.0002504819697981455,
+    -0.01572043947432009,
+    0.015381371518388486
+  ],
+  "q50_non_inferior": true,
+  "accepted": false
+}

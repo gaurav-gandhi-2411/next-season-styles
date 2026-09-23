@@ -1,0 +1,21 @@
+{
+  "n_rows": 141916,
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+  ],
+  "seeds_bit_identical": true,
+  "max_abs_diff_vs_seed42": 0.0,
+  "mean_across_seed_sd": 0.0,
+  "var_single_seed_component": 0.0,
+  "var_ensemble_seed_component": 0.0,
+  "variance_reduction": null
+}
