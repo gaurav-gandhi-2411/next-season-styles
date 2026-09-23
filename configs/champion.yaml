@@ -1,0 +1,68 @@
+# The champion, as one config: features, hyperparameters, protocol, calibration.
+# Every value here is the one the pre-registered analysis used (PREREGISTRATION.md Sections R0,
+# R6 and S). `nss.prod.cli train` reproduces the champion from this file alone and checks it
+# against the committed tables; changing a value here is a new model, not a tweak.
+
+name: nss-champion
+panel_path: data/processed/style_week_panel.parquet
+
+features:
+  # Built by nss.features.model_features.build_features; training stops if the built frame's
+  # columns differ from this list, in this order.
+  columns:
+    - index_group_name
+    - product_type_name
+    - garment_group_name
+    - perceived_colour_master_name
+    - graphical_appearance_name
+    - lag_1
+    - lag_2
+    - lag_4
+    - lag_8
+    - lag_13
+    - lag_52
+    - ewma_halflife_4w
+    - ewma_halflife_13w
+    - slope_4w
+    - slope_13w
+    - n_active_articles_level
+    - n_active_articles_trend_13w
+    - price_index_level
+    - price_index_trend_13w
+    - share_index_group
+    - share_garment_group
+    - weeks_since_first_seen
+    - fourier_sin_1
+    - fourier_sin_2
+    - fourier_cos_1
+    - fourier_cos_2
+
+model:
+  objective: regression
+  seed: 42
+  num_leaves: 63
+  learning_rate: 0.05
+  n_estimators: 200
+  min_child_samples: 50
+
+protocol:
+  horizon_weeks: 13
+  grid_step_weeks: 4          # a model is retrained every 4 weeks
+  initial_pool_size: 8        # leading grid origins used for training only
+  last_weekly_origin: 2020-06-22
+  n_weekly_origins: 48
+  # Embargo: a training origin o is used for test origin t only if o + horizon_weeks <= t.
+
+calibration:
+  method: cqr_asymmetric
+  alpha: 0.20                 # nominal 80% interval
+  quantiles: [0.10, 0.90]
+  window_origins: 4           # most recent weekly origins whose outcomes closed by t
+  history_start: 2019-04-08   # calibration-only origins before the first test origin
+
+evaluation:
+  tolerance_margin: 0.05791057991470009   # PREREGISTRATION.md Section P
+  reference_per_origin: reports/tables/phase_a_per_origin.csv
+  reference_coverage: reports/tables/phase_s_coverage_per_origin.csv
+
+registry_root: data/registry  # a local path or an fsspec URL (e.g. gs://bucket/registry in C2)

@@ -11,6 +11,10 @@ data/generated/
 data/retrieval_cache/
 # rembg's u2net.onnx (176 MB), downloaded on first use; model weights are never committed
 data/rembg_models/
+# nss.prod outputs: trained artifacts, the local registry and scoring logs are data, not source
+data/artifacts/
+data/registry/
+data/logs/
 
 # scripts/run_pipeline.py's scoped-down (1-2 seed) generate/score/hero output -- isolated from
 # the real reports/tables/final_concepts.csv, reports/tables/concept_qc_results.csv, and
