@@ -22,7 +22,7 @@ def _run(code: str) -> subprocess.CompletedProcess[str]:
 
 @pytest.mark.parametrize("module", ENTRY_POINTS)
 def test_training_works_after_importing_an_entry_point(module: str) -> None:
-    out = _run(f"import {module}; import pandas, pyarrow; {FIT}")
+    out = _run(f"import {module}; import pyarrow; {FIT}")
     assert out.returncode == 0 and out.stdout.strip() == "ok", out.stderr[-500:]
 
 

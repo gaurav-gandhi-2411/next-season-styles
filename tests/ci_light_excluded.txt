@@ -1,0 +1,50 @@
+# Test modules NOT run by the light CI job (NSS_CI_LIGHT=1), one per line: module | reason.
+#
+# The CI job installs only the `ci` dependency group (the production path: polars, lightgbm,
+# pandera, fastapi...; no torch, PIL, matplotlib, transformers, shap, mcp, kaggle or groq) and has
+# no dataset. Every module below fails to import without a library from the concept, image or
+# LLM stack; none is excluded for needing data. The full suite still runs locally
+# (`uv run pytest`). Generated 2026-09-23 by running the whole suite in a clean clone with only
+# the `ci` group installed; keep it in step when a module's imports change.
+test_agent_architecture | matplotlib
+test_agent_demo | mcp
+test_agent_live | mcp
+test_agent_llm | mcp
+test_buyer_price_experiment | shap
+test_channel_check | matplotlib
+test_clip_scoring | PIL
+test_closed_loop_view | matplotlib
+test_colour_check | PIL
+test_concept_forecast_validation | kaggle
+test_concept_qc_pipeline | PIL
+test_derive_generated_space_anchors | PIL
+test_derive_margin_band | PIL
+test_derive_similarity_band | PIL
+test_derive_unrelated_anchor_fix | PIL
+test_dino_scoring | torch
+test_fetch_images | kaggle
+test_final_concepts | PIL
+test_final_concepts_v2 | PIL
+test_final_deliverables | matplotlib
+test_final_forecast | shap (one test computes local SHAP drivers)
+test_gate1b_nearest_reference | PIL
+test_gate3 | PIL
+test_generate_backends | PIL
+test_leave_one_out_control | PIL
+test_margin_scoring | PIL
+test_mcp_server | mcp
+test_panel_eda | matplotlib
+test_prompt_budget | transformers (CLIP tokenizer)
+test_qc_gates | PIL
+test_run_pipeline | kaggle
+test_run_pipeline_dry_run | kaggle
+test_run_pipeline_wiring | matplotlib
+test_scale_sweep | matplotlib
+test_screen_references | kaggle
+test_select_exemplars | kaggle
+test_select_final_three_exemplars | kaggle
+test_select_margin_reference_styles | kaggle
+test_share_safety | PIL
+test_v3_judge_reread | PIL
+test_vlm_judges | groq
+test_within_style_benchmark | PIL

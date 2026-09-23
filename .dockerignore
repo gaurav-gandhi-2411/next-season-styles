@@ -1,0 +1,10 @@
+# The image needs pyproject.toml, uv.lock, src/ and configs/ only. Everything else stays out of
+# the build context, above all data/ (gigabytes, and not the image's business: the model artifact
+# is mounted or read from the registry at runtime).
+*
+!pyproject.toml
+!uv.lock
+!src/
+!configs/
+**/__pycache__
+**/*.pyc
