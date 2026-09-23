@@ -550,3 +550,43 @@ in this section is changed after results are seen.
 comparison is challenger versus champion, two correlated models, and the variance of that paired
 difference will generally be smaller. The Phase A MDE is therefore a conservative guide for Phase
 B, not an exact one.
+
+---
+
+## Q. B.0: circular block bootstrap, and re-baselining under it
+
+Committed before any interval has been computed with the circular bootstrap.
+
+**Defect being fixed (reported in Section P's results, `PHASE_A_measurement.md` caveat 1).** The
+moving-block bootstrap used so far (`backtest.block_bootstrap_ci`, `phase_a_measure.block_means`)
+draws block starts uniformly from `0 .. n - L`, with no wrap-around. With n = 48 and L = 13, the
+first and last 12 origins appear in fewer resampled blocks than the middle ones, so the intervals
+are skewed (the model's Hit@3-in-top20: mean 0.431, CI [0.410, 0.618]). Phase B challengers are
+expected to sit near zero, where that skew could flip a decision.
+
+**Q1. The circular block bootstrap (Politis and Romano 1992), exactly:**
+
+- The per-origin series `x_0 .. x_{n-1}` (chronological, NaN dropped) is treated as a circle.
+- Each resample draws `ceil(n / L)` block starts **uniformly from `0 .. n - 1`**. Each block is
+  `x_{s mod n}, x_{(s+1) mod n}, ..., x_{(s+L-1) mod n}`. Blocks are concatenated and truncated
+  to n; the resample's mean is recorded.
+- **L = 13**, **2,000 resamples**, numpy `default_rng(seed=42)`, starts drawn by
+  `rng.integers(0, n, size=ceil(n/L))`: the same resample count, seed and block length as before.
+  Only the start range and the wrap-around change.
+- 95% interval: 2.5th and 97.5th percentiles of the resample means (numpy default interpolation).
+  SE = SD of the resample means (ddof 1). MDE at 80% power = 2.8016 × SE. The point estimate is the
+  plain mean.
+- Every origin appears in exactly L of the n possible blocks, so each origin has the same expected
+  weight in a resample.
+
+**Q2. Re-baseline.** Recompute every metric in `phase_a_per_origin.csv` (the 7 existing and the 4
+Phase A metrics), for the model, all four baselines and the random floor, with the circular
+bootstrap: per-method means with intervals, and paired model-minus-comparator differences with
+intervals, SE, ESS and MDE. Report the old (non-circular) and new intervals side by side. The
+per-origin values are not recomputed; only the resampling changes.
+
+**Q3. Stop condition.** If the model's demand capture@20 lead over seasonal-naive, under the
+circular bootstrap, has a 95% lower bound at or below zero, Phase B stops there and this is
+reported. Otherwise Phase B proceeds under the Section R rules, which will use this bootstrap.
+The Phase A choice of primary metric is not re-run under the new bootstrap: it was fixed at the end
+of Phase A, and this section changes the resampling, not the metric.
