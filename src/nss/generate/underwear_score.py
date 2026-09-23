@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -96,6 +97,7 @@ def main(rejudge: bool = True) -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode; avoid cp1252 crash
     import sys
 
     main(rejudge="--no-judge" not in sys.argv)

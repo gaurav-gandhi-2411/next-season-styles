@@ -8,6 +8,8 @@ the L1 results in `v3_colour_loo.csv` (border-sampled mask, unshrunk). No concep
 
 from __future__ import annotations
 
+import sys
+
 import polars as pl
 
 from nss.generate import colour_check as cc
@@ -72,4 +74,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode; avoid cp1252 crash
     main()

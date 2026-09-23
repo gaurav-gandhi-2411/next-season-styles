@@ -55,6 +55,7 @@ Usage:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import polars as pl
@@ -432,6 +433,5 @@ def main_full() -> None:
 
 
 if __name__ == "__main__":
-    import sys
-
+    sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode; avoid cp1252 crash
     main_full() if "--full" in sys.argv else main()

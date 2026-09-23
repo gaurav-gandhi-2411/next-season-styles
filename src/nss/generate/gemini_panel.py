@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import statistics
+import sys
 import time
 from pathlib import Path
 
@@ -127,4 +128,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode; avoid cp1252 crash
     main()

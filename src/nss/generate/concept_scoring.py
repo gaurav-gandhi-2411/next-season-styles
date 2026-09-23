@@ -238,6 +238,7 @@ def main(keyword: str) -> None:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")  # polars prints Unicode; avoid cp1252 crash
     if sys.argv[1] == "--reapply":
         reapply()
     else:

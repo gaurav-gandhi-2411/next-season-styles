@@ -89,3 +89,23 @@ def test_sample_matches_the_n8_evaluation_set_and_gallery_excludes_eval_photos()
     gallery = v.gallery_article_ids(2)
     assert not (set(gallery) & eval_ids)  # a gallery photo is never an evaluation photo
     assert len(gallery) <= 2 * v.N_STYLES
+
+
+def test_main_full_print_path_survives_a_cp1252_console() -> None:
+    """The bug this guards: polars' default table format uses Unicode box-drawing characters,
+    which raise UnicodeEncodeError on a Windows console (cp1252) unless stdout is reconfigured
+    to UTF-8 first -- exactly what `__main__` does before calling `main_full()`. Printing a
+    polars DataFrame with default (non-ASCII_FULL) formatting is enough to reproduce it; the
+    DataFrame's own content need not be non-ASCII.
+    """
+    import io
+
+    df = pl.DataFrame({"condition": ["full_index_40"], "top1": [0.275], "n": [40]})
+
+    cp1252_stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    with pytest.raises(UnicodeEncodeError):
+        print(df, file=cp1252_stream)  # reproduces the crash without the fix
+
+    utf8_stream = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    utf8_stream.reconfigure(encoding="utf-8")  # what `if __name__ == "__main__":` does first
+    print(df, file=utf8_stream)  # must not raise
