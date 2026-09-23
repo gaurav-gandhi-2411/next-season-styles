@@ -1,0 +1,13 @@
+{
+  "status": "EXPLORATORY",
+  "arm_c_reproduces_b1_random": true,
+  "arm_c_max_abs_diff": 0.0,
+  "helps": {
+    "a": false,
+    "a_shuffle": false,
+    "a_negctl": false,
+    "b": false,
+    "c": true
+  },
+  "reading": "B.1 result does not reproduce as a market effect"
+}
