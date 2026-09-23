@@ -759,6 +759,22 @@ wheels = [
 ]
 
 [[package]]
+name = "fastapi"
+version = "0.141.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "annotated-doc" },
+    { name = "pydantic" },
+    { name = "starlette" },
+    { name = "typing-extensions" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1", size = 425799, upload-time = "2026-07-29T17:18:05.568Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3", size = 131954, upload-time = "2026-07-29T17:18:04.364Z" },
+]
+
+[[package]]
 name = "fastjsonschema"
 version = "2.22.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1746,6 +1762,15 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-extensions"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/6e/371856a3fb9d31ca8dac321cda606860fa4548858c0cc45d9d1d4ca2628b/mypy_extensions-1.1.0.tar.gz", hash = "sha256:52e68efc3284861e772bbcd66823fde5ae21fd2fdb51c62a211403730b916558", size = 6343, upload-time = "2025-04-22T14:54:24.164Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/7b/2c79738432f5c924bef5071f933bcc9efd0473bac3b4aa584a6f7c1c8df8/mypy_extensions-1.1.0-py3-none-any.whl", hash = "sha256:1be4cccdb0f2482337c4743e60421de3a356cd97508abadd57d47403e94f5505", size = 4963, upload-time = "2025-04-22T14:54:22.983Z" },
+]
+
+[[package]]
 name = "narwhals"
 version = "2.26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1865,6 +1890,8 @@ dependencies = [
     { name = "compel" },
     { name = "controlnet-aux" },
     { name = "diffusers" },
+    { name = "fastapi" },
+    { name = "fsspec" },
     { name = "google-genai" },
     { name = "groq" },
     { name = "kaggle" },
@@ -1872,11 +1899,13 @@ dependencies = [
     { name = "matplotlib" },
     { name = "mcp" },
     { name = "pandas" },
+    { name = "pandera", extra = ["polars"] },
     { name = "peft" },
     { name = "pillow" },
     { name = "polars" },
     { name = "pyarrow" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "safetensors" },
     { name = "scikit-learn" },
     { name = "sentence-transformers" },
@@ -1887,10 +1916,45 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+ci = [
+    { name = "fastapi" },
+    { name = "fsspec" },
+    { name = "httpx" },
+    { name = "lightgbm" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandera", extra = ["polars"] },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "pytest" },
+    { name = "pyyaml" },
+    { name = "ruff" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "uvicorn" },
+]
 dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+serving = [
+    { name = "fastapi" },
+    { name = "fsspec" },
+    { name = "lightgbm" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandera", extra = ["polars"] },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "uvicorn" },
 ]
 
 [package.metadata]
@@ -1899,6 +1963,8 @@ requires-dist = [
     { name = "compel", specifier = ">=2.4.0" },
     { name = "controlnet-aux", specifier = ">=0.0.10" },
     { name = "diffusers", specifier = ">=0.40.0" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fsspec", specifier = ">=2024.6" },
     { name = "google-genai", specifier = ">=2.24.0" },
     { name = "groq", specifier = ">=1.7.0" },
     { name = "kaggle", specifier = ">=1.6,<2.1" },
@@ -1906,11 +1972,13 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9,<3.10" },
     { name = "mcp", specifier = ">=2.2.0" },
     { name = "pandas", specifier = ">=2.2,<3.0" },
+    { name = "pandera", extras = ["polars"], specifier = ">=0.22" },
     { name = "peft", specifier = ">=0.21.0" },
     { name = "pillow", specifier = ">=10.4,<11.0" },
     { name = "polars", specifier = ">=1.9,<2.0" },
     { name = "pyarrow", specifier = ">=17.0,<19.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "safetensors", specifier = ">=0.8.0" },
     { name = "scikit-learn", specifier = ">=1.5,<1.6" },
     { name = "sentence-transformers", specifier = ">=6.1.0" },
@@ -1921,10 +1989,41 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+ci = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fsspec", specifier = ">=2024.6" },
+    { name = "httpx", specifier = ">=0.27" },
+    { name = "lightgbm", specifier = ">=4.5,<5.0" },
+    { name = "numpy", specifier = ">=2.0,<3.0" },
+    { name = "pandera", extras = ["polars"], specifier = ">=0.22" },
+    { name = "polars", specifier = ">=1.9,<2.0" },
+    { name = "pyarrow", specifier = ">=17.0,<19.0" },
+    { name = "pydantic", specifier = ">=2.7,<3.0" },
+    { name = "pytest", specifier = ">=8.3,<9.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "ruff", specifier = ">=0.6,<0.7" },
+    { name = "scikit-learn", specifier = ">=1.5,<1.6" },
+    { name = "scipy", specifier = ">=1.14,<2.0" },
+    { name = "uvicorn", specifier = ">=0.30" },
+]
 dev = [
     { name = "pytest", specifier = ">=8.3,<9.0" },
     { name = "pytest-cov", specifier = ">=5.0,<6.0" },
     { name = "ruff", specifier = ">=0.6,<0.7" },
+]
+serving = [
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "fsspec", specifier = ">=2024.6" },
+    { name = "lightgbm", specifier = ">=4.5,<5.0" },
+    { name = "numpy", specifier = ">=2.0,<3.0" },
+    { name = "pandera", extras = ["polars"], specifier = ">=0.22" },
+    { name = "polars", specifier = ">=1.9,<2.0" },
+    { name = "pyarrow", specifier = ">=17.0,<19.0" },
+    { name = "pydantic", specifier = ">=2.7,<3.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "scikit-learn", specifier = ">=1.5,<1.6" },
+    { name = "scipy", specifier = ">=1.14,<2.0" },
+    { name = "uvicorn", specifier = ">=0.30" },
 ]
 
 [[package]]
@@ -2288,6 +2387,27 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/44/23/78d645adc35d94d1ac4f2a3c4112ab6f5b8999f4898b8cdf01252f8df4a9/pandas-2.3.3-cp313-cp313t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:900f47d8f20860de523a1ac881c4c36d65efcb2eb850e6948140fa781736e110", size = 12121912, upload-time = "2025-09-29T23:23:05.042Z" },
     { url = "https://files.pythonhosted.org/packages/53/da/d10013df5e6aaef6b425aa0c32e1fc1f3e431e4bcabd420517dceadce354/pandas-2.3.3-cp313-cp313t-musllinux_1_2_aarch64.whl", hash = "sha256:a45c765238e2ed7d7c608fc5bc4a6f88b642f2f01e70c0c23d2224dd21829d86", size = 12712160, upload-time = "2025-09-29T23:23:28.57Z" },
     { url = "https://files.pythonhosted.org/packages/bd/17/e756653095a083d8a37cbd816cb87148debcfcd920129b25f99dd8d04271/pandas-2.3.3-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:c4fc4c21971a1a9f4bdb4c73978c7f7256caa3e62b323f70d6cb80db583350bc", size = 13199233, upload-time = "2025-09-29T23:24:24.876Z" },
+]
+
+[[package]]
+name = "pandera"
+version = "0.33.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "typeguard" },
+    { name = "typing-extensions" },
+    { name = "typing-inspect" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/47/7a/702612a2b5e3335722395d6de71206549f64a43588527f411ff60a7c3456/pandera-0.33.1.tar.gz", hash = "sha256:909e2e269a3f9c17d94c11268f92a5f48e889af633ea1414053993874d613626", size = 976019, upload-time = "2026-09-01T15:56:07.34Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d2/84/107a480f7aa34a6878fb4fb85cda66f37e8aaee769c5917e3eaa2d55222e/pandera-0.33.1-py3-none-any.whl", hash = "sha256:8283bc12f7c85f0b429107d71b55150205f7e5ca59d68117aff971273a3bd2d8", size = 501976, upload-time = "2026-09-01T15:56:05.944Z" },
+]
+
+[package.optional-dependencies]
+polars = [
+    { name = "polars" },
 ]
 
 [[package]]
@@ -3782,6 +3902,18 @@ wheels = [
 ]
 
 [[package]]
+name = "typeguard"
+version = "4.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b4/de/4420db493fa8fc0856d5e5c1b159c63a323d2de2317babe36b01568928e8/typeguard-4.6.0.tar.gz", hash = "sha256:e7414f09111317de3e335de92cd397c5c0ca00b1cc1676de12e1d444a79b3f21", size = 82330, upload-time = "2026-07-26T08:40:23.207Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/eb/461d5f167b6f5c7d97696f397c82f82e3480e003fce3f0a1cd1dd26e2eb2/typeguard-4.6.0-py3-none-any.whl", hash = "sha256:79878165bb86f2cf5d41d159a0ff1792a796cf496882d2fe1b1c6c7049b9cdd7", size = 36884, upload-time = "2026-07-26T08:40:21.868Z" },
+]
+
+[[package]]
 name = "typer"
 version = "0.27.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3803,6 +3935,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
+]
+
+[[package]]
+name = "typing-inspect"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mypy-extensions" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/74/1789779d91f1961fa9438e9a8710cdae6bd138c80d7303996933d117264a/typing_inspect-0.9.0.tar.gz", hash = "sha256:b23fc42ff6f6ef6954e4852c1fb512cdd18dbea03134f91f856a95ccc9461f78", size = 13825, upload-time = "2023-05-24T20:25:47.612Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/f3/107a22063bf27bdccf2024833d3445f4eea42b2e598abfbd46f6a63b6cb0/typing_inspect-0.9.0-py3-none-any.whl", hash = "sha256:9ee6fc59062311ef8547596ab6b955e1b8aa46242d854bfc78f4f6b0eff35f9f", size = 8827, upload-time = "2023-05-24T20:25:45.287Z" },
 ]
 
 [[package]]
