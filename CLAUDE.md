@@ -39,3 +39,24 @@ Rules, binding on every session working in this repo:
 
 See the recovery session's report for the full incident writeup, the reparse-point scan across
 `ml-projects`, and the proposal for a single canonical read-only H&M data location.
+
+### Canonical H&M data: `C:\Users\gaura\hm-data\`
+
+The master dataset (4 CSVs + `images/`, 105,104 files, 34,558,584,597 bytes as copied on
+2026-09-23, plus one `ACL_TEST_SENTINEL.txt`) lives outside every git repository, under an NTFS
+ACL that denies delete to the current user. This project reads images from it via
+`NSS_HM_IMAGE_TREE=C:\Users\gaura\hm-data\images` (set as a User environment variable; also the
+first entry of `TREE_CANDIDATES` in `nss.generate.concept_forecast_index`). The copy in
+`multimodal-fashion-recommender` stays untouched as a redundant backup.
+
+- **Apply** (inherits to every file and folder beneath):
+  `icacls C:\Users\gaura\hm-data /deny "LEGION\gaura:(OI)(CI)(DE,DC)"`
+- **Undo** (removes every deny ACE for that user, including the inherited ones):
+  `icacls C:\Users\gaura\hm-data /remove:d "LEGION\gaura"`
+- **Check:** `icacls C:\Users\gaura\hm-data` must show `LEGION\gaura:(OI)(CI)(DENY)(DE,DC)`.
+
+Tested on 2026-09-23 on a scratch folder first: under the deny, reads succeeded, and file delete,
+recursive folder delete and rename all failed with "Access ... is denied"; after the undo, the same
+deletes succeeded. On `hm-data`: reads succeed, and deleting `ACL_TEST_SENTINEL.txt` fails. The ACL
+does **not** block creating or overwriting files — it protects against deletion only. Only remove it
+with the user's explicit instruction, and re-apply it immediately after.

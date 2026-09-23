@@ -48,7 +48,10 @@ import numpy as np
 import polars as pl
 
 ARTICLES = Path("data/raw/articles.csv")
+# The canonical copy comes first: it sits outside every git repository under a deny-delete ACL
+# (CLAUDE.md DATA SAFETY). The sibling-project copies stay as fallbacks only.
 TREE_CANDIDATES: tuple[Path, ...] = (
+    Path("C:/Users/gaura/hm-data/images"),
     Path("C:/Users/gaura/ml-projects/agentic-shopping-assistant/data/hm/images"),
     Path(
         "C:/Users/gaura/ml-projects/multimodal-fashion-recommender/data/"
