@@ -80,6 +80,8 @@ uv run --no-sync python scripts/run_pipeline.py --dry-run   # every stage on CPU
 
 `--dry-run` writes only under a scratch directory, skips SDXL generation (the committed final concepts are scored instead) and disables the VLM judges, so attribute checks are skipped and the printed verdicts read "did not pass"; the similarity numbers are real. It also downloads about 16 product photos. The full run (`scripts/run_pipeline.py` without `--dry-run`) needs a CUDA GPU and writes to `reports/pipeline_run/` (gitignored), never over the committed deliverables. Individual stages have their own `make` targets; see the `Makefile`.
 
+**Rebuilding the retrieval embedding cache** (`data/retrieval_cache/emb_clip.npz`, `emb_dino.npz`): `uv run python -m nss.generate.concept_forecast_index`. Reads catalogue photos in place, read-only, from the local H&M image tree (`NSS_HM_IMAGE_TREE`, else a sibling project's checkout); a rerun is cheap, since already-cached photos are skipped.
+
 ## Known limits
 
 - The embargo shrinks the training sets, so the drop from 0.722 to 0.528 mixes leakage with lost data; the write-up says so.
