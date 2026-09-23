@@ -134,18 +134,35 @@ Each lever is pre-registered and judged by the champion/challenger rule.
 
 **Done when:** every lever has a recorded adopt or reject decision, and the champion is identified.
 
-### Phase C — Production grade (needs a one-time GCP sign-in by GG)
-- Data contracts: schema validation on every input.
-- Config-driven, tracked, reproducible training.
-- Model registry with champion/challenger promotion enforced in CI.
-- Forecast API and batch job on Cloud Run.
-- Drift monitoring on features and predictions; performance monitoring once actuals arrive.
-- CI on every change: tests, lint, secret scan, and the champion/challenger gate.
-- GCS with object versioning and soft delete as the data layer.
-- Secrets in Secret Manager, never in files.
+### Phase C — Production grade
 
-**Done when:** a clean clone trains the champion reproducibly; the API serves forecasts with intervals;
-a challenger that regresses is blocked by CI; a data-restore drill from GCS succeeds.
+**Model work on H&M is complete.** Phase B adopted no lever; the champion is the L2 LightGBM point
+forecast plus the rolling asymmetric CQR interval (Section S). Its calibration: pooled coverage
+0.803 against a nominal 0.80; COVID origins 0.837, **non-COVID 0.748**; per origin 0.58-0.98, only
+8 of 48 weeks inside [0.75, 0.85]. **Intervals are long-run calibrated, not weekly calibrated**:
+the correction learns from outcomes 13-16 weeks old, so it lags regime changes. Phase C changes no
+modelling; it makes this champion production-grade.
+
+#### C1 — Local production grade (no GCP, no cost)
+- Model card for a buyer's data team.
+- Data contracts: schema validation on the raw inputs and the style-week panel.
+- Config-driven, reproducible training to a versioned artifact (model, calibrator, metadata).
+- File-based model registry, root path configurable (GCS-ready), promotion gated by the Section 6
+  rule, append-only audit log.
+- Batch scoring command and a FastAPI service; Dockerfile.
+- Monitoring logic: scoring log, rolling realised coverage, PSI drift, with pre-stated alerts.
+- CI on GitHub Actions: data-free tests, lint, secret scan, champion/challenger gate on a synthetic
+  fixture, Docker build.
+
+**Done when:** training from the config reproduces the champion's predictions to 1e-9; a regressing
+challenger is refused by the registry; the API passes a local smoke test; the first CI run is green.
+
+#### C2 — GCP deployment (later; needs a one-time GCP sign-in by GG)
+- Forecast API and batch job on Cloud Run; registry root on GCS with object versioning and soft
+  delete; secrets in Secret Manager, never in files; monitoring wired to live infrastructure.
+
+**Done when:** the API serves from Cloud Run; a regressing challenger is blocked in CI and by the
+registry on GCS; a data-restore drill from GCS succeeds.
 
 ### Phase D — Second retailer *(after the interview)*
 A second corpus and taxonomy transfer. It tests whether the capability ceiling found in Phase B is
