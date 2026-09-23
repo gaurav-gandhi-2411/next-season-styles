@@ -1,5 +1,7 @@
 # next-season-styles
 
+Read SPEC.md before starting any work. Update its Section 9 status table at the end of every session.
+
 ## DATA SAFETY
 
 This project's `data/` directory was destroyed on 2026-09-23 when `git worktree remove --force`
