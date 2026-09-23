@@ -31,7 +31,7 @@ tried since was rejected under its pre-stated rule. What changed is the rigour o
 | WMAPE vs seasonal-naive | −0.045 [−0.054, −0.033] |
 | Random floor, Hit@3-in-top20 | 0.0069 |
 | Label-shuffle leakage control | 0 hits in 108 picks |
-| Mean gap between true #3 and #4, as % of #3 | 0.61% |
+| Gap between true #3 and #4 in raw intensity, as % of #3 (48 weekly origins) | median 3.8%, 90th percentile 5.8% (the earlier "0.61%" was a mean on the log1p scale over 12 grid origins) |
 
 **The binding limit is measurement, not capability.** With an effective sample of about 15 origins, the
 CI half-width on Hit@3-in-top20 is about 0.16. Any real gain smaller than that is undetectable here.
@@ -105,7 +105,7 @@ fails while reads succeed; the ACL undo command is documented and tested; retrie
 reproduces 27.5 / 62.5 / 75 at 1,980 candidates.
 
 ### Phase A — Measure properly
-Hit@3 is binary per pick and scores the true #4 as a total miss despite a 0.61% gap to #3. Introduce
+Hit@3 is binary per pick and scores the true #4 as a total miss despite a median 3.8% gap to #3. Introduce
 demand capture@k and tolerance hit@3, pre-registered, with Hit@3 still reported.
 
 **Done when:** the pre-registration is committed; a power table gives each metric's minimum detectable
@@ -140,6 +140,17 @@ a challenger that regresses is blocked by CI; a data-restore drill from GCS succ
 
 ### Phase D — Second retailer *(after the interview)*
 A second corpus and taxonomy transfer. The only real fix for the sample-size ceiling.
+
+### Open items for main
+
+Not acted on until GG approves updating `main`; no public text is drafted here.
+
+- **Near-tie gap stated on the log scale.** The "0.61%" gap between the true #3 and #4 is a mean
+  on the log1p target; in raw intensity it is median 3.8%, 90th percentile 5.8%. Checked on
+  2026-09-23 with `git grep` against `main`: the figure is **not** in the emailed `WRITEUP.md`
+  or in `README.md`. On `main` it appears only in the docstring of
+  `src/nss/models/lambdarank_model.py` (lines 10–11). A correction goes into `main`'s corrections
+  section only if GG approves, and only for where the figure actually appears.
 
 ## 8. Out of scope for now
 
