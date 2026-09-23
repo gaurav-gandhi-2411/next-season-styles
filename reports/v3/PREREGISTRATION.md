@@ -740,3 +740,20 @@ need changed hyperparameters, which R0 forbids.
   becomes champion.
 - If **exactly one** lever is adopted, it is the new champion; no combination test.
 - If **none** is adopted, the current champion stands. That is the result.
+
+### R8. Amendments before any training (2026-09-23)
+
+Found while writing the code, before any lever model was trained or any Phase B metric computed.
+Both close a gap in R2 or R4; neither was chosen by looking at a result.
+
+- **R2, neighbour pool (a look-ahead fix).** R2 said neighbours are drawn from "styles present in
+  the model frame at `t`". The model frame keeps only styles whose 13-week forward target is
+  complete, so that pool conditions on a style surviving the next 13 weeks: future information.
+  **Amended:** the neighbour pool, and the momentum `g_j`, come from styles with a panel row at `t`
+  (`build_features` output, before any target filter), which is causal. The feature is still
+  attached only to model-frame rows, as every other feature is.
+- **R4, parents without a base forecast.** A parent whose own 13-week target is incomplete at `t`
+  has no row in the parent model frame, so it has no base forecast. **Amended:** such a parent,
+  and any parent whose children in the style eval set have zero total `n_active_articles_level`,
+  is left out of `S` at that origin. Its children are then reconciled against the remaining levels
+  only.
