@@ -152,8 +152,8 @@ Update at the end of every session.
 
 | Phase | Status | Evidence |
 |---|---|---|
-| 0 | Not started | — |
-| A | Not started | — |
+| 0 | **Done** 2026-09-23 (`6e7d0d4`) | Copy at `C:\Users\gaura\hm-data`: 105,104 files, 34,558,584,597 bytes; path set and per-file sizes match the source, SHA-256 of all 4 CSVs match, 500 seed-42 random images match. Deny (DE,DC) ACL applied; a delete inside fails and reads succeed; apply/undo tested on a scratch folder first, commands in `CLAUDE.md`. `NSS_HM_IMAGE_TREE` set and canonical path first in `TREE_CANDIDATES`; retrieval validation reproduces 27.5 / 62.5 / 75 at 1,980 candidates (zero diff on `retrieval_validation.csv`). |
+| A | **Done** 2026-09-23 (pre-reg `30cc523`, results `7a65786`) | `reports/v3/PHASE_A_measurement.md`. Primary for Phase B: **demand capture@20** (normalised MDE 0.056 vs 0.239 for Hit@3-in-top20). Model − seasonal-naive on it: **+0.185 [0.176, 0.245]**, 42 paired origins, ESS 14.0/23.2, so the lead is demonstrable. No lead at the extreme head: tolerance hit@3 −0.008 [−0.103, 0.103], Hit@3-in-top20 +0.095 [−0.040, 0.278]. All 288 existing (origin, method) metrics reproduced to 1e-9. |
 | B | Not started | — |
 | C | Not started | — |
 | D | Deferred until after the interview | — |
@@ -168,3 +168,8 @@ Update at the end of every session.
 | 2026-09-23 | Gate 2 measures colour and uses retrieval for product type; Gate 1 made advisory. |
 | 2026-09-23 | Data loss via `git worktree remove --force` following a junction; recovered; rules in `CLAUDE.md`. |
 | 2026-09-23 | No merge to `main` yet. Next: Phases 0 and A. |
+| 2026-09-23 | Canonical H&M data at `C:\Users\gaura\hm-data` under a deny-delete ACL; the `multimodal-fashion-recommender` copy is kept as a backup. |
+| 2026-09-23 | Tolerance margin = p90 of the raw-intensity #3-vs-#4 gap = 0.057911. The "0.61%" in Section 2 is on the log1p target (12 grid origins); in raw intensity the gap is median 3.8%, p90 5.8%. |
+| 2026-09-23 | Primary-metric rule compares MDEs normalised by range above the random floor, since raw MDEs are not comparable across metrics. |
+| 2026-09-23 | **Phase B primary metric: demand capture@20.** Guardrails unchanged (Hit@3-in-top20, NDCG@10, Spearman, WMAPE). Phase B paired comparisons use block length 13 on the 48 weekly origins. |
+| 2026-09-23 | Open for Phase B's pre-registration: the existing block bootstrap is non-circular and under-samples edge origins, so CIs sit off-centre; pre-register a circular block bootstrap before the first challenger. |
