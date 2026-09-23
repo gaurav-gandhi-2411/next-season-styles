@@ -33,10 +33,19 @@ tried since was rejected under its pre-stated rule. What changed is the rigour o
 | Label-shuffle leakage control | 0 hits in 108 picks |
 | Gap between true #3 and #4 in raw intensity, as % of #3 (48 weekly origins) | median 3.8%, 90th percentile 5.8% (the earlier "0.61%" was a mean on the log1p scale over 12 grid origins) |
 
-**The binding limit is measurement, not capability.** With an effective sample of about 15 origins, the
-CI half-width on Hit@3-in-top20 is about 0.16. Any real gain smaller than that is undetectable here.
-The model is already significantly better than every baseline on NDCG, Spearman and WMAPE, which
-average over all styles; only the extreme top-k is underpowered.
+**The binding limit on this data is capability, not measurement.** Phase A replaced Hit@3 (CI
+half-width about 0.16) with demand capture@20 as the primary. Paired against the champion, Phase B
+could detect small gains: MDE at 80% power 0.003 for B.3 (interval [−0.0012, 0.0027]) and 0.019
+for B.1 ([−0.016, 0.009]), 0.038 for B.2. None of the four levers produced a gain
+(`reports/v3/PHASE_B_results.md`). The extreme head (Hit@3, tolerance hit@3) remains
+underpowered, but the primary is not, and on it the model is at its ceiling for the mechanisms
+tried here. The champion leads seasonal-naive on capture@20 by +0.185 [0.138, 0.236] and is
+significantly better than every baseline on NDCG, Spearman and WMAPE.
+
+**B.4 was a no-op by construction.** The locked config does no row or feature subsampling and
+trains deterministically, so seeds cannot change the model: seeds 42-51 gave bit-identical
+predictions. A seed ensemble needs stochastic hyperparameters, which the locked-config rule
+forbids.
 
 **Already tried and rejected** (do not repeat without a new mechanism): neighbourhood cohort features;
 buyer-mix and price-elasticity features; external search signal (coincident with sales, not leading);
@@ -139,7 +148,8 @@ Each lever is pre-registered and judged by the champion/challenger rule.
 a challenger that regresses is blocked by CI; a data-restore drill from GCS succeeds.
 
 ### Phase D — Second retailer *(after the interview)*
-A second corpus and taxonomy transfer. The only real fix for the sample-size ceiling.
+A second corpus and taxonomy transfer. It tests whether the capability ceiling found in Phase B is
+specific to this dataset, and adds independent origins for confirmatory tests.
 
 ### Open items for main
 
