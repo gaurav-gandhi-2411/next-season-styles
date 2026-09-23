@@ -17,6 +17,7 @@ import argparse
 import os
 import sys
 from datetime import date
+from pathlib import Path
 
 import polars as pl
 
@@ -76,9 +77,13 @@ def cmd_train(a: argparse.Namespace) -> int:
 
 
 def cmd_register(a: argparse.Namespace) -> int:
-    from nss.prod.registry import Registry
+    from nss.prod.registry import RegistrationRefused, Registry
 
-    version = Registry(_registry_root(a.registry)).register(a.artifact)
+    try:
+        version = Registry(_registry_root(a.registry)).register(a.artifact)
+    except RegistrationRefused as e:
+        print(f"REFUSED: {e}", file=sys.stderr)
+        return 1
     print(f"registered {version}")
     return 0
 
@@ -107,6 +112,7 @@ def cmd_score(a: argparse.Namespace) -> int:
         else Predictor.from_registry(_registry_root(a.registry))
     )
     out = predictor.score(pl.read_parquet(a.panel), date.fromisoformat(a.as_of))
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     out.write_parquet(a.out) if a.out.endswith(".parquet") else out.write_csv(a.out)
     if a.log_dir:
         ScoringLog(a.log_dir).append(out)
