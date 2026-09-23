@@ -757,3 +757,95 @@ Both close a gap in R2 or R4; neither was chosen by looking at a result.
   and any parent whose children in the style eval set have zero total `n_active_articles_level`,
   is left out of `S` at that origin. Its children are then reconciled against the remaining levels
   only.
+
+---
+
+## S. Calibrating the quantile interval: rolling conformalised quantile regression
+
+Committed before any calibrated interval has been computed. B.5 (Section R6) found the raw
+q10-q90 interval covers 0.623 pooled (per origin 0.395-0.784) against a nominal 0.80. The q10,
+q50 and q90 models are unchanged; this section only adds a conformal adjustment to q10 and q90.
+
+**S1. Conformity scores (Romano, Patterson and Candes 2019).** For a row with outcome `y` and base
+quantiles `q10, q90` (log1p scale, from `phase_b.py`'s B.5 models):
+
+- *symmetric CQR:* `E = max(q10 - y, y - q90)`. Adjusted interval `[q10 - Q, q90 + Q]`, where
+  `Q` is the `ceil((1 - 0.20)(n + 1)) / n` empirical quantile of the `n` calibration scores
+  (numpy `method="higher"`).
+- *asymmetric CQR:* `E_lo = q10 - y`, `E_hi = y - q90`, calibrated separately, each at level
+  `ceil((1 - 0.10)(n + 1)) / n`. Adjusted interval `[q10 - Q_lo, q90 + Q_hi]`.
+
+`Q` may be negative, which narrows the interval. An adjusted interval whose lower end exceeds its
+upper end counts as not covering.
+
+**S2. Rolling calibration window, fully embargoed.** For test origin `t`, calibration scores come
+only from weekly origins `c` with `c + 13 weeks <= t`, the same embargo as training: every
+calibration outcome is fully realised before `t`. The window is the **W = 4 most recent such
+origins** (`t - 16w .. t - 13w`), all their rows pooled (about 12,000 scores).
+
+*Why W = 4, fixed a priori, with no other window tried:* each weekly origin already gives about
+3,000 scores, so the quantile's sampling error is small at any W. The real risk is staleness. The
+embargo already makes the newest score 13 weeks old, and adjacent weekly origins share 12 of 13
+forecast weeks, so extra older origins add little independent information and more lag across
+regime shifts. Four weekly origins is one grid block, the unit at which the model is retrained.
+
+**S3. Calibration history before the first test origin.** The first test origin (2019-07-29)
+needs scores from 2019-04-08 .. 2019-04-29, and later ones up to 2019-07-22. Out-of-sample q10 and
+q90 predictions are produced for the 16 weekly origins 2019-04-08 .. 2019-07-22 through the same
+embargoed serving rule (grid blocks 4-7, trained on 1-4 embargoed origins). They are used **only
+as calibration scores, never scored as test origins**. *Caveat stated now:* those models have less
+training data than the test-period models, so their scores are likely larger and the earliest
+test origins' intervals conservative. The test-origin q10/q90 predictions must reproduce B.5's
+exactly (max |diff| 0), checked in code.
+
+**S4. Target and choice.** Target: **pooled coverage over the 48 test origins in [0.75, 0.85]**,
+judged on the point estimate. Reported: pooled; per origin; split COVID vs non-COVID
+(`Origin.is_covid`, horizon overlaps March-June 2020: 30 COVID, 18 non-COVID origins); a
+95% circular block interval (L = 13) on the per-origin series; and interval width per origin
+(mean width in log1p units, median width in raw intensity), for the uncalibrated interval and both
+CQR variants. **Among the variants meeting the target, the one with the smaller mean log1p width
+over the 48 origins is chosen: narrower is better.** If neither meets the target, that is reported
+and neither is adopted. The interval is never widened by hand. **q50 is unchanged by calibration.**
+
+**S5. The exchangeability caveat, stated now.** Conformal coverage guarantees need exchangeable
+calibration and test scores. A time series violates that: demand drifts, COVID is a regime shift,
+and scores within an origin share a shock. Rolling, embargoed calibration is a practical response,
+not a guarantee. Coverage is plotted over time (`reports/figures/phase_s_coverage_over_time.png`)
+so any drift is visible.
+
+---
+
+## T. EXPLORATORY: market momentum (not confirmatory)
+
+**Status: EXPLORATORY by construction.** The hypothesis comes from B.1's random-neighbour control
+(+0.0088 [0.0016, 0.0176] on capture@20), measured on the same 48 origins these arms use. Nothing
+here is adopted into the champion, nothing is multiplicity-adjusted, and every output file and
+report line carries the EXPLORATORY label. Written down before running, only to pin the arms and
+the reading rules, not to confer confirmatory status.
+
+**Protocol:** as R0 (48 embargoed weekly origins, locked config, seed 42, circular bootstrap), each
+arm paired against the champion on capture@20, with the R1 guardrails reported.
+
+- **Arm (a) explicit market momentum.** `M(w)` = mean raw intensity (`units_per_active_article`)
+  over all styles with a panel row at week `w`. Features at origin `t`: `mkt_slope_4w = (M(t) -
+  M(t-4)) / 4` and `mkt_slope_13w = (M(t) - M(t-13)) / 13`, the same two-point slope definition
+  as the existing features, using weeks up to `t` only. Identical for every style at an origin.
+- **Arm (b) pure noise, matched distribution.** One extra column: the values of B.1's
+  random-neighbour feature, permuted **globally** across all (style, origin) rows (seed 42). That
+  destroys both style-level and origin-level alignment and keeps the marginal distribution. It
+  tests whether any extra column helps as regularisation.
+- **Arm (c) random-neighbour control re-run.** `phase_b run b1_random` in a fresh process;
+  "reproduces" means predictions bit-identical to the Phase B file.
+- **Controls on arm (a):**
+  - *Causality shuffle test:* the origin-level `(mkt_slope_4w, mkt_slope_13w)` vectors permuted
+    across origins (seed 42), breaking the time alignment and keeping the values.
+  - *Negative control:* two origin-level columns of Gaussian noise matched to arm (a)'s mean and SD
+    per column, constant within origin (seed 42). This tests whether any origin-level column
+    (e.g. one letting trees split by time) helps.
+
+**"Helps"** = 95% paired circular lower bound on capture@20 above zero. **Reading, fixed now:**
+(a) helps, (b) does not, and both (a) controls do not → exploratory evidence for a market signal.
+(a) and (b) both help → regularisation artefact. Neither helps → the B.1 result does not
+reproduce as a market effect. Any other combination is reported as inconclusive. Only if the
+first reading holds does market momentum go into SPEC Phase D, as a pre-registered confirmatory
+hypothesis for the second retailer with a stated direction and size.
