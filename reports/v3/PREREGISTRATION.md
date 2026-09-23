@@ -590,3 +590,153 @@ circular bootstrap, has a 95% lower bound at or below zero, Phase B stops there 
 reported. Otherwise Phase B proceeds under the Section R rules, which will use this bootstrap.
 The Phase A choice of primary metric is not re-run under the new bootstrap: it was fixed at the end
 of Phase A, and this section changes the resampling, not the metric.
+
+---
+
+## R. Phase B: four accuracy levers, quantile output, combination
+
+Committed before any lever model is trained. Governs Phase B (SPEC Section 7) under the SPEC
+Section 6 champion/challenger rule. Code: `nss.models.phase_b`, committed after this section.
+
+### R0. Common protocol (every lever, every control)
+
+- **Champion:** the current L2 LightGBM (`FINAL_MODEL_CONFIG`, objective `regression`, seed 42,
+  the determinism parameters of `lightgbm_model`). Its per-origin metrics are the Phase A ones
+  (`phase_a_per_origin.csv`, reproduced to 1e-9).
+- **Origins and embargo:** the 48 weekly origins, each served by the model of its 4-week grid
+  block and trained on the embargoed origins (`growth_backtest.predictions_for_origins`). All
+  levers go through this path.
+- **Locked hyperparameters:** `num_leaves 63, learning_rate 0.05, n_estimators 200,
+  min_child_samples 50` everywhere. Only what a lever names changes (a feature, the training label,
+  a post-hoc projection, the seed, the objective). No tuning inside Phase B, and nothing below is
+  changed after results are seen.
+- **Evaluation:** every challenger's style-level predictions are scored on the champion's eval set
+  (same styles, same origins, same realised raw target `y_true`) with the same metric code. Paired
+  challenger-minus-champion differences per origin. Circular block bootstrap (Section Q),
+  L = 13, 2,000 resamples, seed 42.
+
+### R1. Decision rule
+
+- **Primary metric:** demand capture@20.
+- **p-value:** two-sided circular-bootstrap p for "mean paired difference = 0",
+  `p = min(1, 2 * min(#{m <= 0} + 1, #{m >= 0} + 1) / 2001)` over the 2,000 resample means `m`
+  (`circular_bootstrap.bootstrap_p_two_sided`). This is dual to the percentile interval: the
+  two-sided `(1 - a)` interval excludes zero when `p <= a`.
+- **Multiple comparisons: Holm-Bonferroni across B.1-B.4 (m = 4), family-wise alpha 0.05.** Sort
+  the four p-values ascending. The i-th smallest is compared with these ordered thresholds:
+  **0.0125, 0.01667, 0.025, 0.05**. Step down: stop at the first p above its threshold; that lever
+  and every lever after it are not significant.
+- **Guardrails:** Hit@3-in-top20, NDCG@10, Spearman, WMAPE. A guardrail **fails** if its 95%
+  paired circular interval lies entirely on the worse side of zero (upper bound < 0 for Hit@3,
+  NDCG, Spearman; lower bound > 0 for WMAPE). Guardrails are not multiplicity-adjusted, which makes
+  failing easier and adoption harder.
+- **Adoption:** a lever is adopted only if (a) it is significant under Holm on the primary, (b)
+  its mean paired difference is positive, (c) it fails no guardrail, and, for B.1 only, (d) its
+  controls pass (R2). Otherwise it is recorded as a negative result.
+- **The family is fixed at m = 4** whatever happens. If a lever turns out degenerate (e.g. B.4's
+  seeds give identical predictions), it keeps its place with its p-value (p = 1 for an identically
+  zero difference) and the thresholds do not change.
+
+### R2. B.1 Visual momentum (new feature `vis_nbr_momentum`)
+
+- **Embeddings:** the existing per-article CLIP and DINOv2 vectors in
+  `data/retrieval_cache/emb_{clip,dino}.npz` (22,468 articles, 3,003 styles). No new embedding is
+  computed. Per-article first-sale dates **did not exist**; they are computed from
+  `data/interim/transactions_train_parquet` as each article's minimum `t_dat` (about 3 s on CPU).
+  Articles never sold (52 embedded ones) are excluded.
+- **Leakage guard 1, the images:** at origin `t`, a style's visual vector uses **only articles
+  whose first sale is strictly before `t`**. The CLIP and DINOv2 means are taken over those
+  articles and L2-normalised per model. A style with no such article has no vector at `t`: it gets
+  a null feature and is never a neighbour. Measured coverage: 97.6-100% of eval styles per origin
+  (median 99.4%). 4,412 embedded articles were first sold after the first weekly origin; this
+  filter excludes them origin by origin.
+- **Residual selection caveat, stated now:** which articles of a style were embedded (at most 8
+  per style, in scan order, plus the screened reference sets) was decided during the concept work,
+  partly with later data. That choice affects which pre-origin photos represent a style, never a
+  label or a trend.
+- **Similarity:** the mean of the CLIP cosine and the DINOv2 cosine between the two styles'
+  vectors (the retrieval index's `avg` view).
+- **Neighbours:** the **k = 10** most similar other styles present in the model frame at `t`.
+  k is fixed a priori, not tuned; the style itself is excluded.
+- **Leakage guard 2, the trend (trailing only):** a neighbour `j`'s momentum at `t` is
+  `g_j = log1p(ewma_halflife_4w_j) - log1p(ewma_halflife_13w_j)`. Both are existing causal features
+  computed from panel weeks at or before `t` (`model_features`). Feature: `vis_nbr_momentum_s =
+  sum_j max(sim_sj, 0) * g_j / sum_j max(sim_sj, 0)` over neighbours with non-null `g_j`; null if
+  none.
+- **Controls, both run whatever B.1's result:**
+  - *Causality shuffle test:* within each origin, `vis_nbr_momentum` is permuted across styles
+    (seed 42), in training and test frames alike, and the model retrained. This keeps the feature's
+    distribution but breaks its link to each style.
+  - *Negative control:* the same feature built from **10 random other styles** (seed 42, equal
+    weights) instead of the 10 visually nearest.
+  - **Control rule (adoption condition (d)):** both control models' paired capture@20 difference
+    against the champion must have a 95% circular lower bound <= 0. If either control also beats
+    the champion, the gain is not attributable to visual similarity and B.1 is not adopted.
+
+### R3. B.2 Shrunk-intensity target
+
+Training label: `log1p(mean(intensity_shrunk))` over the same 13-week forward window
+(`compute_forward_target(..., target_column="intensity_shrunk")`), the same full-window rule and
+the same features. The shrinkage prior is trailing-only with K = 3 fixed a priori
+(`style_panel.add_intensity_shrunk`), so the label adds no future information beyond the window
+it describes. **Evaluation uses the same realised raw outcome `y_true`** (log1p of mean raw
+intensity) as the champion. Predictions are used as they come, with no rescaling. A systematic
+level shift from shrinkage would therefore show up in WMAPE, and that guardrail is expected to be
+the one at risk.
+
+### R4. B.3 Hierarchical reconciliation: **OLS** (pre-registered choice)
+
+- **Levels:** style (bottom), product type within index group (`index_group_name x
+  product_type_name`), index group. Nested by construction.
+- **Parent forecasts:** the same LightGBM, locked config, trained on a parent-level panel built
+  by aggregating the style panel per (parent, week): `units`, `revenue`, `n_active_articles`
+  summed; `units_per_active_article = units / n_active_articles` (0 when no active articles);
+  `intensity_shrunk` set to the parent's raw intensity (with parent article counts in the
+  hundreds, K = 3 shrinkage is negligible; stated as an approximation); `price_index` averaged
+  with `n_active_articles` weights; `first_week_seen` the minimum; attribute columns not in the
+  parent key set to `"ALL"`. Densified weekly between each parent's first and last week (missing
+  weeks: zero units and articles). Features and targets use the same functions as for styles.
+- **Aggregation:** intensity is a per-article mean, so a parent is the article-weighted average of
+  its children. At origin `t` the aggregation matrix row for parent `P` has weight
+  `n_active_articles_level_i / sum over children in P of the same` on each child style `i` present
+  in the style model frame at `t`. Using origin-time weights for the forward window is an
+  approximation, stated here.
+- **Reconciliation:** in raw-intensity space (`expm1` of each prediction), per origin,
+  `y_tilde = S (S'S)^{-1} S' y_hat`, with `S = [I; A_pt; A_ig]` and `y_hat` the stacked base
+  forecasts. OLS, identity weights, no covariance estimate. Reconciled style values are clipped at
+  0 and mapped back with `log1p`. Only the reconciled style forecasts are evaluated.
+
+### R5. B.4 Seed ensemble
+
+The champion trained with seeds **42, 43, ..., 51**: `random_state` and the three pinned seeds
+(`bagging_seed`, `feature_fraction_seed`, `data_random_seed`) all set to the seed. Predictions are
+averaged on the log1p scale. **Stated in advance:** the locked config uses no row or feature
+subsampling, and training is deterministic, so the ten models may be identical. Seed-induced
+variance is reported as the mean over (style, origin) of the across-seed SD of predictions, and the
+ensemble's variance reduction as `1 - Var(ensemble) / mean Var(single)` of that seed component. If
+the seeds are identical, B.4 is a zero-difference lever with p = 1, and making it stochastic would
+need changed hyperparameters, which R0 forbids.
+
+### R6. B.5 Quantile output (production requirement, not in the Holm family)
+
+- Three models, objective `quantile` with alpha **0.10, 0.50, 0.90**, locked config otherwise,
+  seed 42, trained on the champion's label. Same 48 embargoed weekly origins.
+- **Coverage:** a (style, origin) is covered if `q10 <= y_true <= q90` (log scale; quantiles are
+  invariant to the monotone `log1p`). Crossed intervals (`q10 > q90`) count as not covered, and
+  their rate is reported. Coverage is reported per origin and pooled over all (style, origin) rows,
+  with a 95% circular interval on the per-origin series.
+- **Acceptance, both required:** (1) pooled empirical coverage **in [0.75, 0.85]** (nominal
+  0.80), judged on the point estimate; (2) **q50 non-inferior to the champion on demand
+  capture@20**, meaning the 95% paired circular interval of q50-minus-champion is not entirely
+  below zero. Failing either is reported plainly; nothing is recalibrated.
+
+### R7. Combination
+
+- If **two or more** levers are adopted, they are combined (B.1's feature, B.2's label, B.3's
+  projection and B.4's averaging, as applicable, in that order) and **one** final test of the
+  combination against the champion is run: 95% paired circular interval on capture@20 excluding
+  zero in its favour (alpha 0.05, a single pre-planned test), and no guardrail failure. Pass: the
+  combination is the new champion. Fail: the single adopted lever with the smallest Holm p-value
+  becomes champion.
+- If **exactly one** lever is adopted, it is the new champion; no combination test.
+- If **none** is adopted, the current champion stands. That is the result.
